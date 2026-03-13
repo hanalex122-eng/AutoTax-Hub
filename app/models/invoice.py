@@ -2,7 +2,7 @@
 app/models/invoice.py
 """
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
@@ -25,8 +25,15 @@ class Invoice(Base):
     filename       = Column(String(255), nullable=True)
     ocr_mode       = Column(String(50),  default="standard")
     status         = Column(String(50),  default="processed")
+    # ── Duplicate detection ──────────────────────────────────────────────────
+    content_hash   = Column(String(64),  nullable=True, index=True)  # SHA-256 of file
     created_at     = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at     = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User", backref="invoices")
+
+    # Unique: same file hash per user → duplicate blocked
+    __table_args__ = (
+        UniqueConstraint("user_id", "content_hash", name="uq_user_content_hash"),
+    )
