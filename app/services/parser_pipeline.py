@@ -17,82 +17,348 @@ logger = logging.getLogger("autotaxhub.parser")
 
 
 # ═══════════════════════════════════════════════════════
-#  REGEX PATTERNS — German + International invoices
+#  MULTILINGUAL INVOICE DICTIONARY
+#  30+ languages — every word that can appear on invoices
 # ═══════════════════════════════════════════════════════
 
-# Total amount patterns (Brutto / Gesamt / Total / Summe / Endbetrag / Rechnungsbetrag / Amount Due)
-TOTAL_PATTERNS = [
+# ── TOTAL / GROSS amount keywords ─────────────────────
+# All words meaning: total, gross, sum, amount due, payable, grand total, balance
+TOTAL_KEYWORDS = [
     # German
-    r"(?:Gesamtbetrag|Gesamtsumme|Gesamt|GESAMT)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Bruttobetrag|Brutto|BRUTTO)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Rechnungsbetrag|RECHNUNGSBETRAG)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Endbetrag|ENDBETRAG)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Summe|SUMME)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Zu\s*zahlen|ZU\s*ZAHLEN)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Zahlbetrag|ZAHLBETRAG)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Betrag|BETRAG)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
+    "Gesamtbetrag", "Gesamtsumme", "Gesamt", "Bruttobetrag", "Brutto",
+    "Rechnungsbetrag", "Endbetrag", "Summe", "Zu zahlen", "Zahlbetrag",
+    "Betrag", "Fälliger Betrag", "Rechnungssumme", "Endpreis", "Gesamtpreis",
+    "Ausstehender Betrag", "Gesamtwert", "Wert", "Preis", "Eder", "Tutar",
     # English
-    r"(?:Total|TOTAL)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-    r"(?:Amount\s*Due|AMOUNT\s*DUE)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-    r"(?:Grand\s*Total|GRAND\s*TOTAL)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-    r"(?:Balance\s*Due|BALANCE\s*DUE)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-    # Amount with € symbol before
-    r"€\s*([\d.,]+)\s*(?:Gesamt|Total|Summe|Brutto)",
-    # Last resort: € followed by large number
+    "Total", "Grand Total", "Amount Due", "Balance Due", "Total Due",
+    "Amount Payable", "Net Payable", "Total Payable", "Invoice Total",
+    "Total Amount", "Amount", "Sum", "Gross", "Gross Total", "Payment Due",
+    "Total Price", "Final Amount", "Outstanding", "Balance",
+    # Turkish
+    "Toplam", "Genel Toplam", "Toplam Tutar", "Ödenecek Tutar", "Tutar",
+    "Toplam Fiyat", "Genel Tutar", "Brüt Tutar", "Brüt", "Yekün", "Yekun",
+    "Net Tutar", "Fatura Tutarı", "Ödenecek", "Eder", "Değer", "Bedel",
+    "Toplam Bedel", "KDV Dahil Toplam", "KDV Dahil", "Son Tutar",
+    # French
+    "Total", "Montant Total", "Total TTC", "Net à Payer", "Montant Dû",
+    "Somme", "Total Général", "Montant", "À Payer", "Solde", "Prix Total",
+    "Total à Payer", "Montant à Régler", "Règlement",
+    # Spanish
+    "Total", "Importe Total", "Total a Pagar", "Monto Total", "Suma Total",
+    "Importe", "Monto", "Valor Total", "Total Factura", "Saldo", "A Pagar",
+    "Precio Total", "Importe a Pagar",
+    # Italian
+    "Totale", "Importo Totale", "Totale Fattura", "Importo Dovuto",
+    "Totale da Pagare", "Importo", "Somma", "Totale Complessivo",
+    "Importo Lordo", "Lordo", "Saldo",
+    # Portuguese
+    "Total", "Valor Total", "Total a Pagar", "Montante Total",
+    "Importância", "Valor", "Soma", "Total Geral", "Saldo",
+    # Dutch
+    "Totaal", "Totaalbedrag", "Te Betalen", "Verschuldigd Bedrag",
+    "Eindbedrag", "Bedrag", "Bruto", "Totaalprijs",
+    # Polish
+    "Razem", "Suma", "Łącznie", "Do Zapłaty", "Kwota", "Brutto",
+    "Razem Brutto", "Wartość Brutto", "Należność",
+    # Czech
+    "Celkem", "Celková Částka", "K Úhradě", "Částka", "Hrubý",
+    "Celkem k Úhradě", "Součet",
+    # Swedish
+    "Totalt", "Summa", "Att Betala", "Belopp", "Brutto", "Slutsumma",
+    "Totalt att Betala",
+    # Norwegian
+    "Totalt", "Sum", "Å Betale", "Beløp", "Brutto", "Sluttsum",
+    # Danish
+    "Total", "I Alt", "At Betale", "Beløb", "Brutto", "Samlet",
+    # Finnish
+    "Yhteensä", "Maksettava", "Summa", "Brutto", "Loppusumma",
+    # Hungarian
+    "Összesen", "Bruttó", "Fizetendő", "Végösszeg", "Összeg",
+    # Romanian
+    "Total", "Suma Totală", "De Plată", "Valoare Totală", "Brut",
+    # Bulgarian
+    "Общо", "Обща Сума", "За Плащане", "Бруто",
+    # Croatian
+    "Ukupno", "Sveukupno", "Za Plaćanje", "Bruto", "Iznos",
+    # Greek
+    "Σύνολο", "Συνολικό Ποσό", "Πληρωτέο", "Μικτό",
+    # Arabic
+    "المجموع", "الإجمالي", "المبلغ الإجمالي", "المبلغ المستحق", "المبلغ",
+    # Chinese
+    "合计", "总计", "应付金额", "总额", "金额", "合計", "總計",
+    # Japanese
+    "合計", "総計", "お支払い金額", "請求金額", "税込合計",
+    # Korean
+    "합계", "총계", "결제금액", "청구금액",
+    # Russian
+    "Итого", "Всего", "К оплате", "Сумма", "Брутто", "Общая сумма",
+    # Ukrainian
+    "Разом", "Всього", "До сплати", "Сума", "Брутто",
+    # Hindi
+    "कुल", "कुल राशि", "भुगतान योग्य",
+]
+
+# ── VAT / TAX keywords ───────────────────────────────
+VAT_KEYWORDS = [
+    # German
+    "MwSt", "Mwst", "MWST", "MWSt", "Mehrwertsteuer", "USt", "Ust",
+    "Umsatzsteuer", "Steuer", "davon MwSt", "inkl. MwSt", "zzgl. MwSt",
+    "Vorsteuer", "Steuerbetrag", "MwSt-Betrag",
+    # English
+    "VAT", "V.A.T.", "Tax", "Sales Tax", "GST", "HST",
+    "Value Added Tax", "Tax Amount", "incl. VAT", "excl. VAT",
+    # Turkish
+    "KDV", "Kdv", "Vergi", "KDV Tutarı", "Vergi Tutarı", "ÖTV",
+    "KDV Dahil", "KDV Hariç",
+    # French
+    "TVA", "Taxe", "Montant TVA", "TVA Incluse", "Dont TVA",
+    # Spanish
+    "IVA", "Impuesto", "Monto IVA", "IVA Incluido",
+    # Italian
+    "IVA", "Imposta", "Importo IVA",
+    # Portuguese
+    "IVA", "Imposto", "Valor IVA",
+    # Dutch
+    "BTW", "Belasting", "BTW Bedrag",
+    # Polish
+    "VAT", "Podatek", "Kwota VAT",
+    # Czech
+    "DPH", "Daň",
+    # Swedish
+    "Moms", "Skatt", "Mervärdesskatt",
+    # Norwegian
+    "MVA", "Moms", "Merverdiavgift",
+    # Danish
+    "Moms", "Skat", "Merværdiafgift",
+    # Finnish
+    "ALV", "Vero", "Arvonlisävero",
+    # Hungarian
+    "ÁFA", "Adó",
+    # Romanian
+    "TVA", "Impozit",
+    # Croatian
+    "PDV", "Porez",
+    # Greek
+    "ΦΠΑ", "Φόρος",
+    # Arabic
+    "ضريبة القيمة المضافة", "الضريبة", "ض.ق.م",
+    # Chinese
+    "增值税", "税额", "税金",
+    # Japanese
+    "消費税", "税", "税額",
+    # Korean
+    "부가세", "세금", "부가가치세",
+    # Russian
+    "НДС", "Налог",
+    # Ukrainian
+    "ПДВ", "Податок",
+]
+
+# ── NET / SUBTOTAL keywords ──────────────────────────
+NET_KEYWORDS = [
+    # German
+    "Nettobetrag", "Netto", "Zwischensumme", "Warenwert",
+    # English
+    "Subtotal", "Sub-Total", "Net", "Net Amount", "Before Tax",
+    # Turkish
+    "Ara Toplam", "Net Tutar", "Net", "KDV Hariç", "Matrah",
+    # French
+    "Sous-Total", "Total HT", "Montant HT", "Net",
+    # Spanish
+    "Subtotal", "Neto", "Base Imponible",
+    # Italian
+    "Subtotale", "Netto", "Imponibile",
+    # Portuguese
+    "Subtotal", "Líquido",
+    # Dutch
+    "Subtotaal", "Netto",
+    # Polish
+    "Netto", "Razem Netto", "Wartość Netto",
+    # Czech
+    "Základ Daně", "Netto",
+    # Swedish / Norwegian / Danish
+    "Netto", "Delsumma",
+    # Finnish
+    "Veroton", "Välisumma",
+    # Hungarian
+    "Nettó", "Részösszeg",
+    # Russian
+    "Нетто", "Подитог", "Без НДС",
+    # Arabic
+    "المجموع الفرعي", "صافي",
+    # Chinese
+    "小计", "不含税",
+    # Japanese
+    "小計", "税抜",
+    # Korean
+    "소계", "세전",
+]
+
+# ── INVOICE NUMBER keywords ──────────────────────────
+INVOICE_NR_KEYWORDS = [
+    # German
+    "Rechnungsnummer", "Rechnungs-Nr", "Rechnung Nr", "Re. Nr", "Beleg-Nr",
+    "Belegnummer", "Dokumentnummer", "Vorgangsnummer",
+    # English
+    "Invoice No", "Invoice Number", "Invoice #", "Inv No", "Bill No",
+    "Receipt No", "Document No", "Reference No", "Ref",
+    # Turkish
+    "Fatura No", "Fatura Numarası", "Belge No", "Fiş No",
+    # French
+    "Numéro de Facture", "Facture No", "N° Facture", "Référence",
+    # Spanish
+    "Número de Factura", "Factura No", "N° Factura", "Referencia",
+    # Italian
+    "Numero Fattura", "Fattura No", "N° Fattura", "Riferimento",
+    # Portuguese
+    "Número da Fatura", "Fatura No", "N° Fatura",
+    # Dutch
+    "Factuurnummer", "Factuur Nr",
+    # Polish
+    "Numer Faktury", "Faktura Nr",
+    # Czech
+    "Číslo Faktury", "Faktura č",
+    # Russian
+    "Номер Счёта", "Счёт №",
+    # Arabic
+    "رقم الفاتورة",
+    # Chinese
+    "发票号", "发票编号",
+    # Japanese
+    "請求書番号",
+    # Korean
+    "송장번호", "청구서번호",
+]
+
+# ── DATE keywords ────────────────────────────────────
+DATE_KEYWORDS = [
+    # German
+    "Rechnungsdatum", "Datum", "Belegdatum", "Ausstellungsdatum", "Leistungsdatum",
+    # English
+    "Date", "Invoice Date", "Issue Date", "Bill Date",
+    # Turkish
+    "Tarih", "Fatura Tarihi", "Düzenleme Tarihi",
+    # French
+    "Date", "Date de Facture", "Date d'Émission",
+    # Spanish
+    "Fecha", "Fecha de Factura", "Fecha de Emisión",
+    # Italian
+    "Data", "Data Fattura", "Data di Emissione",
+    # Dutch
+    "Datum", "Factuurdatum",
+    # Polish
+    "Data", "Data Faktury", "Data Wystawienia",
+    # Russian
+    "Дата", "Дата Счёта",
+    # Arabic
+    "التاريخ", "تاريخ الفاتورة",
+    # Chinese
+    "日期", "开票日期",
+    # Japanese
+    "日付", "請求日",
+    # Korean
+    "날짜", "발행일",
+]
+
+
+# ═══════════════════════════════════════════════════════
+#  BUILD REGEX PATTERNS FROM DICTIONARY
+# ═══════════════════════════════════════════════════════
+
+def _build_amount_pattern(keywords: list[str]) -> list[str]:
+    """Build regex patterns from keyword list for amount extraction."""
+    patterns = []
+    # Group keywords in batches to avoid too-long regex
+    batch_size = 15
+    for i in range(0, len(keywords), batch_size):
+        batch = keywords[i:i+batch_size]
+        # Escape special regex chars in keywords
+        escaped = [re.escape(k) for k in batch]
+        keyword_group = "|".join(escaped)
+        # Pattern: keyword followed by optional separator then amount
+        patterns.append(
+            rf"(?:{keyword_group})\s*[:=\-]?\s*[€$£¥₺₽CHF\sEURUSDGBPTRY]*\s*([\d]{{1,3}}(?:[.,]\d{{3}})*[.,]\d{{1,2}})"
+        )
+        patterns.append(
+            rf"(?:{keyword_group})\s*[:=\-]?\s*[€$£¥₺₽CHF\sEURUSDGBPTRY]*\s*([\d]+[.,]\d{{2}})"
+        )
+    return patterns
+
+def _build_label_pattern(keywords: list[str]) -> list[str]:
+    """Build regex patterns from keyword list for label extraction (invoice nr, date)."""
+    patterns = []
+    batch_size = 15
+    for i in range(0, len(keywords), batch_size):
+        batch = keywords[i:i+batch_size]
+        escaped = [re.escape(k) for k in batch]
+        keyword_group = "|".join(escaped)
+        patterns.append(rf"(?:{keyword_group})\s*[:=\-#]?\s*([A-Za-z0-9\-/\.]+)")
+    return patterns
+
+def _build_date_pattern(keywords: list[str]) -> list[str]:
+    """Build regex patterns for date extraction."""
+    patterns = []
+    batch_size = 15
+    for i in range(0, len(keywords), batch_size):
+        batch = keywords[i:i+batch_size]
+        escaped = [re.escape(k) for k in batch]
+        keyword_group = "|".join(escaped)
+        # DD.MM.YYYY or DD/MM/YYYY or YYYY-MM-DD
+        patterns.append(rf"(?:{keyword_group})\s*[:=\-]?\s*(\d{{1,2}}[./\-]\d{{1,2}}[./\-]\d{{2,4}})")
+    # Generic date patterns without keywords
+    patterns.append(r"(\d{1,2}[./]\d{1,2}[./]\d{4})")
+    patterns.append(r"(\d{4}-\d{2}-\d{2})")
+    return patterns
+
+def _build_vat_rate_pattern(vat_keywords: list[str]) -> list[str]:
+    """Build regex patterns for VAT rate extraction."""
+    patterns = []
+    batch_size = 15
+    for i in range(0, len(vat_keywords), batch_size):
+        batch = vat_keywords[i:i+batch_size]
+        escaped = [re.escape(k) for k in batch]
+        keyword_group = "|".join(escaped)
+        patterns.append(rf"(\d{{1,2}})\s*[%]\s*(?:{keyword_group})")
+        patterns.append(rf"(?:{keyword_group})\s*[:=]?\s*(\d{{1,2}})\s*[%]")
+    return patterns
+
+
+# Build all patterns from dictionaries
+TOTAL_PATTERNS = _build_amount_pattern(TOTAL_KEYWORDS)
+VAT_AMOUNT_PATTERNS = _build_amount_pattern(VAT_KEYWORDS)
+NET_PATTERNS = _build_amount_pattern(NET_KEYWORDS)
+INVOICE_NR_PATTERNS = _build_label_pattern(INVOICE_NR_KEYWORDS)
+DATE_PATTERNS = _build_date_pattern(DATE_KEYWORDS)
+VAT_RATE_PATTERNS = _build_vat_rate_pattern(VAT_KEYWORDS)
+
+# Extra fallback patterns for amounts with currency symbols
+TOTAL_PATTERNS.extend([
     r"[€]\s*([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})",
-]
-
-# VAT amount patterns
-VAT_AMOUNT_PATTERNS = [
-    r"(?:MwSt|Mwst|MWST|MWSt)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Mehrwertsteuer|MEHRWERTSTEUER)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:USt|Ust|UST|Umsatzsteuer)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:VAT|V\.A\.T\.|Tax)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-    r"(?:davon\s*MwSt|inkl\.\s*MwSt)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Steuer|STEUER)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-]
-
-# VAT rate patterns
-VAT_RATE_PATTERNS = [
-    r"(\d{1,2})\s*[%]\s*(?:MwSt|Mwst|USt|Ust|VAT|Steuer)",
-    r"(?:MwSt|Mwst|USt|Ust|VAT|Steuer)\s*[:=]?\s*(\d{1,2})\s*[%]",
-    r"(\d{1,2})\s*[%]\s*(?:Mehrwertsteuer|Umsatzsteuer)",
-]
-
-# Net amount patterns (Netto)
-NET_PATTERNS = [
-    r"(?:Nettobetrag|Netto|NETTO)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Zwischensumme|ZWISCHENSUMME)\s*[:=]?\s*[€EUR]*\s*([\d.,]+)",
-    r"(?:Subtotal|SUBTOTAL|Sub-Total)\s*[:=]?\s*[€$£EUR]*\s*([\d.,]+)",
-]
-
-# Vendor patterns
-VENDOR_PATTERNS = [
-    r"^(.+?)(?:\n|\r)",  # First line of text
-]
-
-# Invoice number patterns
-INVOICE_NR_PATTERNS = [
-    r"(?:Rechnungs?-?\s*(?:Nr|Nummer|nr|nummer)\.?)\s*[:=]?\s*([A-Za-z0-9\-/]+)",
-    r"(?:Rechnung\s*Nr\.?|Re\.?\s*Nr\.?)\s*[:=]?\s*([A-Za-z0-9\-/]+)",
-    r"(?:Invoice\s*(?:No|Number|#)\.?)\s*[:=]?\s*([A-Za-z0-9\-/]+)",
-    r"(?:Beleg-?\s*(?:Nr|Nummer)\.?)\s*[:=]?\s*([A-Za-z0-9\-/]+)",
-]
-
-# Date patterns
-DATE_PATTERNS = [
-    r"(?:Rechnungsdatum|Datum|Date|Belegdatum)\s*[:=]?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})",
-    r"(\d{1,2}[./]\d{1,2}[./]\d{4})",
-    r"(\d{4}-\d{2}-\d{2})",
-]
+    r"[€]\s*([\d]+[.,]\d{2})",
+    r"([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*[€]",
+    r"[$]\s*([\d]{1,3}(?:[,]\d{3})*[.]\d{2})",
+    r"[£]\s*([\d]{1,3}(?:[,]\d{3})*[.]\d{2})",
+    r"[₺]\s*([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})",
+])
 
 # Currency patterns
 CURRENCY_PATTERNS = [
-    (r"€|EUR", "EUR"),
-    (r"\$|USD", "USD"),
-    (r"£|GBP", "GBP"),
-    (r"₺|TRY|TL", "TRY"),
-    (r"CHF", "CHF"),
+    (r"€|EUR|Euro|euro", "EUR"),
+    (r"\$|USD|Dollar|dollar", "USD"),
+    (r"£|GBP|Pound|pound", "GBP"),
+    (r"₺|TRY|TL|Türk Lirası|Lira", "TRY"),
+    (r"CHF|Franken|Schweizer Franken", "CHF"),
+    (r"zł|PLN|Złoty", "PLN"),
+    (r"Kč|CZK|Koruna", "CZK"),
+    (r"kr|SEK|Krona", "SEK"),
+    (r"¥|JPY|CNY|Yuan|Yen", "JPY"),
+    (r"₽|RUB|Рубль", "RUB"),
+    (r"₹|INR|Rupee", "INR"),
+    (r"₩|KRW|Won", "KRW"),
+    (r"лв|BGN|Лев", "BGN"),
+    (r"lei|RON|Leu", "RON"),
+    (r"Ft|HUF|Forint", "HUF"),
+    (r"kn|HRK|Kuna", "HRK"),
 ]
 
 
