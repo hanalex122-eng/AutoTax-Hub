@@ -25,6 +25,7 @@ class Invoice(Base):
     filename       = Column(String(255), nullable=True)
     ocr_mode       = Column(String(50),  default="standard")
     status         = Column(String(50),  default="processed")
+    invoice_type   = Column(String(20),  default="expense")   # "income" | "expense"
     # ── Duplicate detection ──────────────────────────────────────────────────
     content_hash   = Column(String(64),  nullable=True, index=True)  # SHA-256 of file
     created_at     = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -1,9 +1,9 @@
 """
-main.py — AutoTax-HUB v3 Production
+main.py — AutoTax-HUB v5.1 Production
 """
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,17 +22,17 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[f"{settings.RATE_
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 AutoTax-HUB v3 starting...")
+    logger.info("AutoTax-HUB v5.1 starting...")
     Base.metadata.create_all(bind=engine)
-    logger.info(f"✅ DB ready | ENV={settings.APP_ENV}")
+    logger.info(f"DB ready | ENV={settings.APP_ENV}")
     yield
-    logger.info("👋 Shutting down...")
+    logger.info("Shutting down...")
 
 
 app = FastAPI(
     title=settings.APP_TITLE,
     version=settings.APP_VERSION,
-    docs_url="/docs"  if not settings.is_production else None,
+    docs_url="/docs" if not settings.is_production else None,
     redoc_url="/redoc" if not settings.is_production else None,
     lifespan=lifespan,
 )
@@ -60,7 +60,7 @@ app.include_router(api_router)
 
 @app.get("/", tags=["Health"])
 def root():
-    return {"status": "AutoTax-HUB running 🚀", "version": settings.APP_VERSION}
+    return {"status": "AutoTax-HUB running", "version": settings.APP_VERSION}
 
 
 @app.get("/health", tags=["Health"])

@@ -1,5 +1,5 @@
 """
-app/core/config.py — v5
+app/core/config.py — v5.2
 """
 from pydantic_settings import BaseSettings
 import secrets
@@ -9,16 +9,14 @@ class Settings(BaseSettings):
     # ── App ────────────────────────────────────────────────
     APP_ENV: str = "development"
     APP_TITLE: str = "AutoTax-HUB API"
-    APP_VERSION: str = "5.0.0"
+    APP_VERSION: str = "5.2.0"
 
     # ── Database ───────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./autotaxhub.db"
 
     # ── Paseto v4 local (symmetric) ────────────────────────
-    # Generate: python -c "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey; import base64; k=Ed25519PrivateKey.generate(); print(base64.b64encode(k.private_bytes_raw()).decode())"
-    # OR for local symmetric: python -c "import secrets; print(secrets.token_hex(32))"
-    PASETO_SECRET_KEY: str = secrets.token_hex(32)   # 32-byte hex → 256-bit
-    PASETO_VERSION: str = "v4"                        # v4.local (symmetric AES-256-GCM)
+    PASETO_SECRET_KEY: str = secrets.token_hex(32)
+    PASETO_VERSION: str = "v4"
 
     # Token lifetimes
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -37,7 +35,7 @@ class Settings(BaseSettings):
 
     # ── Rate Limiting ─────────────────────────────────────
     RATE_LIMIT_PER_MINUTE: int = 60
-    AUTH_RATE_LIMIT: str = "10/minute"    # stricter for auth endpoints
+    AUTH_RATE_LIMIT: str = "10/minute"
 
     # ── Email ─────────────────────────────────────────────
     MAIL_USERNAME: str = ""
@@ -60,14 +58,14 @@ class Settings(BaseSettings):
 
     # ── File upload ───────────────────────────────────────
     MAX_UPLOAD_MB: int = 10
-    UPLOAD_CHUNK_SIZE: int = 65536          # 64KB streaming chunks
+    UPLOAD_CHUNK_SIZE: int = 65536
     ALLOWED_MIME_TYPES: list[str] = [
         "application/pdf",
         "image/png", "image/jpeg", "image/webp", "image/tiff",
     ]
 
     # ── AI Chat ───────────────────────────────────────────
-    ANTHROPIC_API_KEY: str = ""             # set to enable AI chat
+    ANTHROPIC_API_KEY: str = ""
     AI_CHAT_MODEL: str = "claude-haiku-4-5-20251001"
     AI_CHAT_MAX_TOKENS: int = 1024
     AI_CHAT_SYSTEM_PROMPT: str = (
@@ -76,6 +74,21 @@ class Settings(BaseSettings):
         "and accounting questions. Be concise and professional. "
         "If asked about specific invoice data, say you can see their dashboard data."
     )
+
+    # ── Multi-Currency ────────────────────────────────────
+    DEFAULT_CURRENCY: str = "EUR"
+    SUPPORTED_CURRENCIES: list[str] = [
+        "EUR", "USD", "GBP", "TRY", "CHF", "PLN",
+        "CZK", "SEK", "NOK", "DKK", "HUF", "RON",
+        "BGN", "HRK", "JPY", "CNY", "KRW",
+    ]
+
+    # ── Multi-Language ────────────────────────────────────
+    DEFAULT_LANGUAGE: str = "de"
+    SUPPORTED_LANGUAGES: list[str] = ["de", "en", "tr", "fr", "es", "it", "ar", "zh"]
+
+    # ── Default Tax Country ───────────────────────────────
+    DEFAULT_TAX_COUNTRY: str = "DE"
 
     @property
     def is_production(self) -> bool:

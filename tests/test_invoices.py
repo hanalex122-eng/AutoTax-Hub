@@ -199,3 +199,115 @@ class TestInvoiceCRUD:
     def test_list_limit_max(self, client, auth_headers):
         r = client.get("/api/v1/invoices?limit=200", headers=auth_headers)
         assert r.status_code == 422   # max is 100
+
+
+# ═══════════════════════════════════════════════════════
+#  DASHBOARD
+# ═══════════════════════════════════════════════════════
+class TestDashboard:
+    def _seed_mixed(self, db, user_email="test@example.com"):
+        from app.models.invoice import Invoice
+        from app.models.user import User
+        u = db.query(User).filter(User.email == user_email).first()
+        if not u:
+            return []
+        inv1 = Invoice(user_id=u.id, vendor="Client A", total_amount=1000.0,
+                       vat_amount=190.0, invoice_type="income", date="2026-01-15",
+                       status="processed")
+        inv2 = Invoice(user_id=u.id, vendor="Office Supply", total_amount=200.0,
+                       vat_amount=38.0, invoice_type="expense", date="2026-01-20",
+                       category="office", status="processed")
+        inv3 = Invoice(user_id=u.id, vendor="Client B", total_amount=2000.0,
+                       vat_amount=380.0, invoice_type="income", date="2026-02-10",
+                       status="processed")
+        db.add_all([inv1, inv2, inv3])
+        db.commit()
+        return [inv1, inv2, inv3]
+
+    def test_dashboard_endpoint(self, client, auth_headers, db):
+        invs = self._seed_mixed(db)
+        r = client.get("/api/v1/invoices/dashboard", headers=auth_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert "total_income" in data
+        assert "total_expenses" in data
+        assert "net_profit" in data
+        assert "tax_estimate" in data
+        assert "monthly_breakdown" in data
+        assert "by_category" in data
+        assert data["total_income"] >= 0
+        assert data["total_expenses"] >= 0
+        for inv in invs:
+            db.delete(inv)
+        db.commit()
+
+    def test_dashboard_with_year_filter(self, client, auth_headers, db):
+        invs = self._seed_mixed(db)
+        r = client.get("/api/v1/invoices/dashboard?year=2026", headers=auth_headers)
+        assert r.status_code == 200
+        for inv in invs:
+            db.delete(inv)
+        db.commit()
+
+    def test_dashboard_empty(self, client, auth_headers):
+        r = client.get("/api/v1/invoices/dashboard?year=1999", headers=auth_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total_income"] == 0
+        assert data["total_expenses"] == 0
+        assert data["tax_estimate"] == 0
+
+
+# ═══════════════════════════════════════════════════════
+#  INVOICE UPDATE
+# ═══════════════════════════════════════════════════════
+class TestInvoiceUpdate:
+    def _seed_invoice(self, db, user_email="test@example.com"):
+        from app.models.invoice import Invoice
+        from app.models.user import User
+        u = db.query(User).filter(User.email == user_email).first()
+        if not u:
+            return None
+        inv = Invoice(user_id=u.id, vendor="Old Vendor", total_amount=100.0,
+                      vat_amount=19.0, invoice_type="expense", status="processed")
+        db.add(inv)
+        db.commit()
+        db.refresh(inv)
+        return inv
+
+    def test_update_vendor(self, client, auth_headers, db):
+        inv = self._seed_invoice(db)
+        if not inv:
+            pytest.skip()
+        r = client.put(f"/api/v1/invoices/{inv.id}", json={"vendor": "New Vendor"},
+                       headers=auth_headers)
+        assert r.status_code == 200
+        assert r.json()["vendor"] == "New Vendor"
+        db.delete(inv)
+        db.commit()
+
+    def test_update_invoice_type(self, client, auth_headers, db):
+        inv = self._seed_invoice(db)
+        if not inv:
+            pytest.skip()
+        r = client.put(f"/api/v1/invoices/{inv.id}", json={"invoice_type": "income"},
+                       headers=auth_headers)
+        assert r.status_code == 200
+        assert r.json()["invoice_type"] == "income"
+        db.delete(inv)
+        db.commit()
+
+    def test_update_invalid_type(self, client, auth_headers, db):
+        inv = self._seed_invoice(db)
+        if not inv:
+            pytest.skip()
+        r = client.put(f"/api/v1/invoices/{inv.id}", json={"invoice_type": "invalid"},
+                       headers=auth_headers)
+        assert r.status_code == 422
+        db.delete(inv)
+        db.commit()
+
+    def test_update_nonexistent(self, client, auth_headers):
+        r = client.put("/api/v1/invoices/999999", json={"vendor": "X"},
+                       headers=auth_headers)
+        assert r.status_code == 404

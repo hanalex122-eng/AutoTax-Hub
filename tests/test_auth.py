@@ -202,10 +202,17 @@ class TestMe:
         assert r.status_code == 401
 
     def test_me_expired_token(self, client, registered_user):
-        import time
-        from app.core.security import _create_token
-        from datetime import timedelta
-        expired = _create_token(str(999), "access", timedelta(seconds=-1))
+        import json
+        from datetime import timedelta, timezone
+        from datetime import datetime
+        from app.core.security import _PASETO_KEY
+        import pyseto
+        now = datetime.now(timezone.utc)
+        payload = {"sub": "999", "type": "access", "iat": now.isoformat(),
+                   "exp": (now - timedelta(seconds=10)).isoformat()}
+        expired = pyseto.encode(_PASETO_KEY, json.dumps(payload).encode())
+        if isinstance(expired, bytes):
+            expired = expired.decode()
         r = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {expired}"})
         assert r.status_code == 401
 
