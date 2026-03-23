@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0e17; font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3548; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4558; }
+input:focus, select:focus { border-color: #10b981 !important; outline: none; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px !important; }
+button { transition: all 0.2s cubic-bezier(0.4,0,0.2,1); transition-delay: 0ms; }
+button:hover:not(:disabled) { transform: translateY(-1.5px); transition-delay: 55ms; }
+button:active:not(:disabled) { transform: translateY(0); transition-duration: 0.1s; transition-delay: 0ms; }
+tr { transition: background 0.15s ease; }
+tr:hover { background: rgba(26,34,52,0.5) !important; transition-delay: 45ms; }
+thead tr:hover { background: transparent !important; transition-delay: 0ms; }
+.cb-cell input[type="checkbox"] { width:16px; height:16px; accent-color:#10b981; cursor:pointer; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes iconIn { from { transform: scale(0.9); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
+@keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; transition-delay: 0ms !important; }
+}

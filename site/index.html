@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTax Hub - Login</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(180deg, #f5f5f7, #eaeaec); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: #fff; border-radius: 20px; padding: 44px; width: 400px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; color: #1d1d1f; letter-spacing: -0.3px; }
+  p.sub { font-size: 14px; color: #6e6e73; margin-bottom: 28px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: #6e6e73; margin-bottom: 6px; }
+  input[type="email"], input[type="password"] { width: 100%; padding: 12px 14px; border: 1px solid #d2d2d7; border-radius: 10px; font-size: 15px; color: #1d1d1f; background: #fafafa; margin-bottom: 16px; outline: none; transition: border-color 0.2s; }
+  input:focus { border-color: #1d1d1f; }
+  button { width: 100%; padding: 14px; background: #1d1d1f; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+  button:hover { background: #333; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  .msg { margin-top: 16px; padding: 10px 14px; border-radius: 8px; font-size: 14px; display: none; }
+  .msg.error { background: #fff0f0; color: #ff3b30; border: 1px solid #ffcdd2; }
+  .msg.success { background: #f0fff0; color: #2e7d32; border: 1px solid #c8e6c9; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>AutoTax Hub</h1>
+  <p class="sub">Sign in to continue</p>
+  <form id="loginForm">
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@example.com" required>
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="Min. 6 characters" required>
+    <button type="submit" id="btn">Sign in</button>
+  </form>
+  <div class="msg" id="msg"></div>
+  <div id="fileWarning" style="display:none;margin-top:16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:16px">
+    <div style="font-weight:600;font-size:13px;color:#92400e;margin-bottom:6px">Cannot login from file://</div>
+    <div style="font-size:12px;color:#78350f;line-height:1.6">
+      Run a local server instead:<br>
+      <code style="background:#fde68a;padding:2px 6px;border-radius:4px;font-size:12px">python -m http.server 5500</code><br>
+      Then open <a href="http://localhost:5500/index.html" style="color:#92400e;font-weight:600">http://localhost:5500/index.html</a>
+    </div>
+  </div>
+</div>
+<script>
+if (window.location.protocol === "file:") {
+  document.getElementById("fileWarning").style.display = "block";
+  document.getElementById("loginForm").style.display = "none";
+  throw new Error("Blocked: file:// origin");
+}
+
+const API = "https://autotax-hub-production.up.railway.app";
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("btn");
+  const msg = document.getElementById("msg");
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  msg.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Signing in...";
+
+  try {
+    const res = await fetch(API + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail?.error || data.detail || "Login failed");
+    }
+
+    localStorage.setItem("token", data.data.token);
+    localStorage.setItem("email", data.data.email);
+    msg.className = "msg success";
+    msg.textContent = "Login successful. Redirecting...";
+    msg.style.display = "block";
+    setTimeout(() => { window.location.href = "dashboard.html"; }, 800);
+  } catch (err) {
+    msg.className = "msg error";
+    msg.textContent = err.message;
+    msg.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+  }
+});
+</script>
+</body>
+</html>

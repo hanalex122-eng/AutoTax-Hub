@@ -1,0 +1,145 @@
+<!-- AutoTax Hub: AI-powered invoice data extraction for German tax automation.
+     Upload any invoice — printed or handwritten — and get structured data back instantly.
+     Built for freelancers, tax advisors, and small businesses in Germany. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTax Hub — Automated Invoice Data Extraction</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1d1d1f; line-height: 1.6; }
+
+  section { padding: 80px 24px; max-width: 800px; margin: 0 auto; }
+
+  .hero { text-align: center; padding: 120px 24px 80px; background: linear-gradient(180deg, #f5f5f7, #eaeaec); }
+  .hero h1 { font-size: 44px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 16px; }
+  .hero p { font-size: 18px; color: #6e6e73; margin-bottom: 36px; }
+
+  .btn { display: inline-block; padding: 14px 36px; background: #1d1d1f; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background 0.2s; }
+  .btn:hover { background: #333; }
+
+  .problem { background: #fff; }
+  .problem h2, .solution h2, .steps h2, .features h2, .cta-bottom h2 { font-size: 28px; font-weight: 600; margin-bottom: 20px; letter-spacing: -0.3px; }
+  .problem ul { list-style: none; padding: 0; }
+  .problem li { padding: 10px 0; font-size: 16px; color: #6e6e73; border-bottom: 1px solid #f0f0f0; }
+  .problem li:last-child { border: none; }
+
+  .solution { background: #f5f5f7; border-radius: 20px; margin: 0 auto; max-width: 800px; }
+  .solution p { font-size: 16px; color: #6e6e73; margin-bottom: 12px; }
+  .tags { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .tag { padding: 8px 16px; background: #fff; border-radius: 8px; font-size: 14px; color: #1d1d1f; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+
+  .steps { background: #fff; }
+  .step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 24px; }
+  .step { text-align: center; padding: 28px 16px; background: #f5f5f7; border-radius: 16px; transition: transform 0.2s; }
+  .step:hover { transform: translateY(-2px); }
+  .step-num { font-size: 28px; font-weight: 700; color: #1d1d1f; margin-bottom: 8px; }
+  .step p { font-size: 14px; color: #6e6e73; }
+
+  .demo { text-align: center; background: #f5f5f7; border-radius: 20px; margin: 0 auto; max-width: 800px; }
+  .demo h2 { font-size: 28px; font-weight: 600; margin-bottom: 20px; }
+  .demo iframe { width: 100%; height: 480px; border: 1px solid #e8e8ed; border-radius: 12px; background: #fff; }
+
+  .features { background: #fff; }
+  .feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 24px; }
+  .feature { padding: 24px; background: #f5f5f7; border-radius: 14px; transition: transform 0.2s; }
+  .feature:hover { transform: translateY(-2px); }
+  .feature h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .feature p { font-size: 14px; color: #6e6e73; }
+
+  .cta-bottom { text-align: center; padding: 80px 24px; background: linear-gradient(180deg, #eaeaec, #f5f5f7); }
+  .cta-bottom p { font-size: 16px; color: #6e6e73; margin-bottom: 28px; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 30px; }
+    .step-grid, .feature-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <h1>Automate Your Invoice<br>Data Extraction</h1>
+  <p>Upload invoices. Get structured data instantly.</p>
+  <a href="#demo" class="btn">Try Live Demo →</a>
+  <p style="margin-top:20px;font-size:13px;color:#86868b">Used by freelancers and small businesses</p>
+</section>
+
+<section class="problem">
+  <h2>The Problem</h2>
+  <ul>
+    <li>Manual invoice processing wastes hours every month</li>
+    <li>Copy-pasting totals and VAT rates is error-prone</li>
+    <li>Handwritten invoices are nearly impossible to digitize</li>
+  </ul>
+</section>
+
+<section class="solution">
+  <h2>The Solution</h2>
+  <p>AutoTax Hub extracts totals and VAT automatically from any invoice — printed or handwritten.</p>
+  <div class="tags">
+    <span class="tag">OCR Support</span>
+    <span class="tag">Handwriting Detection</span>
+    <span class="tag">Fast Processing</span>
+    <span class="tag">German Tax Ready</span>
+  </div>
+</section>
+
+<section class="steps">
+  <h2>How It Works</h2>
+  <div class="step-grid">
+    <div class="step">
+      <div class="step-num">1</div>
+      <p>Upload your invoice</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <p>We extract the data</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <p>You get structured output</p>
+    </div>
+  </div>
+</section>
+
+<section class="demo" id="demo">
+  <h2>See it in action</h2>
+  <p style="font-size:16px;color:#6e6e73;margin-bottom:24px">Upload an invoice and get structured data instantly.</p>
+  <iframe src="index.html" title="AutoTax Hub Demo"></iframe>
+</section>
+
+<section class="features">
+  <h2>Features</h2>
+  <div class="feature-grid">
+    <div class="feature">
+      <h3>VAT Detection</h3>
+      <p>Automatically identifies 7% and 19% German VAT rates</p>
+    </div>
+    <div class="feature">
+      <h3>Total Extraction</h3>
+      <p>Finds invoice totals across multiple formats and languages</p>
+    </div>
+    <div class="feature">
+      <h3>Handwriting OCR</h3>
+      <p>Process handwritten invoices via external OCR API</p>
+    </div>
+    <div class="feature">
+      <h3>Simple API</h3>
+      <p>One endpoint, one request — get structured JSON back</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta-bottom">
+  <h2>Start Using AutoTax Hub</h2>
+  <p>No setup required. Upload and extract in seconds.</p>
+  <a href="#demo" class="btn">Try Now</a>
+</section>
+
+<footer style="text-align:center;padding:32px;font-size:13px;color:#86868b">© 2026 AutoTax Hub</footer>
+
+</body>
+</html>

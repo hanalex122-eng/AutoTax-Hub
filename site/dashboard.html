@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTax Hub - Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f5f7;
+    min-height: 100vh;
+    color: #111827;
+  }
+
+  /* --- Top bar --- */
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-brand {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar-brand span {
+    background: #111827;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .topbar-email {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 400;
+  }
+  .btn-logout {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: auto;
+  }
+  .btn-logout:hover {
+    color: #111827;
+    border-color: #d1d5db;
+    background: #f9fafb;
+  }
+
+  /* --- Layout --- */
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* --- Cards --- */
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    padding: 32px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 20px;
+    letter-spacing: -0.2px;
+  }
+
+  /* --- Summary cards --- */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .summary-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    padding: 24px;
+  }
+  .summary-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.5px;
+  }
+  .summary-sub {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  /* --- Upload area --- */
+  .upload-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    background: #fafbfc;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: #111827;
+    background: #f9fafb;
+  }
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .upload-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 12px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .upload-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: #6b7280;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .upload-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+  }
+  .upload-hint {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+  .upload-filename {
+    font-size: 13px;
+    font-weight: 500;
+    color: #111827;
+    margin-top: 8px;
+    display: none;
+  }
+  .upload-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    gap: 12px;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #111827;
+    cursor: pointer;
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: #111827;
+    color: #fff;
+  }
+  .btn-primary:hover { background: #1f2937; }
+  .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .btn-ghost {
+    background: none;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+  .btn-ghost:hover { background: #f9fafb; color: #111827; }
+  .btn-danger {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+  .btn-danger:hover { background: #fee2e2; }
+  .btn-success {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+  }
+  .btn-success:hover { background: #dcfce7; }
+
+  /* --- Result banner --- */
+  .result {
+    margin-top: 20px;
+    padding: 20px 24px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    display: none;
+  }
+  .result-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .result .total {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.5px;
+  }
+  .result .vat {
+    font-size: 13px;
+    color: #16a34a;
+    font-weight: 500;
+  }
+
+  /* --- Error --- */
+  .error-msg {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    color: #dc2626;
+    font-size: 13px;
+    font-weight: 500;
+    display: none;
+  }
+
+  /* --- Filters --- */
+  .filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filters input, .filters select {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filters input:focus, .filters select:focus {
+    border-color: #111827;
+  }
+  .filters input[type="text"] { width: 180px; }
+  .filters input[type="date"] { width: 140px; }
+
+  /* --- Table --- */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  td {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #374151;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fafb; }
+  td.num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #111827;
+  }
+  td.muted {
+    color: #9ca3af;
+    font-size: 12px;
+  }
+
+  /* --- Status badge --- */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .badge-processed { background: #dcfce7; color: #16a34a; }
+  .badge-unprocessed { background: #fef3c7; color: #d97706; }
+
+  /* --- Actions cell --- */
+  .actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  /* --- Bulk bar --- */
+  .bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 10px 16px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #374151;
+  }
+  .bulk-bar.visible { display: flex; }
+
+  /* --- Modal --- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .modal label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 4px;
+    margin-top: 12px;
+  }
+  .modal label:first-of-type { margin-top: 0; }
+  .modal input, .modal select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    outline: none;
+    color: #111827;
+  }
+  .modal input:focus, .modal select:focus { border-color: #111827; }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  /* --- Empty / Loading --- */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+  .loading {
+    text-align: center;
+    padding: 32px 20px;
+    color: #9ca3af;
+    font-size: 13px;
+  }
+
+  /* --- Kassenbuch summary --- */
+  .kb-summary {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+  .kb-summary .income { color: #16a34a; font-weight: 600; }
+  .kb-summary .expense { color: #dc2626; font-weight: 600; }
+  .kb-summary .balance { color: #111827; font-weight: 700; }
+
+  /* --- Responsive --- */
+  @media (max-width: 600px) {
+    .topbar { padding: 0 16px; }
+    .container { padding: 20px 12px 48px; }
+    .card { padding: 24px 20px; border-radius: 12px; }
+    .summary-row { grid-template-columns: 1fr; }
+    .upload-options { flex-direction: column; align-items: stretch; }
+    .filters { flex-direction: column; }
+    .filters input, .filters select { width: 100%; }
+    .topbar-email { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">AutoTax <span>HUB</span></div>
+  <div class="topbar-right">
+    <span class="topbar-email" id="userEmail"></span>
+    <button class="btn-logout" onclick="logout()">Sign out</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Global error banner -->
+  <div class="error-msg" id="globalError" style="display:none"></div>
+
+  <!-- file:// warning banner -->
+  <div id="fileWarning" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:24px 28px;margin-bottom:0">
+    <div style="font-weight:700;font-size:15px;color:#92400e;margin-bottom:8px">Cannot load dashboard from file://</div>
+    <div style="font-size:13px;color:#78350f;line-height:1.6">
+      Browsers block API requests from <code style="background:#fde68a;padding:2px 6px;border-radius:4px">file://</code> pages (CORS policy).<br>
+      To fix this, serve the frontend with a local HTTP server:
+    </div>
+    <div style="margin-top:12px;background:#78350f;color:#fef3c7;padding:12px 16px;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8">
+      cd path/to/AutoTax-Hub<br>
+      python -m http.server 5500
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:#78350f">
+      Then open: <a href="http://localhost:5500/index.html" style="color:#92400e;font-weight:600">http://localhost:5500/index.html</a>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-row" id="summaryRow">
+    <div class="summary-card">
+      <div class="summary-label">Total Invoices</div>
+      <div class="summary-value" id="sumCount">-</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Status</div>
+      <div class="summary-value" id="sumProcessed">-</div>
+      <div class="summary-sub" id="sumUnprocessed"></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Revenue</div>
+      <div class="summary-value" id="sumRevenue">-</div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-title">Upload Invoice</div>
+    <div class="upload-zone" id="dropzone">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div class="upload-label">Drop a file here or click to browse</div>
+      <div class="upload-hint">PDF, JPG, PNG, TIFF up to 5 MB</div>
+      <div class="upload-filename" id="filename"></div>
+      <input type="file" id="file" accept=".pdf,.jpg,.jpeg,.png,.tiff">
+    </div>
+    <div class="upload-options">
+      <label class="checkbox-label"><input type="checkbox" id="hw"> Handwriting mode</label>
+      <button class="btn btn-primary" id="btn" onclick="upload()">Upload</button>
+    </div>
+    <div class="error-msg" id="error"></div>
+    <div class="result" id="result">
+      <div class="result-row">
+        <div class="total" id="total"></div>
+        <div class="vat" id="vat"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices -->
+  <div class="card">
+    <div class="card-title">Invoices</div>
+    <div class="filters">
+      <input type="text" id="fSearch" placeholder="Search text...">
+      <select id="fStatus">
+        <option value="">All status</option>
+        <option value="processed">Processed</option>
+        <option value="unprocessed">Unprocessed</option>
+      </select>
+      <input type="text" id="fCategory" placeholder="Category...">
+      <input type="date" id="fDateFrom" title="From date">
+      <input type="date" id="fDateTo" title="To date">
+      <button class="btn btn-ghost btn-sm" onclick="loadInvoices()">Filter</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+      <span id="bulkCount">0 selected</span>
+      <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete selected</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Cancel</button>
+    </div>
+    <div class="table-wrap">
+      <div id="invoices"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Kassenbuch -->
+  <div class="card">
+    <div class="card-title">Kassenbuch</div>
+    <div class="kb-summary" id="kbSummary"></div>
+    <button class="btn btn-primary btn-sm" onclick="openKbModal()" style="margin-bottom:16px">+ New Entry</button>
+    <div class="table-wrap">
+      <div id="kassenbuch"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Invoice Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Invoice</h3>
+    <input type="hidden" id="editId">
+    <label>Filename</label>
+    <input type="text" id="editFilename">
+    <label>Amount</label>
+    <input type="number" step="0.01" id="editTotal">
+    <label>Category</label>
+    <input type="text" id="editCategory">
+    <label>Status</label>
+    <select id="editProcessed">
+      <option value="false">Unprocessed</option>
+      <option value="true">Processed</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInvoice()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kassenbuch Modal -->
+<div class="modal-overlay" id="kbModal">
+  <div class="modal">
+    <h3 id="kbModalTitle">New Entry</h3>
+    <input type="hidden" id="kbId">
+    <label>Description</label>
+    <input type="text" id="kbDesc">
+    <label>Amount</label>
+    <input type="number" step="0.01" id="kbAmount">
+    <label>Type</label>
+    <select id="kbType">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+    <label>Category</label>
+    <input type="text" id="kbCategory">
+    <label>Date</label>
+    <input type="date" id="kbDate">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeKbModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveKbEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* --- file:// guard --- */
+if (window.location.protocol === "file:") {
+  document.getElementById("fileWarning").style.display = "block";
+  document.querySelectorAll(".card, .summary-row").forEach(function(el) { el.style.display = "none"; });
+  throw new Error("Blocked: file:// origin — serve via HTTP");
+}
+
+const token = localStorage.getItem("token");
+if (!token) window.location.href = "index.html";
+
+const API = "https://autotax-hub-production.up.railway.app";
+const authHeaders = { "Authorization": "Bearer " + token };
+let selectedIds = new Set();
+
+const emailEl = document.getElementById("userEmail");
+const savedEmail = localStorage.getItem("email");
+if (savedEmail) emailEl.textContent = savedEmail;
+
+/* --- Helpers --- */
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function api(path, opts) {
+  const url = API + path;
+  const method = (opts && opts.method) || "GET";
+  const headers = { ...authHeaders };
+  // Only set Content-Type for requests that send a JSON body
+  if (opts && opts.body && typeof opts.body === "string") {
+    headers["Content-Type"] = "application/json";
+  }
+  if (opts && opts.headers) {
+    Object.assign(headers, opts.headers);
+  }
+  console.log("[API]", method, url);
+  try {
+    const r = await fetch(url, { ...opts, headers: headers });
+    const text = await r.text();
+    console.log("[API]", method, url, "->", r.status, text.substring(0, 200));
+    let j;
+    try { j = JSON.parse(text); } catch (e) {
+      throw new Error("Invalid JSON from server: " + text.substring(0, 100));
+    }
+    if (r.status === 401) {
+      console.warn("[API] Token expired or invalid, redirecting to login");
+      localStorage.removeItem("token");
+      window.location.href = "index.html";
+      return;
+    }
+    if (!r.ok) {
+      const msg = j.detail?.error || j.detail || "Request failed (" + r.status + ")";
+      throw new Error(msg);
+    }
+    return j.data;
+  } catch (e) {
+    if (e.name === "TypeError" && e.message.includes("fetch")) {
+      console.error("[API] Network error (CORS or connectivity):", e);
+      throw new Error("Network error — check CORS or connectivity");
+    }
+    throw e;
+  }
+}
+
+/* --- Drag-and-drop --- */
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("file");
+const filenameEl = document.getElementById("filename");
+
+fileInput.addEventListener("change", function() {
+  if (fileInput.files.length) {
+    filenameEl.textContent = fileInput.files[0].name;
+    filenameEl.style.display = "block";
+  }
+});
+dropzone.addEventListener("dragover", function(e) { e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", function() { dropzone.classList.remove("dragover"); });
+dropzone.addEventListener("drop", function(e) {
+  e.preventDefault();
+  dropzone.classList.remove("dragover");
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    filenameEl.textContent = e.dataTransfer.files[0].name;
+    filenameEl.style.display = "block";
+  }
+});
+
+/* --- Summary --- */
+async function loadSummary() {
+  try {
+    const s = await api("/invoices/summary");
+    document.getElementById("sumCount").textContent = s.total_count;
+    document.getElementById("sumProcessed").textContent = s.processed + " processed";
+    document.getElementById("sumUnprocessed").textContent = s.unprocessed + " unprocessed";
+    document.getElementById("sumRevenue").textContent = "\u20AC" + s.total_revenue.toFixed(2);
+  } catch (e) {
+    console.error("[Dashboard] Summary error:", e);
+    document.getElementById("sumCount").textContent = "!";
+    document.getElementById("sumProcessed").textContent = "Error";
+    document.getElementById("sumUnprocessed").textContent = e.message;
+    document.getElementById("sumRevenue").textContent = "!";
+  }
+}
+
+/* --- Invoices --- */
+async function loadInvoices() {
+  const container = document.getElementById("invoices");
+  container.innerHTML = '<div class="loading">Loading...</div>';
+  selectedIds.clear();
+  updateBulkBar();
+  try {
+    let params = new URLSearchParams();
+    const search = document.getElementById("fSearch").value.trim();
+    const status = document.getElementById("fStatus").value;
+    const category = document.getElementById("fCategory").value.trim();
+    const dateFrom = document.getElementById("fDateFrom").value;
+    const dateTo = document.getElementById("fDateTo").value;
+    if (search) params.set("search", search);
+    if (status) params.set("status", status);
+    if (category) params.set("category", category);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+
+    const qs = params.toString();
+    const items = await api("/invoices" + (qs ? "?" + qs : ""));
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="empty">No invoices yet</div>';
+      return;
+    }
+
+    let html = '<table><thead><tr><th><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th><th>ID</th><th>Filename</th><th>Amount</th><th>Category</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+    for (const inv of items) {
+      const fn = inv.filename ? escapeHtml(inv.filename) : "&mdash;";
+      const amt = inv.total != null ? "\u20AC" + Number(inv.total).toFixed(2) : "&mdash;";
+      const cat = inv.category ? escapeHtml(inv.category) : "&mdash;";
+      const badge = inv.processed
+        ? '<span class="badge badge-processed">Processed</span>'
+        : '<span class="badge badge-unprocessed">Unprocessed</span>';
+      const date = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "&mdash;";
+      html += '<tr>'
+        + '<td><input type="checkbox" class="row-cb" value="' + inv.id + '" onchange="onRowCheck()"></td>'
+        + '<td class="muted">' + inv.id + '</td>'
+        + '<td>' + fn + '</td>'
+        + '<td class="num">' + amt + '</td>'
+        + '<td>' + cat + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td class="muted">' + date + '</td>'
+        + '<td><div class="actions">'
+        + '<button class="btn btn-ghost btn-sm" onclick="openEditModal(' + inv.id + ',\'' + escapeHtml(inv.filename || "") + '\',' + (inv.total ?? "null") + ',\'' + escapeHtml(inv.category || "") + '\',' + inv.processed + ')">Edit</button>'
+        + '<button class="btn btn-danger btn-sm" onclick="deleteInvoice(' + inv.id + ')">Del</button>'
+        + '</div></td>'
+        + '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty" style="color:#dc2626">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function clearFilters() {
+  document.getElementById("fSearch").value = "";
+  document.getElementById("fStatus").value = "";
+  document.getElementById("fCategory").value = "";
+  document.getElementById("fDateFrom").value = "";
+  document.getElementById("fDateTo").value = "";
+  loadInvoices();
+}
+
+/* --- Selection / Bulk --- */
+function toggleSelectAll(el) {
+  document.querySelectorAll(".row-cb").forEach(function(cb) {
+    cb.checked = el.checked;
+  });
+  onRowCheck();
+}
+
+function onRowCheck() {
+  selectedIds.clear();
+  document.querySelectorAll(".row-cb:checked").forEach(function(cb) {
+    selectedIds.add(Number(cb.value));
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById("bulkBar");
+  if (selectedIds.size > 0) {
+    bar.classList.add("visible");
+    document.getElementById("bulkCount").textContent = selectedIds.size + " selected";
+  } else {
+    bar.classList.remove("visible");
+  }
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll(".row-cb").forEach(function(cb) { cb.checked = false; });
+  var sa = document.getElementById("selectAll");
+  if (sa) sa.checked = false;
+  updateBulkBar();
+}
+
+async function bulkDelete() {
+  if (!selectedIds.size) return;
+  if (!confirm("Delete " + selectedIds.size + " invoice(s)?")) return;
+  try {
+    await api("/invoices/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids: Array.from(selectedIds) }),
+    });
+    refreshAll();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* --- Edit Invoice --- */
+function openEditModal(id, filename, total, category, processed) {
+  document.getElementById("editId").value = id;
+  document.getElementById("editFilename").value = filename;
+  document.getElementById("editTotal").value = total !== null ? total : "";
+  document.getElementById("editCategory").value = category;
+  document.getElementById("editProcessed").value = processed ? "true" : "false";
+  document.getElementById("editModal").classList.add("visible");
+}
+
+function closeEditModal() {
+  document.getElementById("editModal").classList.remove("visible");
+}
+
+async function saveInvoice() {
+  const id = document.getElementById("editId").value;
+  const body = {
+    filename: document.getElementById("editFilename").value || null,
+    total: document.getElementById("editTotal").value ? Number(document.getElementById("editTotal").value) : null,
+    category: document.getElementById("editCategory").value || null,
+    processed: document.getElementById("editProcessed").value === "true",
+  };
+  try {
+    await api("/invoices/" + id, { method: "PATCH", body: JSON.stringify(body) });
+    closeEditModal();
+    refreshAll();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteInvoice(id) {
+  if (!confirm("Delete invoice #" + id + "?")) return;
+  try {
+    await api("/invoices/" + id, { method: "DELETE" });
+    refreshAll();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* --- Upload --- */
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  const err = document.getElementById("error");
+  const res = document.getElementById("result");
+  err.style.display = "none";
+  res.style.display = "none";
+  if (!file) { err.textContent = "Select a file first."; err.style.display = "block"; return; }
+  const btn = document.getElementById("btn");
+  btn.disabled = true; btn.textContent = "Processing...";
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const hw = document.getElementById("hw").checked;
+    const url = API + "/upload" + (hw ? "?handwriting=true" : "");
+    console.log("[Upload] POST", url);
+    const r = await fetch(url, { method: "POST", headers: { "Authorization": "Bearer " + token }, body: fd });
+    const text = await r.text();
+    console.log("[Upload] Response:", r.status, text.substring(0, 200));
+    if (!r.ok) {
+      let detail = "Upload failed (" + r.status + ")";
+      try { const ej = JSON.parse(text); detail = ej.detail?.error || ej.detail || detail; } catch(x) {}
+      throw new Error(detail);
+    }
+    const j = JSON.parse(text);
+    const d = j.data;
+    document.getElementById("total").textContent = d.total !== null ? "\u20AC" + d.total.toFixed(2) : "\u2014";
+    document.getElementById("vat").textContent = d.vat_rates.length ? "VAT: " + d.vat_rates.map(function(v) { return v + "%"; }).join(", ") : "No VAT detected";
+    res.style.display = "block";
+    filenameEl.style.display = "none";
+    fileInput.value = "";
+    refreshAll();
+  } catch (e) {
+    err.textContent = e.message; err.style.display = "block";
+  } finally {
+    btn.disabled = false; btn.textContent = "Upload";
+  }
+}
+
+/* --- Kassenbuch --- */
+async function loadKassenbuch() {
+  const container = document.getElementById("kassenbuch");
+  container.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const items = await api("/kassenbuch");
+    const sumEl = document.getElementById("kbSummary");
+
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="empty">No entries yet</div>';
+      sumEl.innerHTML = "";
+      return;
+    }
+
+    let totalIncome = 0, totalExpense = 0;
+    for (const e of items) {
+      if (e.entry_type === "income") totalIncome += e.amount;
+      else totalExpense += e.amount;
+    }
+    const balance = totalIncome - totalExpense;
+    sumEl.innerHTML = '<span>Income: <span class="income">\u20AC' + totalIncome.toFixed(2) + '</span></span>'
+      + '<span>Expense: <span class="expense">\u20AC' + totalExpense.toFixed(2) + '</span></span>'
+      + '<span>Balance: <span class="balance">\u20AC' + balance.toFixed(2) + '</span></span>';
+
+    let html = '<table><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Category</th><th>Amount</th><th>Actions</th></tr></thead><tbody>';
+    for (const e of items) {
+      const date = e.date ? new Date(e.date).toLocaleDateString() : "&mdash;";
+      const typeClass = e.entry_type === "income" ? "color:#16a34a" : "color:#dc2626";
+      const sign = e.entry_type === "income" ? "+" : "-";
+      html += '<tr>'
+        + '<td class="muted">' + date + '</td>'
+        + '<td>' + escapeHtml(e.description) + '</td>'
+        + '<td style="' + typeClass + ';font-weight:600;font-size:12px;text-transform:capitalize">' + e.entry_type + '</td>'
+        + '<td>' + (e.category ? escapeHtml(e.category) : "&mdash;") + '</td>'
+        + '<td class="num" style="' + typeClass + '">' + sign + '\u20AC' + Math.abs(e.amount).toFixed(2) + '</td>'
+        + '<td><div class="actions">'
+        + '<button class="btn btn-ghost btn-sm" onclick=\'openKbEditModal(' + JSON.stringify(e).replace(/'/g, "\\'") + ')\'>Edit</button>'
+        + '<button class="btn btn-danger btn-sm" onclick="deleteKbEntry(' + e.id + ')">Del</button>'
+        + '</div></td>'
+        + '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty" style="color:#dc2626">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function openKbModal() {
+  document.getElementById("kbModalTitle").textContent = "New Entry";
+  document.getElementById("kbId").value = "";
+  document.getElementById("kbDesc").value = "";
+  document.getElementById("kbAmount").value = "";
+  document.getElementById("kbType").value = "expense";
+  document.getElementById("kbCategory").value = "";
+  document.getElementById("kbDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("kbModal").classList.add("visible");
+}
+
+function openKbEditModal(entry) {
+  document.getElementById("kbModalTitle").textContent = "Edit Entry";
+  document.getElementById("kbId").value = entry.id;
+  document.getElementById("kbDesc").value = entry.description;
+  document.getElementById("kbAmount").value = entry.amount;
+  document.getElementById("kbType").value = entry.entry_type;
+  document.getElementById("kbCategory").value = entry.category || "";
+  document.getElementById("kbDate").value = entry.date ? entry.date.split("T")[0] : "";
+  document.getElementById("kbModal").classList.add("visible");
+}
+
+function closeKbModal() {
+  document.getElementById("kbModal").classList.remove("visible");
+}
+
+async function saveKbEntry() {
+  const id = document.getElementById("kbId").value;
+  const body = {
+    description: document.getElementById("kbDesc").value,
+    amount: Number(document.getElementById("kbAmount").value),
+    entry_type: document.getElementById("kbType").value,
+    category: document.getElementById("kbCategory").value || null,
+    date: document.getElementById("kbDate").value || null,
+  };
+  if (!body.description || !body.amount) { alert("Description and amount are required"); return; }
+  try {
+    if (id) {
+      await api("/kassenbuch/" + id, { method: "PATCH", body: JSON.stringify(body) });
+    } else {
+      await api("/kassenbuch", { method: "POST", body: JSON.stringify(body) });
+    }
+    closeKbModal();
+    loadKassenbuch();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteKbEntry(id) {
+  if (!confirm("Delete entry #" + id + "?")) return;
+  try {
+    await api("/kassenbuch/" + id, { method: "DELETE" });
+    loadKassenbuch();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* --- Init --- */
+function refreshAll() {
+  loadSummary();
+  loadInvoices();
+}
+
+function showGlobalError(msg) {
+  const el = document.getElementById("globalError");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("email");
+  window.location.href = "index.html";
+}
+
+// Startup connectivity check
+(async function boot() {
+  console.log("[Boot] Token:", token ? token.substring(0, 20) + "..." : "MISSING");
+  console.log("[Boot] API:", API);
+  try {
+    const r = await fetch(API + "/", { method: "GET" });
+    const j = await r.json();
+    console.log("[Boot] Health check:", j);
+    if (!r.ok) showGlobalError("API returned " + r.status + " — check deployment");
+  } catch (e) {
+    console.error("[Boot] Cannot reach API:", e);
+    showGlobalError("Cannot reach API at " + API + " — possible CORS or network issue. Open browser DevTools > Console for details.");
+  }
+  refreshAll();
+  loadKassenbuch();
+})();
+</script>
+</body>
+</html>
