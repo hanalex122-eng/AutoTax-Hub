@@ -105,15 +105,23 @@ def auto_create_cash_entry(invoice_id: int, user_id: int, data: dict):
     """Create a CashEntry automatically when an invoice is uploaded."""
     db = SessionLocal()
     try:
-        date_val = parse_date_str_to_datetime(data.get("date") or "")
+        # Skip if already synced
+        existing = db.query(CashEntry).filter(CashEntry.invoice_id == invoice_id, CashEntry.user_id == user_id).first()
+        if existing:
+            return
+        # Parse date safely
+        date_val = None
+        date_str = data.get("date") or ""
+        if date_str:
+            date_val = parse_date_str_to_datetime(date_str)
         if not date_val:
             date_val = datetime.now()
         entry = CashEntry(
             user_id=user_id,
             description=f"Rechnung: {data.get('vendor') or 'Unbekannt'}",
             vendor=data.get("vendor") or "Unbekannt",
-            gross_amount=data.get("total_amount") or 0.0,
-            vat_amount=data.get("vat_amount") or 0.0,
+            gross_amount=float(data.get("total_amount") or 0),
+            vat_amount=float(data.get("vat_amount") or 0),
             vat_rate=data.get("vat_rate") or "0%",
             entry_type="expense",
             category=data.get("category") or "other",
@@ -126,7 +134,9 @@ def auto_create_cash_entry(invoice_id: int, user_id: int, data: dict):
         )
         db.add(entry)
         db.commit()
+        logger.info("Auto-synced invoice %s to cash_entries", invoice_id)
     except Exception:
+        db.rollback()
         logger.exception("Auto cash entry creation failed for invoice %s", invoice_id)
     finally:
         db.close()
@@ -705,11 +715,26 @@ def _list_bookkeeping(skip, limit, user):
     try:
         q = db.query(CashEntry).filter(CashEntry.user_id == user["sub"])
         total_count = q.count()
+        all_entries = q.all()
         entries = q.order_by(CashEntry.date.desc()).offset(skip).limit(limit).all()
-        return ok_list(
-            [cash_entry_to_dict(e) for e in entries],
-            total_count,
-        )
+        # Calculate totals across ALL entries (not just current page)
+        total_gross = sum(safe_float(e.gross_amount) for e in all_entries)
+        total_vat = sum(safe_float(e.vat_amount) for e in all_entries)
+        total_income = sum(safe_float(e.gross_amount) for e in all_entries if e.entry_type == "income")
+        total_expense = sum(safe_float(e.gross_amount) for e in all_entries if e.entry_type == "expense")
+        return {
+            "success": True,
+            "items": [cash_entry_to_dict(e) for e in entries],
+            "total": total_count,
+            "summary": {
+                "total_gross": round(total_gross, 2),
+                "total_vat": round(total_vat, 2),
+                "total_income": round(total_income, 2),
+                "total_expense": round(total_expense, 2),
+                "net": round(total_income - total_expense, 2),
+                "entry_count": total_count,
+            },
+        }
     except Exception:
         logger.exception("Failed to list cash entries")
         err(500, "Failed to load cash entries")

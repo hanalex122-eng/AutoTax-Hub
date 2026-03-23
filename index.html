@@ -745,8 +745,8 @@ function BookkeepingView({refreshKey}){
   const[deleting,setDeleting]=useState(false);
   const[editId,setEditId]=useState(null);
   const[editData,setEditData]=useState({});
-  const load=()=>{api("/bookkeeping?limit=100").then(d=>{setEntries(Array.isArray(d)?d:(d.items||[]));setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
-    api("/bookkeeping/summary/overview?year="+new Date().getFullYear()).then(setSummary).catch(()=>{});};
+  const load=()=>{api("/bookkeeping?limit=100").then(d=>{setEntries(Array.isArray(d)?d:(d.items||[]));if(d.summary)setSummary(d.summary);setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
+    api("/bookkeeping/summary/overview?year="+new Date().getFullYear()).then(s=>{if(s)setSummary(prev=>({...prev,...s}));}).catch(()=>{});};
   useEffect(load,[refreshKey]);
   const add=async()=>{if(!form.description||!form.gross_amount){alert("Beschreibung und Betrag erforderlich");return;}
     try{await api("/bookkeeping",{method:"POST",body:JSON.stringify({...form,gross_amount:parseFloat(form.gross_amount)})});setShowForm(false);setForm({entry_type:"expense",date:new Date().toISOString().slice(0,10),description:"",vendor:"",category:"",gross_amount:"",vat_rate:"19%",payment_method:"",reference:"",notes:""});load();}catch(e){alert(e.message);}};
@@ -835,6 +835,30 @@ function BookkeepingView({refreshKey}){
             <td style={{padding:"10px 8px"}}><div style={{cursor:"pointer",padding:"4px 8px",borderRadius:6,background:theme.blueSoft,color:theme.blue,fontSize:11,fontWeight:600,textAlign:"center"}} onClick={()=>startEdit(e)}>Bearbeiten</div></td>
             <td style={{padding:"10px 8px"}}><div style={{cursor:"pointer",padding:4}} onClick={()=>del(e.id)}><Icon d={I.x} size={14} color={theme.danger}/></div></td>
           </tr>);})}</tbody>
+        {summary&&<tfoot>
+          <tr style={{background:"rgba(16,185,129,0.08)",borderTop:"2px solid "+theme.accent}}>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px",color:theme.accent,fontWeight:700,fontSize:14}}>GESAMT</td>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px",color:theme.accent,fontFamily:mono,fontWeight:700,fontSize:15}}>€{Number(summary.total_gross||0).toFixed(2)}</td>
+            <td style={{padding:"12px 14px",color:theme.textMuted,fontFamily:mono,fontWeight:600,fontSize:12}}>€{Number(summary.total_vat||0).toFixed(2)}</td>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px"}}></td>
+            <td style={{padding:"12px 14px"}}></td>
+          </tr>
+          <tr style={{background:"rgba(16,185,129,0.04)"}}>
+            <td colSpan={2}></td>
+            <td style={{padding:"8px 14px",fontSize:12,color:theme.textMuted}}>Einnahmen</td>
+            <td style={{padding:"8px 14px",fontSize:12,color:"#22c55e",fontFamily:mono,fontWeight:600}}>€{Number(summary.total_income||0).toFixed(2)}</td>
+            <td style={{padding:"8px 14px",fontSize:12,color:theme.textMuted}}>Ausgaben</td>
+            <td style={{padding:"8px 14px",fontSize:12,color:"#ef4444",fontFamily:mono,fontWeight:600}}>€{Number(summary.total_expense||0).toFixed(2)}</td>
+            <td style={{padding:"8px 14px",fontSize:12,color:theme.textMuted}}>Netto</td>
+            <td style={{padding:"8px 14px",fontSize:13,color:(summary.net||0)>=0?"#22c55e":"#ef4444",fontFamily:mono,fontWeight:700}}>€{Number(summary.net||0).toFixed(2)}</td>
+            <td colSpan={2}></td>
+          </tr>
+        </tfoot>}
       </table>}
     </div>
   </div>);
