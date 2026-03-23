@@ -82,3 +82,33 @@ async def extract_text(file: UploadFile, handwriting: bool = False) -> str:
 
     # Fallback for plain text files
     return content.decode("utf-8", errors="ignore")
+
+
+async def extract_text_and_qr(file: UploadFile, handwriting: bool = False) -> tuple[str, dict]:
+    """Extract both OCR text and QR code data from a file.
+    Returns (ocr_text, qr_data_dict).
+    """
+    content = await file.read()
+    filename = (file.filename or "").lower()
+    content_type = (file.content_type or "").lower()
+
+    # OCR text extraction
+    await file.seek(0)
+    if handwriting:
+        ocr_text = await extract_handwriting_text(content, file.filename or "upload.png")
+    elif content_type == "application/pdf" or filename.endswith(".pdf"):
+        ocr_text = extract_pdf_text(content)
+    elif content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".tiff")):
+        ocr_text = await extract_image_text(content, file.filename or "upload.png")
+    else:
+        ocr_text = content.decode("utf-8", errors="ignore")
+
+    # QR code extraction
+    qr_data = {}
+    try:
+        from autotax.qr_reader import extract_qr_data
+        qr_data = extract_qr_data(content, content_type)
+    except Exception:
+        pass  # QR reading is optional, don't break upload if it fails
+
+    return ocr_text, qr_data

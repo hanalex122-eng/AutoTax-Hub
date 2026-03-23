@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
 import io
 
-from autotax.ocr import extract_text
+from autotax.ocr import extract_text, extract_text_and_qr
 from autotax.parser import parse_invoice
 from autotax.db import init_db, save_invoice, SessionLocal
 from autotax.models import Invoice, User, CashEntry
@@ -317,7 +317,7 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
     logger.info("Upload by user %s: %s (%s, %d bytes)", user["sub"], file.filename, file.content_type, len(content))
 
     try:
-        raw_text = await asyncio.wait_for(extract_text(file, handwriting=handwriting), timeout=15)
+        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting), timeout=20)
     except asyncio.TimeoutError:
         logger.error("OCR timeout for %s", file.filename)
         err(500, "OCR timeout")
@@ -330,6 +330,20 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
     except Exception:
         logger.exception("Parsing failed for %s", file.filename)
         err(500, "Invoice parsing failed")
+
+    # Merge QR data (QR overrides OCR if available)
+    if qr_data:
+        logger.info("QR data found for %s: %s", file.filename, {k: v for k, v in qr_data.items() if k != "qr_raw"})
+        if qr_data.get("company") and (not result.get("vendor") or result.get("vendor") == "Unbekannt"):
+            result["vendor"] = qr_data["company"]
+        if qr_data.get("amount") and (not result.get("total_amount") or result.get("total_amount") == 0):
+            result["total_amount"] = qr_data["amount"]
+        if qr_data.get("date") and (not result.get("date") or result["date"] == datetime.now().strftime("%Y-%m-%d")):
+            result["date"] = qr_data["date"]
+        if qr_data.get("invoice_number") and not result.get("invoice_number"):
+            result["invoice_number"] = qr_data["invoice_number"]
+        if qr_data.get("qr_raw"):
+            result["raw_text"] = result.get("raw_text", "") + "\n\n[QR] " + qr_data["qr_raw"]
 
     # Duplicate check
     db_check = SessionLocal()
