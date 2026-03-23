@@ -444,11 +444,13 @@ function DashboardView({refreshKey}){
       </div>
       <div style={css.card}><h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 16px",display:"flex",alignItems:"center",gap:8}}><div style={{width:6,height:6,borderRadius:"50%",background:theme.purple}}/>Gesamt</h3>
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:theme.textMuted,fontSize:13}}>Rechnungen</span><span style={{color:theme.text,fontFamily:mono,fontSize:14,fontWeight:600}}>{data.invoice_count}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:theme.textMuted,fontSize:13}}>Rechnungen</span><span style={{color:theme.text,fontFamily:mono,fontSize:14,fontWeight:600}}>{data.invoice_count||0}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:theme.textMuted,fontSize:13}}>Kassenbuch</span><span style={{color:theme.text,fontFamily:mono,fontSize:14,fontWeight:600}}>{data.cash_entry_count||0}</span></div>
+          <div style={{height:1,background:theme.border,margin:"2px 0"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:theme.accent}}></span><span style={{color:theme.textMuted,fontSize:13}}>Einnahmen</span></div><span style={{color:theme.accent,fontFamily:mono,fontSize:14,fontWeight:600}}>{data.income_count}</span></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:theme.danger}}></span><span style={{color:theme.textMuted,fontSize:13}}>Ausgaben</span></div><span style={{color:theme.danger,fontFamily:mono,fontSize:14,fontWeight:600}}>{data.expense_count}</span></div>
-          {data.invoice_count>0&&<div style={{height:6,background:theme.surfaceAlt,borderRadius:3,overflow:"hidden",marginTop:4}}>
-            <div style={{height:"100%",width:`${(data.income_count/(data.invoice_count||1))*100}%`,background:`linear-gradient(90deg, ${theme.accent}, ${theme.accent}bb)`,borderRadius:3,transition:"width 0.6s ease"}}/>
+          {(data.total_count||0)>0&&<div style={{height:6,background:theme.surfaceAlt,borderRadius:3,overflow:"hidden",marginTop:4}}>
+            <div style={{height:"100%",width:`${(data.income_count/((data.total_count)||1))*100}%`,background:`linear-gradient(90deg, ${theme.accent}, ${theme.accent}bb)`,borderRadius:3,transition:"width 0.6s ease"}}/>
           </div>}
         </div>
       </div>
@@ -462,7 +464,7 @@ function DashboardView({refreshKey}){
    ══════════════════════════════════════════ */
 function InvoicesView({refreshKey,showToast}){
   const[invoices,setInvoices]=useState([]);const[total,setTotal]=useState(0);const[loading,setLoading]=useState(true);
-  const[filter,setFilter]=useState("");const[filterCat,setFilterCat]=useState("");const[dateFrom,setDateFrom]=useState("");const[dateTo,setDateTo]=useState("");const[filterStatus,setFilterStatus]=useState("");
+  const[filter,setFilter]=useState("");const[filterCat,setFilterCat]=useState("");const[dateFrom,setDateFrom]=useState(new Date().getFullYear()+"-01-01");const[dateTo,setDateTo]=useState(new Date().toISOString().slice(0,10));const[filterStatus,setFilterStatus]=useState("");
   const[editId,setEditId]=useState(null);const[editData,setEditData]=useState({});
   const[selected,setSelected]=useState(new Set());
   const[deleting,setDeleting]=useState(false);

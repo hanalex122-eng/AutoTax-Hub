@@ -331,6 +331,19 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
         logger.exception("Parsing failed for %s", file.filename)
         err(500, "Invoice parsing failed")
 
+    # Duplicate check
+    db_check = SessionLocal()
+    try:
+        dup = db_check.query(Invoice).filter(
+            Invoice.user_id == user["sub"],
+            Invoice.filename == file.filename,
+            Invoice.total_amount == safe_float(result.get("total_amount")),
+        ).first()
+        if dup:
+            return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "message": "Duplicate invoice detected"}
+    finally:
+        db_check.close()
+
     try:
         invoice_id = save_invoice(result, user_id=user["sub"], filename=file.filename)
     except Exception:
@@ -372,6 +385,19 @@ async def upload_batch(files: List[UploadFile] = File(...), user: dict = Depends
                 parsed = parse_invoice(raw_text)
             except Exception:
                 results.append({"filename": file.filename, "status": "error", "message": "Parse failed"})
+                continue
+            # Duplicate check
+            db_dup = SessionLocal()
+            try:
+                dup = db_dup.query(Invoice).filter(
+                    Invoice.user_id == user["sub"],
+                    Invoice.filename == file.filename,
+                    Invoice.total_amount == safe_float(parsed.get("total_amount")),
+                ).first()
+            finally:
+                db_dup.close()
+            if dup:
+                results.append({"filename": file.filename, "status": "duplicate", "message": "Duplikat erkannt"})
                 continue
             invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename)
             auto_create_cash_entry(invoice_id, user["sub"], parsed)
@@ -523,7 +549,9 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
             "tax_rate_applied": tax_rate,
             "income_count": len(inv_inc) + len(ce_inc),
             "expense_count": len(inv_exp) + len(ce_exp),
-            "invoice_count": total_count,
+            "invoice_count": len(invoices),
+            "cash_entry_count": len(cash_entries),
+            "total_count": total_count,
             "monthly_breakdown": monthly_breakdown,
             "by_category": by_category,
             "total_vat_paid": round(total_vat_paid, 2),
