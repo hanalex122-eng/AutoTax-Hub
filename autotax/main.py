@@ -20,7 +20,7 @@ logger = logging.getLogger("autotax")
 
 app = FastAPI(
     title="AutoTax-HUB",
-    version="5.4.0",
+    version="5.5.0",
 )
 
 _allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -193,14 +193,14 @@ def health():
 async def serve_frontend():
     index_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 @app.get("/app", response_class=HTMLResponse)
 async def serve_frontend_app():
     index_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 @app.post("/admin/reparse")
