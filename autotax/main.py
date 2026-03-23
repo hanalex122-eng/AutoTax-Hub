@@ -23,12 +23,13 @@ app = FastAPI(
     version="5.4.0",
 )
 
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -162,7 +163,7 @@ async def serve_frontend_app():
 
 
 @app.post("/admin/reparse")
-def admin_reparse():
+def admin_reparse(user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
         invoices = db.query(Invoice).all()
@@ -209,8 +210,12 @@ class RegisterRequest(BaseModel):
 
 @app.post("/auth/register")
 def register(body: RegisterRequest):
-    if len(body.password) < 6:
-        err(400, "Password must be at least 6 characters")
+    if len(body.password) < 8:
+        err(400, "Password must be at least 8 characters")
+    if not any(c.isupper() for c in body.password):
+        err(400, "Password must contain at least 1 uppercase letter")
+    if not any(c.isdigit() for c in body.password):
+        err(400, "Password must contain at least 1 digit")
     db = SessionLocal()
     try:
         if db.query(User).filter(User.email == body.email).first():
@@ -1126,64 +1131,3 @@ def export_json(year: int = Query(None), user: dict = Depends(get_current_user))
         db.close()
 
 
-# ============================================================
-# DEBUG
-# ============================================================
-
-@app.post("/debug/seed")
-def debug_seed(user: dict = Depends(get_current_user)):
-    db = SessionLocal()
-    try:
-        seed_data = [
-            {"vendor": "Lidl", "total_amount": 45.80, "vat_rate": "19%", "category": "food", "invoice_type": "expense", "date": "2026-03-01"},
-            {"vendor": "Amazon", "total_amount": 120.50, "vat_rate": "19%", "category": "electronics", "invoice_type": "expense", "date": "2026-03-05"},
-            {"vendor": "Kunde A", "total_amount": 1500.00, "vat_rate": "19%", "category": "other", "invoice_type": "income", "date": "2026-03-10"},
-            {"vendor": "Tankstelle", "total_amount": 89.99, "vat_rate": "19%", "category": "fuel", "invoice_type": "expense", "date": "2026-02-15"},
-            {"vendor": "Restaurant", "total_amount": 35.50, "vat_rate": "7%", "category": "restaurant", "invoice_type": "expense", "date": "2026-02-20"},
-        ]
-        created = []
-        for s in seed_data:
-            rate = parse_vat_rate_float(s["vat_rate"])
-            vat_amt = round(s["total_amount"] * rate / (100 + rate), 2) if rate > 0 else 0.0
-            inv = Invoice(
-                user_id=user["sub"],
-                vendor=s["vendor"],
-                total_amount=s["total_amount"],
-                vat_amount=vat_amt,
-                vat_rate=s["vat_rate"],
-                category=s["category"],
-                invoice_type=s["invoice_type"],
-                date=s["date"],
-                invoice_number="",
-                payment_method="",
-                raw_text=f"{s['vendor']} {s['total_amount']} EUR {s['vat_rate']}",
-                processed=True,
-            )
-            db.add(inv)
-            db.commit()
-            db.refresh(inv)
-            created.append(invoice_to_dict(inv))
-        return {"success": True, "items": created, "total": len(created)}
-    except Exception:
-        logger.exception("Seed failed")
-        err(500, "Seed failed")
-    finally:
-        db.close()
-
-
-@app.post("/debug/create-user")
-def debug_create_user():
-    db = SessionLocal()
-    try:
-        if db.query(User).filter(User.email == "hanalex122@gmail.com").first():
-            return {"success": True, "message": "User already exists"}
-        user = User(email="hanalex122@gmail.com", hashed_password=hash_password("123456"))
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return {"success": True, "message": "User created", "id": user.id, "email": user.email}
-    except Exception:
-        logger.exception("Debug create-user failed")
-        err(500, "Failed to create user")
-    finally:
-        db.close()

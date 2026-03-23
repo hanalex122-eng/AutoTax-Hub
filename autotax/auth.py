@@ -8,9 +8,14 @@ import base64
 import bcrypt
 from fastapi import Depends, HTTPException, Header
 
-SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+SECRET = os.getenv("JWT_SECRET", "")
+if not SECRET:
+    import secrets as _s
+    SECRET = _s.token_urlsafe(32)
+    import logging as _log
+    _log.getLogger("autotax").warning("JWT_SECRET not set — using random secret (tokens won't survive restart)")
 ALGORITHM = "HS256"
-EXPIRE_HOURS = 48
+EXPIRE_HOURS = 24
 
 
 def hash_password(password: str) -> str:
