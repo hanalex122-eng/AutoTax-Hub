@@ -485,18 +485,73 @@ def detect_country(raw_text: str) -> str:
 # ════════════════════════════════════════════════════════════════
 
 _MONTH_MAP = {
-    "jan": "01", "januar": "01", "january": "01",
-    "feb": "02", "februar": "02", "february": "02",
-    "mär": "03", "märz": "03", "mar": "03", "march": "03",
+    # Deutsch
+    "jan": "01", "januar": "01",
+    "feb": "02", "februar": "02",
+    "mär": "03", "märz": "03",
     "apr": "04", "april": "04",
-    "mai": "05", "may": "05",
-    "jun": "06", "juni": "06", "june": "06",
-    "jul": "07", "juli": "07", "july": "07",
+    "mai": "05",
+    "jun": "06", "juni": "06",
+    "jul": "07", "juli": "07",
     "aug": "08", "august": "08",
     "sep": "09", "september": "09",
-    "okt": "10", "oktober": "10", "oct": "10", "october": "10",
+    "okt": "10", "oktober": "10",
     "nov": "11", "november": "11",
-    "dez": "12", "dezember": "12", "dec": "12", "december": "12",
+    "dez": "12", "dezember": "12",
+    # English
+    "january": "01", "february": "02", "march": "03", "mar": "03",
+    "april": "04", "may": "05", "june": "06", "july": "07",
+    "august": "08", "october": "10", "oct": "10",
+    "december": "12", "dec": "12",
+    # Français
+    "janvier": "01", "janv": "01",
+    "février": "02", "fevrier": "02", "fév": "02", "fev": "02",
+    "mars": "03",
+    "avril": "04", "avr": "04",
+    "mai": "05",
+    "juin": "06",
+    "juillet": "07", "juil": "07",
+    "août": "08", "aout": "08",
+    "septembre": "09", "sept": "09",
+    "octobre": "10",
+    "novembre": "11",
+    "décembre": "12", "decembre": "12",
+    # Türkçe
+    "ocak": "01", "oca": "01",
+    "şubat": "02", "subat": "02", "şub": "02", "sub": "02",
+    "mart": "03",
+    "nisan": "04", "nis": "04",
+    "mayıs": "05", "mayis": "05",
+    "haziran": "06", "haz": "06",
+    "temmuz": "07", "tem": "07",
+    "ağustos": "08", "agustos": "08", "ağu": "08", "agu": "08",
+    "eylül": "09", "eylul": "09", "eyl": "09",
+    "ekim": "10", "eki": "10",
+    "kasım": "11", "kasim": "11", "kas": "11",
+    "aralık": "12", "aralik": "12", "ara": "12",
+    # Español
+    "enero": "01", "ene": "01",
+    "febrero": "02",
+    "marzo": "03",
+    "mayo": "05",
+    "junio": "06",
+    "julio": "07",
+    "agosto": "08",
+    "septiembre": "09",
+    "octubre": "10",
+    "noviembre": "11",
+    "diciembre": "12", "dic": "12",
+    # Italiano
+    "gennaio": "01", "gen": "01",
+    "febbraio": "02",
+    "marzo": "03",
+    "aprile": "04",
+    "maggio": "05", "mag": "05",
+    "giugno": "06", "giu": "06",
+    "luglio": "07", "lug": "07",
+    "settembre": "09", "set": "09",
+    "ottobre": "10", "ott": "10",
+    "dicembre": "12",
 }
 
 
@@ -517,17 +572,38 @@ def extract_date(raw_text: str) -> str:
         if result:
             return result
 
-    # 2. Try named month patterns (e.g., "15. März 2024")
+    # 2. Try named month patterns (e.g., "15. März 2024", "16 mars 2026", "3 Ocak 2025")
+    _month_names = sorted(_MONTH_MAP.keys(), key=len, reverse=True)
+    _month_pattern = "|".join(re.escape(m) for m in _month_names)
     month_match = re.search(
-        r"(\d{1,2})\.?\s+(jan(?:uar|uary)?|feb(?:ruar|uary)?|mär(?:z)?|mar(?:ch)?|apr(?:il)?|mai|may|jun(?:i|e)?|jul(?:i|y)?|aug(?:ust)?|sep(?:tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)\s+(\d{4})",
+        rf"(\d{{1,2}})\.?\s+({_month_pattern})\s+(\d{{4}})",
         text, re.IGNORECASE
     )
+    if not month_match:
+        # Also try: "mars 16, 2026" or "March 16 2026" (month first)
+        month_match2 = re.search(
+            rf"({_month_pattern})\s+(\d{{1,2}}),?\s+(\d{{4}})",
+            text, re.IGNORECASE
+        )
+        if month_match2:
+            month_str = month_match2.group(1).lower()
+            day = month_match2.group(2).zfill(2)
+            year = month_match2.group(3)
+            if month_str in _MONTH_MAP:
+                result = _validate_date(year, _MONTH_MAP[month_str], day)
+                if result:
+                    return result
     if month_match:
         day = month_match.group(1).zfill(2)
         month_str = month_match.group(2).lower()
         year = month_match.group(3)
+        if month_str in _MONTH_MAP:
+            result = _validate_date(year, _MONTH_MAP[month_str], day)
+            if result:
+                return result
+        # Fallback: startswith match for abbreviated forms
         for key, val in _MONTH_MAP.items():
-            if month_str.startswith(key):
+            if month_str.startswith(key) or key.startswith(month_str):
                 result = _validate_date(year, val, day)
                 if result:
                     return result
