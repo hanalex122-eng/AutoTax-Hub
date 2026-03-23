@@ -1055,26 +1055,127 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
     db = SessionLocal()
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        total_count = len(invoices)
-        total_sum = sum(safe_float(i.total_amount) for i in invoices)
-        categories = {}
+        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
+
+        inv_count = len(invoices)
+        ce_count = len(cash_entries)
+        inv_sum = sum(safe_float(i.total_amount) for i in invoices)
+        ce_sum = sum(safe_float(e.gross_amount) for e in cash_entries)
+
+        inv_inc = [i for i in invoices if safe_invoice_type(i.invoice_type) == "income"]
+        inv_exp = [i for i in invoices if safe_invoice_type(i.invoice_type) == "expense"]
+        ce_inc = [e for e in cash_entries if e.entry_type == "income"]
+        ce_exp = [e for e in cash_entries if e.entry_type == "expense"]
+
+        total_income = sum(safe_float(i.total_amount) for i in inv_inc) + sum(safe_float(e.gross_amount) for e in ce_inc)
+        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp) + sum(safe_float(e.gross_amount) for e in ce_exp)
+        net_profit = total_income - total_expenses
+
+        vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp) + sum(safe_float(e.vat_amount) for e in ce_exp)
+        vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc) + sum(safe_float(e.vat_amount) for e in ce_inc)
+        vat_balance = vat_collected - vat_paid
+
+        cat_map = {}
         for i in invoices:
             c = safe_category(i.category)
-            categories[c] = categories.get(c, 0) + 1
-        cat_str = ", ".join(f"{k}: {v}" for k, v in categories.items()) if categories else "keine"
+            cat_map[c] = cat_map.get(c, 0) + safe_float(i.total_amount)
+        for e in cash_entries:
+            c = safe_category(e.category)
+            cat_map[c] = cat_map.get(c, 0) + safe_float(e.gross_amount)
+        cat_str = ", ".join(f"{k}: €{v:.2f}" for k, v in sorted(cat_map.items(), key=lambda x: -x[1])) if cat_map else "keine"
 
-        msg_lower = message.lower()
-        if any(w in msg_lower for w in ["wie viel", "wieviel", "summe", "total", "gesamt"]):
-            reply = f"Du hast insgesamt {total_count} Rechnungen mit einem Gesamtbetrag von €{total_sum:.2f}."
-        elif any(w in msg_lower for w in ["kategorie", "categories", "aufteilung"]):
-            reply = f"Deine Rechnungen nach Kategorien: {cat_str}."
-        elif any(w in msg_lower for w in ["mwst", "steuer", "vat", "umsatzsteuer"]):
-            vat_total = sum(safe_float(i.vat_amount) for i in invoices)
-            reply = f"Die gesamte MwSt über alle Rechnungen beträgt €{vat_total:.2f}."
-        elif any(w in msg_lower for w in ["hilfe", "help", "was kannst"]):
-            reply = "Ich kann dir bei Fragen zu deinen Rechnungen helfen: Gesamtbeträge, Kategorien, MwSt-Übersicht, Anzahl der Belege und mehr. Frag einfach!"
+        vendors = {}
+        for i in invoices:
+            v = safe_vendor(i.vendor)
+            vendors[v] = vendors.get(v, 0) + safe_float(i.total_amount)
+        top_vendors = ", ".join(f"{k}: €{v:.2f}" for k, v in sorted(vendors.items(), key=lambda x: -x[1])[:5]) if vendors else "keine"
+
+        msg = message.lower().strip()
+
+        # Summe / Gesamt / wie viel
+        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt"]):
+            reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Kassenbuch: {ce_count} Einträge (€{ce_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
+
+        # Kategorie
+        elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category"]):
+            reply = f"📂 Kategorien:\n{cat_str}"
+
+        # MwSt / VAT / Steuer
+        elif any(w in msg for w in ["mwst", "vat", "umsatzsteuer", "mehrwertsteuer", "vorsteuer"]):
+            reply = f"🧾 MwSt-Übersicht:\n• Gezahlte Vorsteuer: €{vat_paid:.2f}\n• Vereinnahmte USt: €{vat_collected:.2f}\n• Saldo: €{vat_balance:.2f}\n{'→ Du bekommst €'+str(abs(round(vat_balance,2)))+' zurück' if vat_balance < 0 else '→ Du schuldest €'+str(round(vat_balance,2)) if vat_balance > 0 else '→ Ausgeglichen'}"
+
+        # Steuer / Einkommensteuer
+        elif any(w in msg for w in ["steuer", "tax", "einkommensteuer", "steuerlast"]):
+            if net_profit > 277826:
+                rate = 45
+            elif net_profit > 61356:
+                rate = 42
+            elif net_profit > 17005:
+                rate = 30
+            elif net_profit > 10908:
+                rate = 14
+            else:
+                rate = 0
+            estimate = round(net_profit * rate / 100, 2) if net_profit > 0 else 0
+            reply = f"💰 Steuer-Schätzung (Deutschland):\n• Gewinn: €{net_profit:.2f}\n• Steuersatz: {rate}%\n• Geschätzte Steuer: €{estimate:.2f}\n\nHinweis: Dies ist eine Schätzung. Für genaue Berechnung bitte Steuerberater konsultieren."
+
+        # Einnahmen / Income
+        elif any(w in msg for w in ["einnahme", "income", "umsatz", "revenue", "verdien"]):
+            reply = f"📈 Einnahmen: €{total_income:.2f} ({len(inv_inc)+len(ce_inc)} Positionen)"
+
+        # Ausgaben / Expenses
+        elif any(w in msg for w in ["ausgabe", "expense", "kosten", "cost", "bezahl"]):
+            reply = f"📉 Ausgaben: €{total_expenses:.2f} ({len(inv_exp)+len(ce_exp)} Positionen)"
+
+        # Gewinn / Profit
+        elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "netto", "ergebnis"]):
+            emoji = "📈" if net_profit >= 0 else "📉"
+            reply = f"{emoji} Netto-Ergebnis: €{net_profit:.2f}\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}"
+
+        # Vendor / Lieferant
+        elif any(w in msg for w in ["lieferant", "vendor", "händler", "wer", "anbieter", "firma"]):
+            reply = f"🏢 Top Lieferanten:\n{top_vendors}"
+
+        # Kassenbuch
+        elif any(w in msg for w in ["kassenbuch", "bookkeeping", "cash", "kasse"]):
+            reply = f"📒 Kassenbuch: {ce_count} Einträge (Gesamt: €{ce_sum:.2f})\n• Einnahmen: {len(ce_inc)} Einträge\n• Ausgaben: {len(ce_exp)} Einträge\n\nTipp: Du kannst Rechnungen automatisch ins Kassenbuch synchronisieren."
+
+        # Rechnung / Invoice
+        elif any(w in msg for w in ["rechnung", "invoice", "beleg", "faktur"]):
+            reply = f"🧾 Rechnungen: {inv_count} gesamt (€{inv_sum:.2f})\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}\n\nTipp: Über 'Upload' kannst du neue Belege hochladen."
+
+        # Upload
+        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr"]):
+            reply = "📤 Upload-Anleitung:\n1. Gehe zu 'Upload'\n2. Ziehe PDF, PNG oder JPEG in den Bereich\n3. Bis zu 20 Dateien gleichzeitig\n4. Die OCR erkennt automatisch: Lieferant, Betrag, MwSt, Datum\n5. Belege erscheinen in Rechnungen UND Kassenbuch"
+
+        # Export
+        elif any(w in msg for w in ["export", "csv", "excel", "datev", "download", "herunterladen"]):
+            reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel\n• DATEV — für deinen Steuerberater\n• Excel — .xlsx Format\n• JSON — für Entwickler\n\nGehe zu 'Export', wähle das Jahr und klicke den gewünschten Button."
+
+        # EÜR
+        elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung"]):
+            reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\nGehe zu 'Steuer (EÜR)', wähle das Steuerjahr und klicke 'Generieren'.\nDie EÜR wird automatisch aus deinen Rechnungen und Kassenbuch-Einträgen erstellt."
+
+        # Löschen / Delete
+        elif any(w in msg for w in ["lösch", "delete", "entfern", "zurücksetz"]):
+            reply = "🗑️ Löschen:\n• Einzeln: Klicke das Papierkorb-Symbol neben dem Eintrag\n• Mehrere: Häkchen setzen → 'X löschen' Button\n• Alles zurücksetzen: Dashboard → 'Zurücksetzen' (ACHTUNG: unwiderruflich!)"
+
+        # Hilfe / Help
+        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature"]):
+            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' — Vorsteuer & USt Übersicht\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Kassenbuch' — Kassenbuch-Übersicht\n• 'Upload' — Wie lade ich Belege hoch?\n• 'Export' — Welche Export-Formate gibt es?\n• 'EÜR' — Steuererklärung generieren\n\nFrag einfach!"
+
+        # Hallo / Greeting
+        elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten"]):
+            reply = f"👋 Hallo! Du hast {inv_count} Rechnungen und {ce_count} Kassenbuch-Einträge. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
+
+        # Danke
+        elif any(w in msg for w in ["danke", "thanks", "thx", "merci"]):
+            reply = "Gerne! Wenn du weitere Fragen hast, frag einfach. 😊"
+
+        # Fallback — give useful summary instead of generic message
         else:
-            reply = f"Du hast {total_count} Rechnungen (Gesamt: €{total_sum:.2f}). Kategorien: {cat_str}. Frag mich nach Details zu MwSt, Kategorien oder Beträgen!"
+            reply = f"Hier ist deine aktuelle Übersicht:\n• {inv_count} Rechnungen, {ce_count} Kassenbuch-Einträge\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n\nFrag mich z.B. nach: Kategorien, MwSt, Steuer, Gewinn, Lieferanten, Upload, Export oder Hilfe!"
+
         return {"reply": reply}
     except Exception:
         logger.exception("Chat failed")
