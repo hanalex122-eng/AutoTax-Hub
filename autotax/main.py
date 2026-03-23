@@ -101,6 +101,37 @@ def parse_date_str_to_datetime(date_str):
     return None
 
 
+def auto_create_cash_entry(invoice_id: int, user_id: int, data: dict):
+    """Create a CashEntry automatically when an invoice is uploaded."""
+    db = SessionLocal()
+    try:
+        date_val = parse_date_str_to_datetime(data.get("date") or "")
+        if not date_val:
+            date_val = datetime.now()
+        entry = CashEntry(
+            user_id=user_id,
+            description=f"Rechnung: {data.get('vendor') or 'Unbekannt'}",
+            vendor=data.get("vendor") or "Unbekannt",
+            gross_amount=data.get("total_amount") or 0.0,
+            vat_amount=data.get("vat_amount") or 0.0,
+            vat_rate=data.get("vat_rate") or "0%",
+            entry_type="expense",
+            category=data.get("category") or "other",
+            payment_method=data.get("payment_method") or "",
+            reference=f"INV-{invoice_id}",
+            notes=f"Auto-sync from invoice #{invoice_id}",
+            is_reconciled=False,
+            invoice_id=invoice_id,
+            date=date_val,
+        )
+        db.add(entry)
+        db.commit()
+    except Exception:
+        logger.exception("Auto cash entry creation failed for invoice %s", invoice_id)
+    finally:
+        db.close()
+
+
 def invoice_to_dict(i):
     return {
         "id": i.id,
@@ -296,6 +327,8 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
         logger.exception("DB save failed")
         err(500, "Failed to save invoice")
 
+    auto_create_cash_entry(invoice_id, user["sub"], result)
+
     return {
         "id": invoice_id,
         "total_amount": safe_float(result.get("total_amount")),
@@ -331,6 +364,7 @@ async def upload_batch(files: List[UploadFile] = File(...), user: dict = Depends
                 results.append({"filename": file.filename, "status": "error", "message": "Parse failed"})
                 continue
             invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename)
+            auto_create_cash_entry(invoice_id, user["sub"], parsed)
             results.append({
                 "filename": file.filename,
                 "status": "ok",
