@@ -403,16 +403,19 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
     db = SessionLocal()
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
+        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
 
-        inc = [i for i in invoices if safe_invoice_type(i.invoice_type) == "income"]
-        exp = [i for i in invoices if safe_invoice_type(i.invoice_type) == "expense"]
+        inv_inc = [i for i in invoices if safe_invoice_type(i.invoice_type) == "income"]
+        inv_exp = [i for i in invoices if safe_invoice_type(i.invoice_type) == "expense"]
+        ce_inc = [e for e in cash_entries if e.entry_type == "income"]
+        ce_exp = [e for e in cash_entries if e.entry_type == "expense"]
 
-        total_income = sum(safe_float(i.total_amount) for i in inc)
-        total_expenses = sum(safe_float(i.total_amount) for i in exp)
+        total_income = sum(safe_float(i.total_amount) for i in inv_inc) + sum(safe_float(e.gross_amount) for e in ce_inc)
+        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp) + sum(safe_float(e.gross_amount) for e in ce_exp)
         net_profit = total_income - total_expenses
 
-        total_vat_paid = sum(safe_float(i.vat_amount) for i in exp)
-        total_vat_collected = sum(safe_float(i.vat_amount) for i in inc)
+        total_vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp) + sum(safe_float(e.vat_amount) for e in ce_exp)
+        total_vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc) + sum(safe_float(e.vat_amount) for e in ce_inc)
         vat_balance = total_vat_collected - total_vat_paid
 
         if country == "DE":
@@ -443,6 +446,15 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
                 month_map[m]["income"] += safe_float(i.total_amount)
             else:
                 month_map[m]["expenses"] += safe_float(i.total_amount)
+        for e in cash_entries:
+            if e.date:
+                m = e.date.strftime("%Y-%m")
+                if m not in month_map:
+                    month_map[m] = {"month": m, "income": 0.0, "expenses": 0.0}
+                if e.entry_type == "income":
+                    month_map[m]["income"] += safe_float(e.gross_amount)
+                else:
+                    month_map[m]["expenses"] += safe_float(e.gross_amount)
         monthly_breakdown = sorted(month_map.values(), key=lambda x: x["month"])
         for mb in monthly_breakdown:
             mb["income"] = round(mb["income"], 2)
@@ -452,7 +464,12 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
         for i in invoices:
             c = safe_category(i.category)
             cat_map[c] = cat_map.get(c, 0) + safe_float(i.total_amount)
+        for e in cash_entries:
+            c = safe_category(e.category)
+            cat_map[c] = cat_map.get(c, 0) + safe_float(e.gross_amount)
         by_category = [{"category": k, "total": round(v, 2)} for k, v in sorted(cat_map.items(), key=lambda x: -x[1])]
+
+        total_count = len(invoices) + len(cash_entries)
 
         return {
             "total_income": round(total_income, 2),
@@ -460,9 +477,9 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
             "net_profit": round(net_profit, 2),
             "tax_estimate": tax_estimate,
             "tax_rate_applied": tax_rate,
-            "income_count": len(inc),
-            "expense_count": len(exp),
-            "invoice_count": len(invoices),
+            "income_count": len(inv_inc) + len(ce_inc),
+            "expense_count": len(inv_exp) + len(ce_exp),
+            "invoice_count": total_count,
             "monthly_breakdown": monthly_breakdown,
             "by_category": by_category,
             "total_vat_paid": round(total_vat_paid, 2),
@@ -485,10 +502,11 @@ def invoice_summary(user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        total_count = len(invoices)
+        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
+        total_count = len(invoices) + len(cash_entries)
         processed = sum(1 for i in invoices if i.processed)
-        unprocessed = total_count - processed
-        total_revenue = sum(safe_float(i.total_amount) for i in invoices)
+        unprocessed = len(invoices) - processed
+        total_revenue = sum(safe_float(i.total_amount) for i in invoices) + sum(safe_float(e.gross_amount) for e in cash_entries)
         return {
             "success": True,
             "total_count": total_count,
