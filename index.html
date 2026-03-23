@@ -854,42 +854,132 @@ function CookieConsent(){
 
 function HelpView(){
   const[openFaq,setOpenFaq]=useState(null);
+  const[openGuide,setOpenGuide]=useState(null);
   const features=[
-    {icon:"📤",title:"Upload & OCR",desc:"Lade PDF, PNG oder JPEG Belege hoch. Die OCR-Engine erkennt automatisch Lieferant, Betrag, MwSt und Datum. Unterstützt deutsche und französische Belege."},
-    {icon:"📋",title:"Rechnungen",desc:"Alle hochgeladenen Belege werden hier aufgelistet. Du kannst sie filtern, bearbeiten, einzeln oder mehrere gleichzeitig löschen (Checkbox-Auswahl)."},
-    {icon:"📒",title:"Kassenbuch",desc:"Dein digitales Kassenbuch. Klicke 'Rechnungen sync' um Belege zu übernehmen, oder füge manuell Einträge hinzu. Jeder Eintrag kann bearbeitet werden."},
-    {icon:"📊",title:"Dashboard",desc:"Übersicht über Einnahmen, Ausgaben, Gewinn und Steuer. Monatliche Auswertung und Kategorien-Verteilung. 'Alles zurücksetzen' löscht alle Daten."},
-    {icon:"💾",title:"Export",desc:"Exportiere deine Daten als CSV (Excel-kompatibel), DATEV (für Steuerberater), Excel oder JSON. Die Dateien werden direkt heruntergeladen."},
-    {icon:"🧾",title:"Steuer (EÜR)",desc:"Automatische Einnahmen-Überschuss-Rechnung generieren. Wähle das Steuerjahr und klicke 'Generieren'."},
-    {icon:"🤖",title:"AI Chat",desc:"Frag den AI-Assistenten alles zu deinen Rechnungen, MwSt-Sätzen, Kategorien oder steuerlichen Fragen."},
+    {icon:"📤",title:"Upload & OCR",desc:"Intelligente Belegerkennung mit OCR-Technologie",
+      details:[
+        "Unterstützte Formate: PDF, PNG, JPEG, TIFF, WEBP (max. 5 MB)",
+        "Einzelupload oder Batch-Upload (bis zu 20 Dateien gleichzeitig)",
+        "Automatische Erkennung: Lieferant, Betrag, MwSt-Satz, MwSt-Betrag, Datum",
+        "Handschrift-Modus für handgeschriebene Belege aktivierbar",
+        "Nach Upload erscheint der Beleg automatisch in Rechnungen UND Kassenbuch",
+        "Erkannte Kategorien: Lebensmittel, Kraftstoff, Restaurant, Shopping, Transport u.v.m.",
+        "Über 100 Lieferanten werden automatisch erkannt (Lidl, Amazon, Shell, etc.)",
+      ]},
+    {icon:"📋",title:"Rechnungen (Invoices)",desc:"Zentrale Belegverwaltung mit Such- und Filterfunktion",
+      details:[
+        "Alle hochgeladenen Belege auf einen Blick",
+        "Suchfunktion: Suche nach Lieferant, Betrag oder Kategorie",
+        "Filter nach: Vendor, Status (verarbeitet/unverarbeitet), Kategorie",
+        "Inline-Bearbeitung: Klicke auf einen Eintrag um Vendor, Betrag, Kategorie, Datum zu ändern",
+        "Einzeln löschen: Papierkorb-Symbol neben dem Eintrag",
+        "Mehrfach löschen: Häkchen setzen → 'X ausgewählte löschen'",
+        "Sortierung nach Datum (neueste zuerst)",
+        "Paginierung: Blättere durch große Belegmengen",
+      ]},
+    {icon:"📒",title:"Kassenbuch (Bookkeeping)",desc:"Digitales Kassenbuch nach deutschen Standards",
+      details:[
+        "Automatische Synchronisation: Hochgeladene Rechnungen erscheinen automatisch",
+        "Manuelle Einträge: Füge Einnahmen und Ausgaben manuell hinzu",
+        "Felder: Beschreibung, Lieferant, Bruttobetrag, MwSt-Satz, Kategorie, Zahlungsmethode, Referenz, Notizen",
+        "'Rechnungen sync' Button: Überträgt neue Rechnungen ins Kassenbuch (Duplikate werden übersprungen)",
+        "Abstimmung (Reconcile): Markiere Einträge als abgestimmt",
+        "CSV-Export: Exportiere das Kassenbuch als CSV-Datei",
+        "Jahresübersicht: Einnahmen, Ausgaben, Gewinn, MwSt-Saldo auf einen Blick",
+        "Bearbeiten & Löschen: Jeder Eintrag kann einzeln angepasst oder entfernt werden",
+      ]},
+    {icon:"📊",title:"Dashboard",desc:"Finanzübersicht mit Grafiken und KPIs",
+      details:[
+        "Gesamtübersicht: Einnahmen, Ausgaben, Nettogewinn",
+        "Steuerschätzung: Automatische Berechnung nach deutschem Steuerrecht (Progressionsstufen: 0%, 14%, 30%, 42%, 45%)",
+        "MwSt-Übersicht: Gezahlte Vorsteuer, vereinnahmte USt, MwSt-Saldo",
+        "Monatliche Auswertung: Einnahmen vs. Ausgaben pro Monat als Diagramm",
+        "Kategorien-Verteilung: Wo gibst du am meisten aus?",
+        "Verarbeitungsfortschritt: Wie viele Belege wurden erfolgreich erkannt?",
+        "Daten aus BEIDEN Tabellen: Rechnungen + Kassenbuch werden zusammengeführt",
+        "CSV-Export-Button: Alle Rechnungen als CSV herunterladen",
+        "'Alles zurücksetzen': Löscht ALLE Daten unwiderruflich (Doppelbestätigung erforderlich)",
+      ]},
+    {icon:"💾",title:"Export",desc:"Daten in verschiedenen Formaten exportieren",
+      details:[
+        "CSV: Komma-getrennte Datei, kompatibel mit Excel, Google Sheets, LibreOffice",
+        "DATEV: Standard-Format für deutsche Steuerberater — direkt in DATEV-Software importierbar",
+        "Excel: .xlsx-Format mit formatierten Spalten",
+        "JSON: Strukturiertes Datenformat für Entwickler und API-Integration",
+        "Jahresfilter: Wähle ein bestimmtes Steuerjahr oder exportiere alles",
+        "Direkter Download: Dateien werden sofort im Browser heruntergeladen",
+      ]},
+    {icon:"🧾",title:"Steuer (EÜR)",desc:"Einnahmen-Überschuss-Rechnung automatisch generieren",
+      details:[
+        "EÜR = Einnahmen-Überschuss-Rechnung (für Freiberufler und Kleinunternehmer)",
+        "Wähle das Steuerjahr und klicke 'Generieren'",
+        "Automatische Berechnung aus allen Rechnungen und Kassenbuch-Einträgen",
+        "Enthält: Betriebseinnahmen, Betriebsausgaben, Gewinn/Verlust, MwSt-Zusammenfassung",
+        "Kann als Grundlage für die Steuererklärung verwendet werden",
+        "Hinweis: Für die offizielle Steuererklärung immer einen Steuerberater konsultieren",
+      ]},
+    {icon:"🤖",title:"AI Steuer-Assistent",desc:"Intelligenter Chat-Bot für Finanzfragen",
+      details:[
+        "Frage nach Gesamtbeträgen: 'Wie viel habe ich ausgegeben?'",
+        "Kategorien-Analyse: 'Zeige mir die Kategorien'",
+        "MwSt-Auskunft: 'Wie hoch ist meine MwSt?'",
+        "Steuerschätzung: 'Was muss ich an Steuern zahlen?'",
+        "Gewinn/Verlust: 'Was ist mein Gewinn?'",
+        "Lieferanten-Info: 'Wer sind meine Top-Lieferanten?'",
+        "Kassenbuch-Status: 'Wie sieht mein Kassenbuch aus?'",
+        "Anleitungen: 'Wie lade ich Belege hoch?', 'Wie exportiere ich?'",
+        "Daten aus Rechnungen UND Kassenbuch werden berücksichtigt",
+      ]},
   ];
   const faqs=[
-    {q:"Wie lade ich Belege hoch?",a:"Gehe zu 'Upload', ziehe Dateien in den Upload-Bereich oder klicke darauf. PDF, PNG, JPEG werden unterstützt. Bis zu 20 Dateien gleichzeitig."},
-    {q:"Warum zeigt ein Beleg €0.00 an?",a:"Die OCR-Engine konnte den Betrag nicht erkennen. Klicke auf 'Bearbeiten' im Kassenbuch und trage den korrekten Betrag manuell ein."},
-    {q:"Warum ist das Datum immer heute?",a:"Wenn die OCR das Datum auf dem Beleg nicht lesen kann, wird das heutige Datum verwendet. Du kannst es über 'Bearbeiten' korrigieren."},
-    {q:"Wie lösche ich mehrere Einträge?",a:"Setze Häkchen bei den gewünschten Einträgen (Checkbox links) und klicke dann auf den roten 'X löschen' Button oben."},
-    {q:"Was macht 'Rechnungen sync'?",a:"Überträgt hochgeladene Rechnungen ins Kassenbuch. Bereits synchronisierte werden übersprungen."},
-    {q:"Wie exportiere ich nach Excel?",a:"Gehe zu 'Export', wähle das Jahr und klicke auf 'CSV' oder 'Excel'. Die Datei wird direkt heruntergeladen."},
-    {q:"Wie setze ich alles zurück?",a:"Im Dashboard oben rechts auf 'Alles zurücksetzen' klicken. ACHTUNG: Alle Daten werden unwiderruflich gelöscht!"},
-    {q:"Welche Passwort-Anforderungen gibt es?",a:"Mindestens 6 Zeichen, 1 Großbuchstabe, 1 Zahl und 1 Sonderzeichen (z.B. ! @ # $ %)."},
+    {q:"Wie lade ich Belege hoch?",a:"Gehe zu 'Upload', ziehe Dateien in den Upload-Bereich oder klicke darauf. PDF, PNG, JPEG, TIFF und WEBP werden unterstützt. Bis zu 20 Dateien gleichzeitig, max. 5 MB pro Datei. Die OCR erkennt automatisch alle relevanten Daten."},
+    {q:"Warum zeigt ein Beleg €0.00 an?",a:"Die OCR-Engine konnte den Betrag nicht erkennen. Das passiert bei schlechter Bildqualität, ungewöhnlichen Layouts oder handschriftlichen Belegen. Lösung: Gehe zu Rechnungen oder Kassenbuch → Klicke 'Bearbeiten' → Trage den korrekten Betrag manuell ein."},
+    {q:"Warum ist das Datum immer heute?",a:"Wenn die OCR das Datum auf dem Beleg nicht lesen kann, wird das heutige Datum als Fallback verwendet. Unterstützte Formate: DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY. Du kannst das Datum über 'Bearbeiten' jederzeit korrigieren."},
+    {q:"Wie lösche ich mehrere Einträge?",a:"Setze Häkchen bei den gewünschten Einträgen (Checkbox links). Oben erscheint ein roter 'X ausgewählte löschen' Button. Dies funktioniert sowohl in Rechnungen als auch im Kassenbuch."},
+    {q:"Was macht 'Rechnungen sync'?",a:"Der Button überträgt alle Rechnungen ins Kassenbuch, die dort noch nicht vorhanden sind. Bereits synchronisierte Einträge werden automatisch übersprungen (Duplikat-Erkennung über invoice_id). Neue Uploads werden seit dem letzten Update automatisch synchronisiert."},
+    {q:"Wie exportiere ich nach Excel?",a:"Gehe zu 'Export' → Wähle optional ein Steuerjahr → Klicke auf 'Excel', 'CSV', 'DATEV' oder 'JSON'. Die Datei wird direkt heruntergeladen. CSV-Export ist auch direkt im Dashboard verfügbar."},
+    {q:"Wie setze ich alles zurück?",a:"Im Dashboard oben rechts auf 'Zurücksetzen' klicken. Es folgen ZWEI Bestätigungsdialoge als Sicherheit. ACHTUNG: Alle Rechnungen UND Kassenbuch-Einträge werden unwiderruflich gelöscht! Es gibt kein Undo."},
+    {q:"Welche Passwort-Anforderungen gibt es?",a:"Mindestens 8 Zeichen, mindestens 1 Großbuchstabe und mindestens 1 Zahl. Beispiel: MeinPasswort1"},
+    {q:"Was ist der Unterschied zwischen Rechnungen und Kassenbuch?",a:"Rechnungen = Hochgeladene Belege (OCR-erkannt). Kassenbuch = Vollständiges Buchführungsregister. Rechnungen werden automatisch ins Kassenbuch übernommen, aber du kannst im Kassenbuch auch manuelle Einträge hinzufügen (z.B. Bargeld-Transaktionen)."},
+    {q:"Wie wird die Steuer berechnet?",a:"AutoTax nutzt die deutschen Einkommensteuer-Progressionsstufen: bis €10.908 = 0%, bis €17.005 = 14%, bis €61.356 = 30%, bis €277.826 = 42%, darüber = 45%. Die Berechnung basiert auf dem Nettogewinn (Einnahmen minus Ausgaben). Dies ist eine Schätzung — für die offizielle Steuererklärung bitte einen Steuerberater konsultieren."},
+    {q:"Welche Kategorien gibt es?",a:"Automatisch erkannte Kategorien: Lebensmittel (food), Restaurant, Kraftstoff (fuel), Shopping, Transport, Elektronik, Versicherung, Bürobedarf (office), Miete (rent), Telekommunikation, Medizin (medical), Bildung (education), Unterhaltung (entertainment), Sonstiges (other). Die Kategorie kann jederzeit manuell geändert werden."},
+    {q:"Kann ich den AI Chat für Steuerfragen nutzen?",a:"Ja! Der AI Steuer-Assistent kennt alle deine Rechnungen und Kassenbuch-Einträge. Frag nach: Gesamtbeträgen, Kategorien, MwSt, Steuerschätzung, Gewinn, Lieferanten oder Anleitungen. Beispiel: 'Wie viel habe ich für Lebensmittel ausgegeben?' oder 'Was ist mein MwSt-Saldo?'"},
   ];
   return(<div style={{display:"flex",flexDirection:"column",gap:24,maxWidth:800}}>
     <div>
       <h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:0}}>Hilfe & Anleitung</h2>
-      <p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 0"}}>So funktioniert AutoTax-HUB</p>
+      <p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 0"}}>Komplette Dokumentation aller AutoTax-HUB Funktionen</p>
     </div>
     <div style={{...css.card,background:"linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(59,130,246,0.08) 100%)",border:"1px solid rgba(16,185,129,0.2)"}}>
       <h3 style={{fontSize:16,fontWeight:700,color:theme.accent,margin:"0 0 8px"}}>🚀 Schnellstart</h3>
-      <p style={{fontSize:14,color:theme.textMuted,lineHeight:1.7,margin:0}}>
-        1. Belege hochladen (Upload) → 2. Kassenbuch synchronisieren → 3. Einträge prüfen & bearbeiten → 4. Exportieren oder Steuerformular generieren
-      </p>
+      <div style={{fontSize:14,color:theme.textMuted,lineHeight:1.8,margin:0}}>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div><strong style={{color:theme.accent}}>Schritt 1:</strong> Registriere dich und melde dich an</div>
+          <div><strong style={{color:theme.accent}}>Schritt 2:</strong> Lade Belege hoch (Upload) — PDF, Fotos, Scans</div>
+          <div><strong style={{color:theme.accent}}>Schritt 3:</strong> OCR erkennt automatisch alle Daten + Eintrag erscheint in Rechnungen & Kassenbuch</div>
+          <div><strong style={{color:theme.accent}}>Schritt 4:</strong> Prüfe und korrigiere Einträge bei Bedarf</div>
+          <div><strong style={{color:theme.accent}}>Schritt 5:</strong> Exportiere als CSV, DATEV, Excel oder JSON</div>
+          <div><strong style={{color:theme.accent}}>Schritt 6:</strong> Generiere deine EÜR für die Steuererklärung</div>
+        </div>
+      </div>
     </div>
     <div>
-      <h3 style={{fontSize:16,fontWeight:600,color:theme.text,margin:"0 0 16px"}}>Funktionen</h3>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",gap:12}}>
-        {features.map((f,i)=>(<div key={i} style={{...css.card,display:"flex",gap:14,alignItems:"flex-start",transition:"transform 0.2s cubic-bezier(0.4,0,0.2,1),box-shadow 0.2s cubic-bezier(0.4,0,0.2,1)",cursor:"default"}} onMouseEnter={e=>{e.currentTarget.style.transitionDelay="65ms";e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(0,0,0,0.2)";}} onMouseLeave={e=>{e.currentTarget.style.transitionDelay="0ms";e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
-          <span style={{fontSize:28,flexShrink:0}}>{f.icon}</span>
-          <div><div style={{fontSize:14,fontWeight:600,color:theme.text,marginBottom:4}}>{f.title}</div><div style={{fontSize:12,color:theme.textMuted,lineHeight:1.6}}>{f.desc}</div></div>
+      <h3 style={{fontSize:16,fontWeight:600,color:theme.text,margin:"0 0 16px"}}>Funktionen im Detail</h3>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {features.map((f,i)=>(<div key={i} style={{...css.card,padding:0,overflow:"hidden"}}>
+          <div style={{padding:"16px 20px",display:"flex",gap:14,alignItems:"center",cursor:"pointer",background:openGuide===i?theme.accentSoft:"transparent",transition:"background 0.2s"}} onClick={()=>setOpenGuide(openGuide===i?null:i)}>
+            <span style={{fontSize:28,flexShrink:0}}>{f.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:openGuide===i?theme.accent:theme.text}}>{f.title}</div>
+              <div style={{fontSize:12,color:theme.textMuted,marginTop:2}}>{f.desc}</div>
+            </div>
+            <span style={{color:theme.textDim,fontSize:18,transition:"transform 0.3s",transform:openGuide===i?"rotate(180deg)":"rotate(0deg)"}}>▾</span>
+          </div>
+          {openGuide===i&&<div style={{padding:"0 20px 16px",borderTop:"1px solid "+theme.border}}>
+            <ul style={{margin:"12px 0 0",paddingLeft:20,display:"flex",flexDirection:"column",gap:8}}>
+              {f.details.map((d,j)=>(<li key={j} style={{fontSize:13,color:theme.textMuted,lineHeight:1.6}}>{d}</li>))}
+            </ul>
+          </div>}
         </div>))}
       </div>
     </div>
@@ -906,10 +996,18 @@ function HelpView(){
       </div>
     </div>
     <div style={{...css.card,background:theme.surfaceAlt}}>
-      <h3 style={{fontSize:14,fontWeight:600,color:theme.text,margin:"0 0 8px"}}>📧 Support</h3>
+      <h3 style={{fontSize:14,fontWeight:600,color:theme.text,margin:"0 0 8px"}}>📧 Support & Kontakt</h3>
       <p style={{fontSize:13,color:theme.textMuted,lineHeight:1.6,margin:0}}>
-        Weitere Fragen? Schreibe an info@autotaxhub.de oder nutze den AI Chat für schnelle Hilfe.
+        Weitere Fragen? Schreibe an info@autotaxhub.de oder nutze den AI Chat für schnelle Hilfe. Der AI-Assistent kennt alle deine Daten und kann sofort Auskunft geben.
       </p>
+    </div>
+    <div style={{...css.card,border:"1px solid rgba(59,130,246,0.2)",background:"rgba(59,130,246,0.05)"}}>
+      <h3 style={{fontSize:14,fontWeight:600,color:theme.blue,margin:"0 0 8px"}}>ℹ️ Technische Informationen</h3>
+      <div style={{fontSize:12,color:theme.textMuted,lineHeight:1.8}}>
+        <div>Version: 5.4.0 | Backend: FastAPI (Python) | Frontend: React</div>
+        <div>OCR: ocr.space API + pdfplumber | Datenbank: PostgreSQL</div>
+        <div>Hosting: Railway | Verschlüsselung: bcrypt (Passwörter), JWT (Authentifizierung)</div>
+      </div>
     </div>
   </div>);
 }
