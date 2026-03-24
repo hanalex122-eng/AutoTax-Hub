@@ -190,7 +190,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "5.4.0"}
+    return {"status": "ok", "version": "5.5.0"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1372,3 +1372,4 @@ def export_json(year: int = Query(None), user: dict = Depends(get_current_user))
 
 
 # Build trigger: 2026-03-24
+# force deploy 2
