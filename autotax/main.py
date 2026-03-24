@@ -160,6 +160,7 @@ def invoice_to_dict(i):
         "category": safe_category(i.category),
         "processed": i.processed or False,
         "created_at": i.created_at.strftime("%Y-%m-%dT%H:%M:%S") if i.created_at else "",
+        "ocr_snippet": (i.raw_text or "")[:200],
     }
 
 
@@ -466,7 +467,20 @@ def list_invoices(
         q = db.query(Invoice).filter(Invoice.user_id == user["sub"])
 
         if search:
-            q = q.filter(Invoice.raw_text.ilike(f"%{search}%"))
+            # Smart multi-keyword search: split by space, ALL keywords must match
+            # Search across vendor, category, and raw_text (OCR content)
+            import unicodedata
+            normalized = unicodedata.normalize("NFKD", search.lower().strip())
+            keywords = [k.strip() for k in normalized.split() if k.strip()]
+            from sqlalchemy import or_
+            for kw in keywords:
+                pattern = f"%{kw}%"
+                q = q.filter(or_(
+                    Invoice.raw_text.ilike(pattern),
+                    Invoice.vendor.ilike(pattern),
+                    Invoice.category.ilike(pattern),
+                    Invoice.invoice_number.ilike(pattern),
+                ))
         if vendor:
             q = q.filter(Invoice.vendor.ilike(f"%{vendor}%"))
         if status == "processed":
