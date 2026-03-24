@@ -505,20 +505,20 @@ def list_invoices(
 def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
+        all_invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
+        # Filter out invalid entries (amount=0 or vendor=Unbekannt)
+        invoices = [i for i in all_invoices if safe_float(i.total_amount) > 0 and safe_vendor(i.vendor) != "Unbekannt"]
 
+        # Use ONLY invoices as source of truth (no cash_entries to avoid double counting)
         inv_inc = [i for i in invoices if safe_invoice_type(i.invoice_type) == "income"]
         inv_exp = [i for i in invoices if safe_invoice_type(i.invoice_type) == "expense"]
-        ce_inc = [e for e in cash_entries if e.entry_type == "income"]
-        ce_exp = [e for e in cash_entries if e.entry_type == "expense"]
 
-        total_income = sum(safe_float(i.total_amount) for i in inv_inc) + sum(safe_float(e.gross_amount) for e in ce_inc)
-        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp) + sum(safe_float(e.gross_amount) for e in ce_exp)
+        total_income = sum(safe_float(i.total_amount) for i in inv_inc)
+        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp)
         net_profit = total_income - total_expenses
 
-        total_vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp) + sum(safe_float(e.vat_amount) for e in ce_exp)
-        total_vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc) + sum(safe_float(e.vat_amount) for e in ce_inc)
+        total_vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp)
+        total_vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc)
         vat_balance = total_vat_collected - total_vat_paid
 
         if country == "DE":
@@ -549,15 +549,6 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
                 month_map[m]["income"] += safe_float(i.total_amount)
             else:
                 month_map[m]["expenses"] += safe_float(i.total_amount)
-        for e in cash_entries:
-            if e.date:
-                m = e.date.strftime("%Y-%m")
-                if m not in month_map:
-                    month_map[m] = {"month": m, "income": 0.0, "expenses": 0.0}
-                if e.entry_type == "income":
-                    month_map[m]["income"] += safe_float(e.gross_amount)
-                else:
-                    month_map[m]["expenses"] += safe_float(e.gross_amount)
         monthly_breakdown = sorted(month_map.values(), key=lambda x: x["month"])
         for mb in monthly_breakdown:
             mb["income"] = round(mb["income"], 2)
@@ -567,12 +558,7 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
         for i in invoices:
             c = safe_category(i.category)
             cat_map[c] = cat_map.get(c, 0) + safe_float(i.total_amount)
-        for e in cash_entries:
-            c = safe_category(e.category)
-            cat_map[c] = cat_map.get(c, 0) + safe_float(e.gross_amount)
         by_category = [{"category": k, "total": round(v, 2)} for k, v in sorted(cat_map.items(), key=lambda x: -x[1])]
-
-        total_count = len(invoices) + len(cash_entries)
 
         return {
             "total_income": round(total_income, 2),
@@ -580,11 +566,10 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
             "net_profit": round(net_profit, 2),
             "tax_estimate": tax_estimate,
             "tax_rate_applied": tax_rate,
-            "income_count": len(inv_inc) + len(ce_inc),
-            "expense_count": len(inv_exp) + len(ce_exp),
+            "income_count": len(inv_inc),
+            "expense_count": len(inv_exp),
             "invoice_count": len(invoices),
-            "cash_entry_count": len(cash_entries),
-            "total_count": total_count,
+            "invalid_count": len(all_invoices) - len(invoices),
             "monthly_breakdown": monthly_breakdown,
             "by_category": by_category,
             "total_vat_paid": round(total_vat_paid, 2),
@@ -606,12 +591,12 @@ def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_curre
 def invoice_summary(user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
-        total_count = len(invoices) + len(cash_entries)
+        all_invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
+        invoices = [i for i in all_invoices if safe_float(i.total_amount) > 0 and safe_vendor(i.vendor) != "Unbekannt"]
+        total_count = len(invoices)
         processed = sum(1 for i in invoices if i.processed)
-        unprocessed = len(invoices) - processed
-        total_revenue = sum(safe_float(i.total_amount) for i in invoices) + sum(safe_float(e.gross_amount) for e in cash_entries)
+        unprocessed = total_count - processed
+        total_revenue = sum(safe_float(i.total_amount) for i in invoices)
         return {
             "success": True,
             "total_count": total_count,
@@ -1140,34 +1125,28 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
     message = body.get("message", "")
     db = SessionLocal()
     try:
-        invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        cash_entries = db.query(CashEntry).filter(CashEntry.user_id == user["sub"]).all()
+        all_invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
+        # Filter invalid entries — same logic as dashboard
+        invoices = [i for i in all_invoices if safe_float(i.total_amount) > 0 and safe_vendor(i.vendor) != "Unbekannt"]
 
         inv_count = len(invoices)
-        ce_count = len(cash_entries)
         inv_sum = sum(safe_float(i.total_amount) for i in invoices)
-        ce_sum = sum(safe_float(e.gross_amount) for e in cash_entries)
 
         inv_inc = [i for i in invoices if safe_invoice_type(i.invoice_type) == "income"]
         inv_exp = [i for i in invoices if safe_invoice_type(i.invoice_type) == "expense"]
-        ce_inc = [e for e in cash_entries if e.entry_type == "income"]
-        ce_exp = [e for e in cash_entries if e.entry_type == "expense"]
 
-        total_income = sum(safe_float(i.total_amount) for i in inv_inc) + sum(safe_float(e.gross_amount) for e in ce_inc)
-        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp) + sum(safe_float(e.gross_amount) for e in ce_exp)
+        total_income = sum(safe_float(i.total_amount) for i in inv_inc)
+        total_expenses = sum(safe_float(i.total_amount) for i in inv_exp)
         net_profit = total_income - total_expenses
 
-        vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp) + sum(safe_float(e.vat_amount) for e in ce_exp)
-        vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc) + sum(safe_float(e.vat_amount) for e in ce_inc)
+        vat_paid = sum(safe_float(i.vat_amount) for i in inv_exp)
+        vat_collected = sum(safe_float(i.vat_amount) for i in inv_inc)
         vat_balance = vat_collected - vat_paid
 
         cat_map = {}
         for i in invoices:
             c = safe_category(i.category)
             cat_map[c] = cat_map.get(c, 0) + safe_float(i.total_amount)
-        for e in cash_entries:
-            c = safe_category(e.category)
-            cat_map[c] = cat_map.get(c, 0) + safe_float(e.gross_amount)
         cat_str = ", ".join(f"{k}: €{v:.2f}" for k, v in sorted(cat_map.items(), key=lambda x: -x[1])) if cat_map else "keine"
 
         vendors = {}
@@ -1180,7 +1159,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Summe / Gesamt / wie viel
         if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt"]):
-            reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Kassenbuch: {ce_count} Einträge (€{ce_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
+            reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
 
         # Kategorie
         elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category"]):
@@ -1207,11 +1186,11 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Einnahmen / Income
         elif any(w in msg for w in ["einnahme", "income", "umsatz", "revenue", "verdien"]):
-            reply = f"📈 Einnahmen: €{total_income:.2f} ({len(inv_inc)+len(ce_inc)} Positionen)"
+            reply = f"📈 Einnahmen: €{total_income:.2f} ({len(inv_inc)} Positionen)"
 
         # Ausgaben / Expenses
         elif any(w in msg for w in ["ausgabe", "expense", "kosten", "cost", "bezahl"]):
-            reply = f"📉 Ausgaben: €{total_expenses:.2f} ({len(inv_exp)+len(ce_exp)} Positionen)"
+            reply = f"📉 Ausgaben: €{total_expenses:.2f} ({len(inv_exp)} Positionen)"
 
         # Gewinn / Profit
         elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "netto", "ergebnis"]):
@@ -1224,7 +1203,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Kassenbuch
         elif any(w in msg for w in ["kassenbuch", "bookkeeping", "cash", "kasse"]):
-            reply = f"📒 Kassenbuch: {ce_count} Einträge (Gesamt: €{ce_sum:.2f})\n• Einnahmen: {len(ce_inc)} Einträge\n• Ausgaben: {len(ce_exp)} Einträge\n\nTipp: Du kannst Rechnungen automatisch ins Kassenbuch synchronisieren."
+            reply = f"📒 Kassenbuch: Deine Rechnungen werden automatisch ins Kassenbuch synchronisiert.\n• Gesamt Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)} | Ausgaben: {len(inv_exp)}\n\nTipp: Im Kassenbuch kannst du auch manuelle Einträge hinzufügen."
 
         # Rechnung / Invoice
         elif any(w in msg for w in ["rechnung", "invoice", "beleg", "faktur"]):
@@ -1252,7 +1231,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Hallo / Greeting
         elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten"]):
-            reply = f"👋 Hallo! Du hast {inv_count} Rechnungen und {ce_count} Kassenbuch-Einträge. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
+            reply = f"👋 Hallo! Du hast {inv_count} Rechnungen. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
 
         # Danke
         elif any(w in msg for w in ["danke", "thanks", "thx", "merci"]):
@@ -1260,7 +1239,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Fallback — give useful summary instead of generic message
         else:
-            reply = f"Hier ist deine aktuelle Übersicht:\n• {inv_count} Rechnungen, {ce_count} Kassenbuch-Einträge\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n\nFrag mich z.B. nach: Kategorien, MwSt, Steuer, Gewinn, Lieferanten, Upload, Export oder Hilfe!"
+            reply = f"Hier ist deine aktuelle Übersicht:\n• {inv_count} Rechnungen\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n\nFrag mich z.B. nach: Kategorien, MwSt, Steuer, Gewinn, Lieferanten, Upload, Export oder Hilfe!"
 
         return {"reply": reply}
     except Exception:

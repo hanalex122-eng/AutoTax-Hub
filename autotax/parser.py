@@ -402,10 +402,33 @@ def extract_vendor(raw_text: str) -> str:
     return _clean_vendor_name(candidates[0])
 
 
+_VENDOR_OCR_CORRECTIONS = {
+    "lödl": "LIDL", "lōdl": "LIDL", "l1dl": "LIDL", "lidl": "LIDL",
+    "lldi": "LIDL", "lid1": "LIDL", "iidl": "LIDL",
+    "aldl": "ALDI", "a1di": "ALDI", "aldi": "ALDI", "aidi": "ALDI",
+    "rewe": "REWE", "rew3": "REWE", "r3we": "REWE",
+    "edeka": "EDEKA", "edek4": "EDEKA", "3deka": "EDEKA",
+    "penny": "PENNY", "p3nny": "PENNY",
+    "netto": "NETTO", "n3tto": "NETTO",
+    "kaufland": "KAUFLAND", "kauf1and": "KAUFLAND",
+    "amazon": "AMAZON", "amaz0n": "AMAZON",
+    "shell": "SHELL", "sh3ll": "SHELL",
+    "aral": "ARAL", "ara1": "ARAL",
+    "starbucks": "STARBUCKS", "starbuck5": "STARBUCKS",
+    "mcdonald": "MCDONALDS", "mcdonalds": "MCDONALDS", "mcdona1ds": "MCDONALDS",
+    "dm": "DM", "rossmann": "ROSSMANN", "mueller": "MÜLLER", "müller": "MÜLLER",
+}
+
+
 def _clean_vendor_name(name: str) -> str:
-    """Clean up vendor name: remove trailing punctuation, asterisks, etc."""
+    """Clean up vendor name: remove trailing punctuation, asterisks, OCR corrections."""
     name = re.sub(r"[*#]+", "", name).strip()
     name = re.sub(r"[\s\-:,]+$", "", name).strip()
+    # OCR correction: check if cleaned name matches a known misread
+    name_lower = re.sub(r"[^a-zäöüß0-9]", "", name.lower())
+    for wrong, correct in _VENDOR_OCR_CORRECTIONS.items():
+        if wrong in name_lower:
+            return correct
     # Title-case if all upper
     if name == name.upper() and len(name) > 3:
         name = name.title()
@@ -655,10 +678,11 @@ def extract_date(raw_text: str) -> str:
 
 
 def _validate_date(year: str, month: str, day: str) -> str | None:
-    """Validate and return YYYY-MM-DD or None."""
+    """Validate and return YYYY-MM-DD or None. Rejects unrealistic years."""
     try:
         dt = datetime(int(year), int(month), int(day))
-        if 2000 <= dt.year <= 2099:
+        current_year = datetime.now().year
+        if 2020 <= dt.year <= current_year + 1:
             return dt.strftime("%Y-%m-%d")
     except (ValueError, TypeError):
         pass
