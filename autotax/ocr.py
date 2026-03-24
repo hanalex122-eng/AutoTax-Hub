@@ -1,10 +1,57 @@
 import os
 import io
+import logging
 import httpx
 from fastapi import UploadFile
 
+logger = logging.getLogger("autotax")
+
 OCR_API_KEY = os.getenv("OCR_API_KEY", "")
 OCR_API_URL = "https://api.ocr.space/parse/image"
+
+
+def preprocess_image(content: bytes) -> bytes:
+    """Preprocess image for better OCR accuracy.
+    Grayscale → contrast boost → sharpen → binarize.
+    Works well on dark, wrinkled, or low-quality receipts.
+    """
+    try:
+        from PIL import Image, ImageEnhance, ImageFilter
+        img = Image.open(io.BytesIO(content))
+
+        # Convert to grayscale
+        img = img.convert("L")
+
+        # Auto-contrast: stretch histogram
+        from PIL import ImageOps
+        img = ImageOps.autocontrast(img, cutoff=2)
+
+        # Increase contrast
+        img = ImageEnhance.Contrast(img).enhance(1.8)
+
+        # Increase brightness slightly (helps dark receipts)
+        img = ImageEnhance.Brightness(img).enhance(1.2)
+
+        # Sharpen
+        img = ImageEnhance.Sharpness(img).enhance(2.0)
+
+        # Binarize (adaptive threshold simulation)
+        # Convert to pure black & white with threshold
+        threshold = 140
+        img = img.point(lambda x: 255 if x > threshold else 0, "1")
+
+        # Convert back to grayscale for OCR API
+        img = img.convert("L")
+
+        # Save to bytes
+        buf = io.BytesIO()
+        img.save(buf, format="PNG", optimize=True)
+        processed = buf.getvalue()
+        logger.info("Image preprocessed: %d bytes → %d bytes", len(content), len(processed))
+        return processed
+    except Exception as e:
+        logger.warning("Image preprocessing failed, using original: %s", e)
+        return content
 
 
 def extract_pdf_text(content: bytes) -> str:
@@ -21,13 +68,14 @@ def extract_pdf_text(content: bytes) -> str:
 async def extract_image_text(content: bytes, filename: str) -> str:
     if not OCR_API_KEY:
         return ""
+    processed = preprocess_image(content)
     for attempt in range(2):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     OCR_API_URL,
                     data={"apikey": OCR_API_KEY, "OCREngine": "1"},
-                    files={"file": (filename, content)},
+                    files={"file": (filename, processed)},
                 )
                 resp.raise_for_status()
                 data = resp.json()
@@ -45,13 +93,14 @@ async def extract_image_text(content: bytes, filename: str) -> str:
 async def extract_handwriting_text(content: bytes, filename: str) -> str:
     if not OCR_API_KEY:
         return ""
+    processed = preprocess_image(content)
     for attempt in range(2):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     OCR_API_URL,
                     data={"apikey": OCR_API_KEY, "OCREngine": "2"},
-                    files={"file": (filename, content)},
+                    files={"file": (filename, processed)},
                 )
                 resp.raise_for_status()
                 data = resp.json()
@@ -92,8 +141,15 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False) -> tu
     filename = (file.filename or "").lower()
     content_type = (file.content_type or "").lower()
 
-    # OCR text extraction
-    await file.seek(0)
+    # QR code extraction (use original image — binarization can break QR)
+    qr_data = {}
+    try:
+        from autotax.qr_reader import extract_qr_data
+        qr_data = extract_qr_data(content, content_type)
+    except Exception:
+        pass  # QR reading is optional, don't break upload if it fails
+
+    # OCR text extraction (uses preprocessed image internally)
     if handwriting:
         ocr_text = await extract_handwriting_text(content, file.filename or "upload.png")
     elif content_type == "application/pdf" or filename.endswith(".pdf"):
@@ -102,13 +158,5 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False) -> tu
         ocr_text = await extract_image_text(content, file.filename or "upload.png")
     else:
         ocr_text = content.decode("utf-8", errors="ignore")
-
-    # QR code extraction
-    qr_data = {}
-    try:
-        from autotax.qr_reader import extract_qr_data
-        qr_data = extract_qr_data(content, content_type)
-    except Exception:
-        pass  # QR reading is optional, don't break upload if it fails
 
     return ocr_text, qr_data
