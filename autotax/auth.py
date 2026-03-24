@@ -1,21 +1,22 @@
 import os
+import logging
 from datetime import datetime, timedelta, timezone
-from hashlib import sha256
-import hmac
-import json
-import base64
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, Header
+
+logger = logging.getLogger("autotax")
 
 SECRET = os.getenv("JWT_SECRET", "")
 if not SECRET:
     import secrets as _s
     SECRET = _s.token_urlsafe(32)
-    import logging as _log
-    _log.getLogger("autotax").warning("JWT_SECRET not set — using random secret (tokens won't survive restart)")
+    logger.warning("JWT_SECRET not set — using random secret (tokens won't survive restart)")
+
 ALGORITHM = "HS256"
-EXPIRE_HOURS = 24
+ACCESS_TOKEN_EXPIRE_MINUTES = 60       # 1 hour
+REFRESH_TOKEN_EXPIRE_DAYS = 7          # 7 days
 
 
 def hash_password(password: str) -> str:
@@ -26,38 +27,36 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
-def _b64encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+def create_access_token(user_id: int, email: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "email": email, "exp": exp, "type": "access"}
+    return jwt.encode(payload, SECRET, algorithm=ALGORITHM)
 
 
-def _b64decode(s: str) -> bytes:
-    s += "=" * (-len(s) % 4)
-    return base64.urlsafe_b64decode(s)
+def create_refresh_token(user_id: int, email: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {"sub": user_id, "email": email, "exp": exp, "type": "refresh"}
+    return jwt.encode(payload, SECRET, algorithm=ALGORITHM)
 
 
 def create_token(user_id: int, email: str) -> str:
-    header = _b64encode(json.dumps({"alg": ALGORITHM, "typ": "JWT"}).encode())
-    exp = datetime.now(timezone.utc) + timedelta(hours=EXPIRE_HOURS)
-    payload = _b64encode(json.dumps({"sub": user_id, "email": email, "exp": exp.timestamp()}).encode())
-    sig = _b64encode(hmac.new(SECRET.encode(), f"{header}.{payload}".encode(), sha256).digest())
-    return f"{header}.{payload}.{sig}"
+    """Backward compatible — returns access token."""
+    return create_access_token(user_id, email)
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str, expected_type: str = "access") -> dict:
     try:
-        header, payload, sig = token.split(".")
-        expected = _b64encode(hmac.new(SECRET.encode(), f"{header}.{payload}".encode(), sha256).digest())
-        if not hmac.compare_digest(sig, expected):
-            raise ValueError("bad sig")
-        data = json.loads(_b64decode(payload))
-        if datetime.now(timezone.utc).timestamp() > data["exp"]:
-            raise ValueError("expired")
+        data = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
+        if data.get("type") != expected_type:
+            raise ValueError(f"Expected {expected_type} token")
         return data
-    except Exception:
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def get_current_user(authorization: str = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
-    return decode_token(authorization[7:])
+    return decode_token(authorization[7:], expected_type="access")

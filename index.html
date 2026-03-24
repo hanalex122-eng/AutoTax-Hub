@@ -83,8 +83,25 @@ async function api(path, opts={}) {
   const token = localStorage.getItem("atx_token");
   const headers = {"Content-Type":"application/json",...opts.headers};
   if(token) headers["Authorization"]=`Bearer ${token}`;
-  const res = await fetch(`${API}${path}`,{...opts,headers});
-  if(res.status===401){localStorage.removeItem("atx_token");throw new Error("unauthorized");}
+  let res = await fetch(`${API}${path}`,{...opts,headers});
+  // Auto-refresh on 401
+  if(res.status===401){
+    const refresh=localStorage.getItem("atx_refresh");
+    if(refresh){
+      try{
+        const r=await fetch(API+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:refresh})});
+        if(r.ok){
+          const d=await r.json();
+          localStorage.setItem("atx_token",d.token);
+          if(d.refresh_token)localStorage.setItem("atx_refresh",d.refresh_token);
+          headers["Authorization"]="Bearer "+d.token;
+          res=await fetch(`${API}${path}`,{...opts,headers});
+        }else{
+          localStorage.removeItem("atx_token");localStorage.removeItem("atx_refresh");throw new Error("unauthorized");
+        }
+      }catch(e){localStorage.removeItem("atx_token");localStorage.removeItem("atx_refresh");throw new Error("unauthorized");}
+    }else{localStorage.removeItem("atx_token");throw new Error("unauthorized");}
+  }
   if(!res.ok){const e=await res.json().catch(()=>({}));const msg=typeof e.detail==="string"?e.detail:typeof e.detail==="object"?JSON.stringify(e.detail):e.message||"Error";throw new Error(msg);}
   if(res.status===204) return null;
   return res.json();
@@ -237,6 +254,7 @@ function AuthScreen({onLogin}){
         const token=data.token||data.access_token;
         if(!token){setError("No token");setLoading(false);return;}
         localStorage.setItem("atx_token",token);
+        if(data.refresh_token)localStorage.setItem("atx_refresh",data.refresh_token);
         console.log("LOGIN SUCCESS");
         window.location.reload();
       }

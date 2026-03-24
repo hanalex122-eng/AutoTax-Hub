@@ -13,7 +13,7 @@ from autotax.ocr import extract_text, extract_text_and_qr
 from autotax.parser import parse_invoice
 from autotax.db import init_db, save_invoice, SessionLocal
 from autotax.models import Invoice, User, CashEntry
-from autotax.auth import hash_password, verify_password, create_token, get_current_user
+from autotax.auth import hash_password, verify_password, create_token, create_access_token, create_refresh_token, decode_token, get_current_user
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("autotax")
@@ -23,13 +23,17 @@ app = FastAPI(
     version="5.5.0",
 )
 
-_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+_allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "https://web-production-489ac.up.railway.app,https://app.autotaxhub.de,http://localhost:3000,http://localhost:5173"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=[o.strip() for o in _allowed_origins if o.strip()],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
+    max_age=3600,
 )
 
 
@@ -286,8 +290,9 @@ def login(body: AuthRequest):
             logger.warning("Failed login: %s", body.email)
             err(401, "Invalid email or password")
         logger.info("User logged in: %s", body.email)
-        token = create_token(user.id, user.email)
-        return {"success": True, "token": token, "email": user.email}
+        token = create_access_token(user.id, user.email)
+        refresh = create_refresh_token(user.id, user.email)
+        return {"success": True, "token": token, "refresh_token": refresh, "email": user.email}
     except HTTPException:
         raise
     except Exception:
@@ -295,6 +300,20 @@ def login(body: AuthRequest):
         err(500, "Login failed")
     finally:
         db.close()
+
+
+@app.post("/auth/refresh")
+def refresh_token_endpoint(body: dict = Body(...)):
+    refresh = body.get("refresh_token", "")
+    if not refresh:
+        err(400, "refresh_token required")
+    try:
+        data = decode_token(refresh, expected_type="refresh")
+    except HTTPException:
+        err(401, "Invalid or expired refresh token")
+    new_access = create_access_token(data["sub"], data["email"])
+    new_refresh = create_refresh_token(data["sub"], data["email"])
+    return {"success": True, "token": new_access, "refresh_token": new_refresh}
 
 
 # ============================================================
