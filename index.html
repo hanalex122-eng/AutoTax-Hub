@@ -497,7 +497,7 @@ function InvoicesView({refreshKey,showToast}){
     api("/invoices?"+params.toString()).then(d=>{setInvoices(d.items);setTotal(d.total);setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
   };
   const doSearch=()=>load(filter,filterCat,dateFrom,dateTo);
-  useEffect(()=>{load();},[refreshKey]);
+  useEffect(()=>{load(filter,filterCat,dateFrom,dateTo);},[refreshKey]);
   const del=async(id)=>{if(!confirm("Rechnung löschen?"))return;try{await api("/invoices/"+id,{method:"DELETE"});doSearch();if(showToast)showToast("Rechnung gelöscht","info");}catch(e){alert(e.message);}};
 
   const deleteSelected=async()=>{
@@ -542,7 +542,7 @@ function InvoicesView({refreshKey,showToast}){
       <select style={{...css.input,width:130}} value={filterCat} onChange={e=>setFilterCat(e.target.value)}><option value="">Alle Kategorien</option><option value="food">Lebensmittel</option><option value="restaurant">Bewirtung</option><option value="fuel">Kraftstoff</option><option value="clothing">Kleidung</option><option value="electronics">Elektronik</option><option value="office">Büro</option><option value="telecom">Telefon</option><option value="transport">Transport</option><option value="drugstore">Drogerie</option><option value="other">Sonstiges</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
       <select style={{...css.input,width:120}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">Alle Belege</option><option value="read">Erkannt</option><option value="unread">Nicht erkannt</option></select>
       <button style={{...css.btn(),padding:"10px 16px",fontSize:12}} onClick={doSearch}>Suche</button>
-      {(filter||dateFrom||dateTo||filterCat||filterStatus)&&<button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={()=>{setFilter("");setDateFrom("");setDateTo("");setFilterCat("");setFilterStatus("");load();}}>Reset</button>}
+      {(filter||filterCat||filterStatus)&&<button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={()=>{setFilter("");setDateFrom(new Date().getFullYear()+"-01-01");setDateTo(new Date().toISOString().slice(0,10));setFilterCat("");setFilterStatus("");load("","",new Date().getFullYear()+"-01-01",new Date().toISOString().slice(0,10));}}>Reset</button>}
     </div>
     {editId&&<div style={css.card}>
       <h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 12px"}}>Rechnung bearbeiten</h3>
