@@ -702,6 +702,14 @@ _TOTAL_KEYWORDS_HIGH = [
     r"rechnungsbetrag",
     r"summe\s*brutto",
     r"brutto\s*gesamt",
+    r"toplam\s*tutar",       # Türkçe
+    r"genel\s*toplam",       # Türkçe
+    r"ödenecek\s*tutar",     # Türkçe
+    r"net\s*total",
+    r"grand\s*total",
+    r"balance\s*due",
+    r"total\s*a\s*payer",    # Français
+    r"importe\s*total",      # Español
 ]
 
 _TOTAL_KEYWORDS_MED = [
@@ -713,6 +721,18 @@ _TOTAL_KEYWORDS_MED = [
     r"montant",
     r"amount\s*due",
     r"amount",
+    r"tutar",                # Türkçe
+    r"toplam",               # Türkçe
+    r"sum",
+    r"netto",
+    r"subtotal",
+    r"sub\s*total",
+    r"net\s*amount",
+    r"due",
+    r"price",
+    r"preis",                # Deutsch
+    r"prix",                 # Français
+    r"importo",              # Italiano
 ]
 
 
@@ -743,6 +763,20 @@ def extract_total(raw_text: str) -> float:
         val = float(eur_match.group(1))
         if 0.01 <= val < 100000:
             return val
+
+    # Try € symbol patterns (€12.34 or 12.34€ or 12,34 €)
+    euro_patterns = [
+        r"€\s*(\d+\.\d{2})",
+        r"(\d+\.\d{2})\s*€",
+        r"(\d+\.\d{2})\s*eur\b",
+        r"(\d+\.\d{2})\s*tl\b",     # Türk Lirası
+    ]
+    for pat in euro_patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            val = float(m.group(1))
+            if 0.01 <= val < 100000:
+                return val
 
     # Fallback: largest reasonable amount on the receipt
     amounts = []
