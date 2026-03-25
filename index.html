@@ -18,7 +18,7 @@ body { background: #0a0e17; font-family: 'DM Sans', system-ui, sans-serif; -webk
 input:focus, select:focus { border-color: #10b981 !important; outline: none; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
 select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px !important; }
 button { transition: all 0.2s cubic-bezier(0.4,0,0.2,1); transition-delay: 0ms; }
-button:hover:not(:disabled) { transform: translateY(-1.5px); transition-delay: 55ms; }
+button:hover:not(:disabled) { transform: translateY(-3px) scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition-delay: 55ms; }
 button:active:not(:disabled) { transform: translateY(0); transition-duration: 0.1s; transition-delay: 0ms; }
 tr { transition: background 0.15s ease; }
 tr:hover { background: rgba(26,34,52,0.5) !important; transition-delay: 45ms; }
@@ -146,7 +146,7 @@ function Sparkline({data=[],color=theme.accent,h=40,w=120}){
 
 function StatCard({label,value,sub,icon,color,bgColor,sparkData}){return(
   <div style={{...css.card,display:"flex",flexDirection:"column",gap:14,position:"relative",overflow:"hidden",cursor:"default"}}
-    onMouseEnter={e=>{e.currentTarget.style.transitionDelay="65ms";e.currentTarget.style.transform="translateY(-3px) scale(1.015)";e.currentTarget.style.boxShadow=`0 12px 28px rgba(0,0,0,0.25), 0 0 0 1px ${color}22`;}}
+    onMouseEnter={e=>{e.currentTarget.style.transitionDelay="65ms";e.currentTarget.style.transform="translateY(-6px) scale(1.03)";e.currentTarget.style.boxShadow=`0 16px 36px rgba(0,0,0,0.35), 0 0 0 1px ${color}33`;}}
     onMouseLeave={e=>{e.currentTarget.style.transitionDelay="0ms";e.currentTarget.style.transform="translateY(0) scale(1)";e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1)";}}>
     <div style={{position:"absolute",top:-30,right:-30,width:110,height:110,borderRadius:"50%",background:bgColor,opacity:0.25,filter:"blur(8px)",transition:"opacity 0.2s"}}/>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",position:"relative"}}>
