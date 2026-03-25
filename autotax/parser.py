@@ -406,6 +406,9 @@ _VENDOR_OCR_CORRECTIONS = {
     # Supermarkets — common OCR misreads
     "lödl": "LIDL", "lōdl": "LIDL", "l1dl": "LIDL", "lidl": "LIDL",
     "lldi": "LIDL", "lid1": "LIDL", "iidl": "LIDL", "lidl.de": "LIDL",
+    "lidii": "LIDL", "lidll": "LIDL", "liidl": "LIDL", "lidi": "LIDL",
+    "lad1": "LIDL", "ladi": "LIDL", "lidl": "LIDL", "ildl": "LIDL",
+    "1idl": "LIDL", "iidii": "LIDL", "lidii": "LIDL",
     "aldl": "ALDI", "a1di": "ALDI", "aldi": "ALDI", "aidi": "ALDI",
     "aldi süd": "ALDI SÜD", "aldi sud": "ALDI SÜD", "aldi nord": "ALDI NORD",
     "rewe": "REWE", "rew3": "REWE", "r3we": "REWE", "rewe.de": "REWE",
