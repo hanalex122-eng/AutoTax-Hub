@@ -1229,19 +1229,19 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         msg = message.lower().strip()
 
         # Summe / Gesamt / wie viel
-        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt"]):
+        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt", "ne kadar", "kaç", "özet", "zusammenfassung", "overview", "toplam"]):
             reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
 
         # Kategorie
-        elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category"]):
+        elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category", "grup", "sınıf", "kategori"]):
             reply = f"📂 Kategorien:\n{cat_str}"
 
         # MwSt / VAT / Steuer
-        elif any(w in msg for w in ["mwst", "vat", "umsatzsteuer", "mehrwertsteuer", "vorsteuer"]):
+        elif any(w in msg for w in ["mwst", "vat", "umsatzsteuer", "mehrwertsteuer", "vorsteuer", "kdv", "vergi", "tva"]):
             reply = f"🧾 MwSt-Übersicht:\n• Gezahlte Vorsteuer: €{vat_paid:.2f}\n• Vereinnahmte USt: €{vat_collected:.2f}\n• Saldo: €{vat_balance:.2f}\n{'→ Du bekommst €'+str(abs(round(vat_balance,2)))+' zurück' if vat_balance < 0 else '→ Du schuldest €'+str(round(vat_balance,2)) if vat_balance > 0 else '→ Ausgeglichen'}"
 
         # Steuer / Einkommensteuer
-        elif any(w in msg for w in ["steuer", "tax", "einkommensteuer", "steuerlast"]):
+        elif any(w in msg for w in ["steuer", "tax", "einkommensteuer", "steuerlast", "vergi", "gelir vergisi"]):
             if net_profit > 277826:
                 rate = 45
             elif net_profit > 61356:
@@ -1256,20 +1256,20 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = f"💰 Steuer-Schätzung (Deutschland):\n• Gewinn: €{net_profit:.2f}\n• Steuersatz: {rate}%\n• Geschätzte Steuer: €{estimate:.2f}\n\nHinweis: Dies ist eine Schätzung. Für genaue Berechnung bitte Steuerberater konsultieren."
 
         # Einnahmen / Income
-        elif any(w in msg for w in ["einnahme", "income", "umsatz", "revenue", "verdien"]):
+        elif any(w in msg for w in ["einnahme", "income", "umsatz", "revenue", "verdien", "gelir", "kazanç"]):
             reply = f"📈 Einnahmen: €{total_income:.2f} ({len(inv_inc)} Positionen)"
 
         # Ausgaben / Expenses
-        elif any(w in msg for w in ["ausgabe", "expense", "kosten", "cost", "bezahl"]):
+        elif any(w in msg for w in ["ausgabe", "expense", "kosten", "cost", "bezahl", "gider", "harcama", "masraf"]):
             reply = f"📉 Ausgaben: €{total_expenses:.2f} ({len(inv_exp)} Positionen)"
 
         # Gewinn / Profit
-        elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "netto", "ergebnis"]):
+        elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "netto", "ergebnis", "kâr", "kar", "zarar"]):
             emoji = "📈" if net_profit >= 0 else "📉"
             reply = f"{emoji} Netto-Ergebnis: €{net_profit:.2f}\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}"
 
         # Vendor / Lieferant
-        elif any(w in msg for w in ["lieferant", "vendor", "händler", "wer", "anbieter", "firma"]):
+        elif any(w in msg for w in ["lieferant", "vendor", "händler", "wer", "anbieter", "firma", "tedarikçi", "şirket", "mağaza"]):
             reply = f"🏢 Top Lieferanten:\n{top_vendors}"
 
         # Kassenbuch
@@ -1277,11 +1277,11 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = f"📒 Kassenbuch: Deine Rechnungen werden automatisch ins Kassenbuch synchronisiert.\n• Gesamt Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)} | Ausgaben: {len(inv_exp)}\n\nTipp: Im Kassenbuch kannst du auch manuelle Einträge hinzufügen."
 
         # Rechnung / Invoice
-        elif any(w in msg for w in ["rechnung", "invoice", "beleg", "faktur"]):
+        elif any(w in msg for w in ["rechnung", "invoice", "beleg", "faktur", "fatura", "bon", "quittung"]):
             reply = f"🧾 Rechnungen: {inv_count} gesamt (€{inv_sum:.2f})\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}\n\nTipp: Über 'Upload' kannst du neue Belege hochladen."
 
         # Upload
-        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr"]):
+        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr", "yükle", "foto", "bild", "datei"]):
             reply = "📤 Upload-Anleitung:\n1. Gehe zu 'Upload'\n2. Ziehe PDF, PNG oder JPEG in den Bereich\n3. Bis zu 20 Dateien gleichzeitig\n4. Die OCR erkennt automatisch: Lieferant, Betrag, MwSt, Datum\n5. Belege erscheinen in Rechnungen UND Kassenbuch"
 
         # Export
@@ -1293,24 +1293,44 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\nGehe zu 'Steuer (EÜR)', wähle das Steuerjahr und klicke 'Generieren'.\nDie EÜR wird automatisch aus deinen Rechnungen und Kassenbuch-Einträgen erstellt."
 
         # Löschen / Delete
-        elif any(w in msg for w in ["lösch", "delete", "entfern", "zurücksetz"]):
+        elif any(w in msg for w in ["lösch", "delete", "entfern", "zurücksetz", "sil", "kaldır", "temizle"]):
             reply = "🗑️ Löschen:\n• Einzeln: Klicke das Papierkorb-Symbol neben dem Eintrag\n• Mehrere: Häkchen setzen → 'X löschen' Button\n• Alles zurücksetzen: Dashboard → 'Zurücksetzen' (ACHTUNG: unwiderruflich!)"
 
         # Hilfe / Help
-        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature"]):
+        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "nasıl", "nedir", "ne yapabilir", "fonksiyon", "how", "what can"]):
             reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' — Vorsteuer & USt Übersicht\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Kassenbuch' — Kassenbuch-Übersicht\n• 'Upload' — Wie lade ich Belege hoch?\n• 'Export' — Welche Export-Formate gibt es?\n• 'EÜR' — Steuererklärung generieren\n\nFrag einfach!"
 
         # Hallo / Greeting
-        elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten"]):
+        elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten", "selam", "nabız", "servus", "grüß"]):
             reply = f"👋 Hallo! Du hast {inv_count} Rechnungen. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
 
         # Danke
-        elif any(w in msg for w in ["danke", "thanks", "thx", "merci"]):
+        elif any(w in msg for w in ["danke", "thanks", "thx", "merci", "teşekkür", "sağol", "gracias"]):
             reply = "Gerne! Wenn du weitere Fragen hast, frag einfach. 😊"
 
-        # Fallback — give useful summary instead of generic message
+        # Eintragen / Hinzufügen
+        elif any(w in msg for w in ["eintragen", "hinzufügen", "eingeben", "neue", "neuer", "ekle", "gir", "yaz", "kaydet", "add", "create", "erfassen"]):
+            reply = "✏️ Eintrag erstellen:\n• Kassenbuch → '+ Eintrag' Button → Formular ausfüllen\n• Upload → Beleg hochladen (OCR erkennt automatisch)\n• Rechnungen → 'Kassenbuch sync' für Synchronisierung\n\nBeide Wege erstellen automatisch Einträge in Rechnungen UND Kassenbuch."
+
+        # Suche / Finden
+        elif any(w in msg for w in ["such", "find", "wo ist", "wo sind", "finden", "ara", "bul", "nerede", "search", "where"]):
+            reply = "🔍 Suche:\n• Rechnungen → Suchfeld oben (sucht in Vendor, OCR-Text, Kategorie)\n• Mehrere Wörter möglich: z.B. 'Lidl Dezember'\n• Filter: Vendor, Kategorie, Datum (Von/Bis), Status\n• AI Chat: Frag mich z.B. 'Lieferanten' oder 'Kategorien'"
+
+        # Bearbeiten / Ändern
+        elif any(w in msg for w in ["bearbeit", "änder", "korrigier", "edit", "update", "düzenle", "değiştir"]):
+            reply = "✏️ Bearbeiten:\n• Rechnungen → 'Bearbeiten' neben dem Eintrag\n• Kassenbuch → 'Bearbeiten' neben dem Eintrag\n• Du kannst ändern: Vendor, Betrag, Kategorie, Datum, MwSt-Satz"
+
+        # Wie viele / Anzahl
+        elif any(w in msg for w in ["wie viele", "anzahl", "count", "kaç tane", "adet"]):
+            reply = f"📊 Anzahl:\n• Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}"
+
+        # Datum / Date
+        elif any(w in msg for w in ["datum", "date", "tarih", "wann", "zeitraum", "monat", "jahr"]):
+            reply = "📅 Datum-Filter:\n• Rechnungen → Von/Bis Felder nutzen\n• Unterstützte Formate: DD.MM.YYYY, YYYY-MM-DD\n• Monatsansicht: Dashboard zeigt monatliche Auswertung\n• Export: Nach Jahr filterbar"
+
+        # Fallback — clear helpful message instead of generic summary
         else:
-            reply = f"Hier ist deine aktuelle Übersicht:\n• {inv_count} Rechnungen\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n\nFrag mich z.B. nach: Kategorien, MwSt, Steuer, Gewinn, Lieferanten, Upload, Export oder Hilfe!"
+            reply = f"Das habe ich nicht ganz verstanden. Hier sind Themen, bei denen ich helfen kann:\n\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Eintragen' — Wie erstelle ich Einträge?\n• 'Suche' — Wie finde ich Rechnungen?\n• 'Upload' — Belege hochladen\n• 'Export' — CSV, DATEV, Excel\n• 'Hilfe' — Alle Funktionen\n\nAktuell: {inv_count} Rechnungen, €{net_profit:.2f} Gewinn"
 
         return {"reply": reply}
     except Exception:
