@@ -694,45 +694,81 @@ def _validate_date(year: str, month: str, day: str) -> str | None:
 # ════════════════════════════════════════════════════════════════
 
 _TOTAL_KEYWORDS_HIGH = [
-    r"zu\s*zahlen",
-    r"zahlbetrag",
-    r"gesamtbetrag",
-    r"endbetrag",
-    r"total\s*ttc",
-    r"rechnungsbetrag",
-    r"summe\s*brutto",
-    r"brutto\s*gesamt",
-    r"toplam\s*tutar",       # Türkçe
-    r"genel\s*toplam",       # Türkçe
-    r"ödenecek\s*tutar",     # Türkçe
-    r"net\s*total",
-    r"grand\s*total",
-    r"balance\s*due",
-    r"total\s*a\s*payer",    # Français
-    r"importe\s*total",      # Español
+    # Deutsch
+    r"zu\s*zahlen", r"zahlbetrag", r"gesamtbetrag", r"endbetrag",
+    r"rechnungsbetrag", r"rechnungssumme", r"gesamtsumme", r"endsumme",
+    r"summe\s*brutto", r"brutto\s*gesamt", r"bruttobetrag", r"gesamtpreis",
+    r"fälliger\s*betrag", r"gesamtbetrag\s*brutto",
+    r"gesamtbetrag\s*inkl", r"summe\s*inkl", r"zwischensumme",
+    # English
+    r"grand\s*total", r"total\s*amount", r"amount\s*due", r"balance\s*due",
+    r"total\s*due", r"invoice\s*total", r"total\s*payable", r"amount\s*payable",
+    r"sum\s*total", r"final\s*total", r"total\s*incl", r"total\s*inc\s*vat",
+    r"amount\s*to\s*pay", r"pay\s*this\s*amount", r"bill\s*total",
+    r"order\s*total", r"payment\s*due", r"net\s*total", r"gross\s*total",
+    # Français
+    r"montant\s*total", r"total\s*ttc", r"net\s*[àa]\s*payer",
+    r"montant\s*ttc", r"somme\s*totale", r"total\s*[àa]\s*payer",
+    r"montant\s*[àa]\s*payer", r"montant\s*d[ûu]", r"solde\s*[àa]\s*payer",
+    r"total\s*g[ée]n[ée]ral",
+    # Türkçe
+    r"toplam\s*tutar", r"genel\s*toplam", r"[öo]denecek\s*tutar",
+    r"toplam\s*fiyat", r"kdv\s*dahil\s*toplam", r"vergiler\s*dahil",
+    r"net\s*toplam", r"fatura\s*toplam[ıi]", r"ara\s*toplam",
+    # Español
+    r"importe\s*total", r"total\s*a\s*pagar", r"monto\s*total",
+    r"cantidad\s*total", r"suma\s*total", r"total\s*factura",
+    r"importe\s*a\s*pagar", r"total\s*con\s*iva", r"saldo\s*a\s*pagar",
+    # Italiano
+    r"importo\s*totale", r"totale\s*fattura", r"totale\s*da\s*pagare",
+    r"importo\s*da\s*pagare", r"totale\s*complessivo", r"somma\s*totale",
+    r"totale\s*generale", r"netto\s*a\s*pagare", r"importo\s*dovuto",
+    # Nederlands
+    r"totaalbedrag", r"te\s*betalen", r"totaal\s*te\s*betalen",
+    r"verschuldigd\s*bedrag", r"factuurtotaal", r"eindbedrag",
+    r"totaal\s*incl", r"totaalprijs",
+    # Português
+    r"valor\s*total", r"total\s*a\s*pagar", r"montante\s*total",
+    r"valor\s*a\s*pagar", r"total\s*da\s*fatura",
+    # Polski
+    r"do\s*zap[łl]aty", r"kwota\s*do\s*zap[łl]aty", r"razem\s*do\s*zap[łl]aty",
+    r"suma\s*do\s*zap[łl]aty", r"warto[śs][ćc]\s*brutto", r"razem\s*brutto",
+    r"og[óo][łl]em", r"nale[żz]no[śs][ćc]",
+    # Русский
+    r"итого", r"всего", r"сумма\s*к\s*оплате", r"итого\s*к\s*оплате",
+    r"общая\s*сумма", r"к\s*оплате", r"итого\s*с\s*ндс",
+    # العربية
+    r"المبلغ\s*الإجمالي", r"الإجمالي", r"المجموع", r"المبلغ\s*المستحق",
 ]
 
 _TOTAL_KEYWORDS_MED = [
-    r"total",
-    r"summe",
-    r"gesamt",
-    r"betrag",
-    r"brutto",
-    r"montant",
-    r"amount\s*due",
-    r"amount",
-    r"tutar",                # Türkçe
-    r"toplam",               # Türkçe
-    r"sum",
-    r"netto",
-    r"subtotal",
-    r"sub\s*total",
-    r"net\s*amount",
-    r"due",
-    r"price",
-    r"preis",                # Deutsch
-    r"prix",                 # Français
-    r"importo",              # Italiano
+    # Generic / multi-language
+    r"total", r"summe", r"gesamt", r"betrag", r"brutto", r"netto",
+    r"subtotal", r"sub\s*total", r"amount", r"sum", r"due", r"price",
+    # Deutsch
+    r"preis", r"steuerbetrag", r"teilbetrag", r"restbetrag",
+    # English
+    r"net\s*amount", r"gross\s*amount", r"tax\s*amount",
+    # Français
+    r"montant", r"prix", r"sous.total", r"reste\s*[àa]\s*payer",
+    # Türkçe
+    r"tutar", r"toplam", r"bakiye", r"[öo]deme", r"fiyat",
+    r"net\s*tutar", r"iskonto",
+    # Español
+    r"importe", r"monto", r"cantidad", r"base\s*imponible",
+    # Italiano
+    r"importo", r"totale", r"imponibile", r"subtotale",
+    # Nederlands
+    r"totaal", r"bedrag", r"nettobedrag",
+    # Polski
+    r"razem", r"suma", r"[łl][aą]cznie", r"kwota",
+    # Português
+    r"valor", r"montante",
+    # Русский
+    r"сумма", r"всего", r"итого",
+    # Currency / receipt abbreviations
+    r"eur", r"usd", r"gbp", r"chf", r"try", r"pln",
+    r"ttl", r"tot", r"amt", r"bal",
 ]
 
 
