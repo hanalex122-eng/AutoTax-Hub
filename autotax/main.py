@@ -489,10 +489,15 @@ def list_invoices(
             q = q.filter(Invoice.processed == False)
         if category:
             q = q.filter(Invoice.category == category)
-        if date_from:
-            q = q.filter(Invoice.date >= date_from)
-        if date_to:
-            q = q.filter(Invoice.date <= date_to)
+        # Validate date range (reject invalid years like 333333)
+        import re as _re
+        _current_year = datetime.now().year
+        if date_from and _re.match(r"^\d{4}-\d{2}-\d{2}$", date_from):
+            if 2020 <= int(date_from[:4]) <= _current_year + 1:
+                q = q.filter(Invoice.date >= date_from)
+        if date_to and _re.match(r"^\d{4}-\d{2}-\d{2}$", date_to):
+            if 2020 <= int(date_to[:4]) <= _current_year + 1:
+                q = q.filter(Invoice.date <= date_to)
 
         total_count = q.count()
         q = q.order_by(Invoice.created_at.desc())
@@ -840,6 +845,28 @@ def _create_bookkeeping(body: CashEntryCreate, user: dict):
         db.add(entry)
         db.commit()
         db.refresh(entry)
+        # Also create a corresponding Invoice so it appears in dashboard
+        try:
+            inv = Invoice(
+                user_id=user["sub"],
+                filename=None,
+                vendor=body.vendor or "Manual Entry",
+                total_amount=body.gross_amount or 0.0,
+                vat_amount=vat_amount,
+                vat_rate=body.vat_rate or "0%",
+                date=body.date or "",
+                raw_text=f"manual entry: {body.description}",
+                invoice_type=body.entry_type,
+                invoice_number="",
+                payment_method=body.payment_method or "",
+                category=body.category or "other",
+                processed=True,
+            )
+            db.add(inv)
+            db.commit()
+            logger.info("Auto-created invoice from manual Kassenbuch entry %s", entry.id)
+        except Exception:
+            logger.exception("Failed to auto-create invoice from Kassenbuch entry")
         return {"success": True, **cash_entry_to_dict(entry)}
     except HTTPException:
         raise
