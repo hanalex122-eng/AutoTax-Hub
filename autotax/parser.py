@@ -403,20 +403,96 @@ def extract_vendor(raw_text: str) -> str:
 
 
 _VENDOR_OCR_CORRECTIONS = {
+    # Supermarkets — common OCR misreads
     "lödl": "LIDL", "lōdl": "LIDL", "l1dl": "LIDL", "lidl": "LIDL",
-    "lldi": "LIDL", "lid1": "LIDL", "iidl": "LIDL",
+    "lldi": "LIDL", "lid1": "LIDL", "iidl": "LIDL", "lidl.de": "LIDL",
     "aldl": "ALDI", "a1di": "ALDI", "aldi": "ALDI", "aidi": "ALDI",
-    "rewe": "REWE", "rew3": "REWE", "r3we": "REWE",
+    "aldi süd": "ALDI SÜD", "aldi sud": "ALDI SÜD", "aldi nord": "ALDI NORD",
+    "rewe": "REWE", "rew3": "REWE", "r3we": "REWE", "rewe.de": "REWE",
     "edeka": "EDEKA", "edek4": "EDEKA", "3deka": "EDEKA",
-    "penny": "PENNY", "p3nny": "PENNY",
-    "netto": "NETTO", "n3tto": "NETTO",
+    "penny": "PENNY", "p3nny": "PENNY", "pennymarkt": "PENNY",
+    "netto": "NETTO", "n3tto": "NETTO", "nettomarkt": "NETTO",
     "kaufland": "KAUFLAND", "kauf1and": "KAUFLAND",
-    "amazon": "AMAZON", "amaz0n": "AMAZON",
-    "shell": "SHELL", "sh3ll": "SHELL",
-    "aral": "ARAL", "ara1": "ARAL",
-    "starbucks": "STARBUCKS", "starbuck5": "STARBUCKS",
+    "norma": "NORMA", "n0rma": "NORMA",
+    "auchan": "AUCHAN", "auchan.fr": "AUCHAN",
+    "carrefour": "CARREFOUR", "carref0ur": "CARREFOUR",
+    "leclerc": "E.LECLERC", "e.leclerc": "E.LECLERC",
+    "monoprix": "MONOPRIX", "m0noprix": "MONOPRIX",
+    "migros": "MIGROS", "coop": "COOP", "spar": "SPAR",
+    # Restaurants
+    "amazon": "AMAZON", "amaz0n": "AMAZON", "amazon.de": "AMAZON",
+    "starbucks": "STARBUCKS", "starbuck5": "STARBUCKS", "starbuks": "STARBUCKS",
     "mcdonald": "MCDONALDS", "mcdonalds": "MCDONALDS", "mcdona1ds": "MCDONALDS",
-    "dm": "DM", "rossmann": "ROSSMANN", "mueller": "MÜLLER", "müller": "MÜLLER",
+    "mc donald": "MCDONALDS", "mcdo": "MCDONALDS",
+    "burger king": "BURGER KING", "burgerking": "BURGER KING",
+    "subway": "SUBWAY", "kfc": "KFC",
+    # Fuel
+    "shell": "SHELL", "sh3ll": "SHELL", "shell.de": "SHELL",
+    "aral": "ARAL", "ara1": "ARAL", "aral.de": "ARAL",
+    "total": "TOTALENERGIES", "totalenergies": "TOTALENERGIES",
+    "esso": "ESSO", "ess0": "ESSO", "bp": "BP",
+    # Drugstores
+    "dm": "DM", "dm-drogerie": "DM", "dm drogerie": "DM",
+    "rossmann": "ROSSMANN", "r0ssmann": "ROSSMANN",
+    "mueller": "MÜLLER", "müller": "MÜLLER", "muller": "MÜLLER",
+    # Electronics
+    "saturn": "SATURN", "mediamarkt": "MEDIA MARKT", "media markt": "MEDIA MARKT",
+    "apple": "APPLE", "apple.com": "APPLE",
+    # Clothing
+    "deichmann": "DEICHMANN", "de'chmann": "DEICHMANN", "delchmann": "DEICHMANN",
+    "h&m": "H&M", "hm": "H&M", "zara": "ZARA", "c&a": "C&A",
+    "primark": "PRIMARK", "kik": "KIK", "takko": "TAKKO",
+    # Home / DIY
+    "ikea": "IKEA", "1kea": "IKEA", "bauhaus": "BAUHAUS", "obi": "OBI",
+    "hornbach": "HORNBACH", "h0rnbach": "HORNBACH",
+    # Transport
+    "deutsche bahn": "DEUTSCHE BAHN", "db ": "DEUTSCHE BAHN",
+    "flixbus": "FLIXBUS", "uber": "UBER", "bolt": "BOLT",
+    # Telecom
+    "telekom": "TELEKOM", "vodafone": "VODAFONE", "o2": "O2",
+    # Post
+    "dhl": "DHL", "deutsche post": "DEUTSCHE POST", "hermes": "HERMES",
+    # Software
+    "microsoft": "MICROSOFT", "google": "GOOGLE", "adobe": "ADOBE",
+    "spotify": "SPOTIFY", "netflix": "NETFLIX", "paypal": "PAYPAL",
+}
+
+# Website → Vendor mapping (found in OCR text)
+_WEBSITE_VENDOR_MAP = {
+    "lidl.de": "LIDL", "lidl.fr": "LIDL", "lidl.com": "LIDL",
+    "aldi-sued.de": "ALDI SÜD", "aldi-nord.de": "ALDI NORD", "aldi.de": "ALDI",
+    "rewe.de": "REWE", "edeka.de": "EDEKA", "penny.de": "PENNY",
+    "netto-online.de": "NETTO", "kaufland.de": "KAUFLAND",
+    "auchan.fr": "AUCHAN", "carrefour.fr": "CARREFOUR", "carrefour.com": "CARREFOUR",
+    "leclerc.fr": "E.LECLERC", "monoprix.fr": "MONOPRIX",
+    "amazon.de": "AMAZON", "amazon.com": "AMAZON", "amazon.fr": "AMAZON",
+    "ebay.de": "EBAY", "ebay.com": "EBAY",
+    "starbucks.com": "STARBUCKS", "starbucks.de": "STARBUCKS",
+    "mcdonalds.de": "MCDONALDS", "mcdonalds.com": "MCDONALDS",
+    "shell.de": "SHELL", "shell.com": "SHELL",
+    "aral.de": "ARAL", "bp.com": "BP", "totalenergies.de": "TOTALENERGIES",
+    "dm.de": "DM", "rossmann.de": "ROSSMANN",
+    "saturn.de": "SATURN", "mediamarkt.de": "MEDIA MARKT",
+    "apple.com": "APPLE", "microsoft.com": "MICROSOFT",
+    "ikea.de": "IKEA", "ikea.com": "IKEA",
+    "deichmann.de": "DEICHMANN", "deichmann.com": "DEICHMANN",
+    "hm.com": "H&M", "zara.com": "ZARA",
+    "bauhaus.info": "BAUHAUS", "obi.de": "OBI", "hornbach.de": "HORNBACH",
+    "bahn.de": "DEUTSCHE BAHN", "flixbus.de": "FLIXBUS",
+    "telekom.de": "TELEKOM", "vodafone.de": "VODAFONE",
+    "dhl.de": "DHL", "paypal.com": "PAYPAL",
+    "spotify.com": "SPOTIFY", "netflix.com": "NETFLIX",
+    "google.com": "GOOGLE", "adobe.com": "ADOBE",
+}
+
+# Tax ID prefixes → known vendors (German USt-IdNr.)
+_TAX_ID_VENDOR_MAP = {
+    "DE127282923": "LIDL", "DE811207047": "ALDI SÜD", "DE129491404": "ALDI NORD",
+    "DE812706034": "REWE", "DE132600790": "EDEKA",
+    "DE137389567": "AMAZON", "DE814865842": "SATURN",
+    "DE811154539": "SHELL", "DE811515593": "ARAL",
+    "DE113549055": "DM", "DE116304402": "ROSSMANN",
+    "DE129384285": "IKEA", "DE811228562": "TELEKOM",
 }
 
 
@@ -433,6 +509,63 @@ def _clean_vendor_name(name: str) -> str:
     if name == name.upper() and len(name) > 3:
         name = name.title()
     return name if name else "Unbekannt"
+
+
+def _deep_vendor_search(raw_text: str) -> str:
+    """Deep search for vendor when extract_vendor returns Unbekannt.
+    Searches entire OCR text for: websites, tax IDs, known vendor names, fuzzy matches.
+    """
+    text_lower = raw_text.lower()
+    text_clean = re.sub(r"[^a-zäöüß0-9\s./@\-]", "", text_lower)
+
+    # 1. Website detection (most reliable)
+    for site, vendor in _WEBSITE_VENDOR_MAP.items():
+        if site in text_lower:
+            return vendor
+
+    # 2. Tax ID detection (very reliable for German invoices)
+    tax_match = re.search(r"(DE\d{9})", raw_text)
+    if tax_match:
+        tax_id = tax_match.group(1)
+        if tax_id in _TAX_ID_VENDOR_MAP:
+            return _TAX_ID_VENDOR_MAP[tax_id]
+
+    # 3. Known vendor name in full text (not just first lines)
+    for vendor_key in sorted(VENDOR_CATEGORY_MAP.keys(), key=len, reverse=True):
+        if len(vendor_key) >= 4 and vendor_key in text_clean:
+            return vendor_key.upper() if len(vendor_key) <= 5 else vendor_key.title()
+
+    # 4. OCR corrections on full text
+    for wrong, correct in _VENDOR_OCR_CORRECTIONS.items():
+        if len(wrong) >= 4 and wrong in text_clean:
+            return correct
+
+    # 5. Fuzzy matching — simple character similarity
+    words = set(re.findall(r"[a-zäöüß]{4,15}", text_clean))
+    known_vendors = list(VENDOR_CATEGORY_MAP.keys())
+    for word in words:
+        for known in known_vendors:
+            if len(known) < 4:
+                continue
+            # Simple similarity: count matching chars
+            if len(word) >= 4 and len(known) >= 4:
+                common = sum(1 for a, b in zip(word, known) if a == b)
+                similarity = common / max(len(word), len(known))
+                if similarity >= 0.75:  # 75% match
+                    return known.upper() if len(known) <= 5 else known.title()
+
+    # 6. Look for GmbH / Co.KG / e.K. pattern anywhere in text
+    company_match = re.search(
+        r"([A-ZÄÖÜa-zäöüß][\w\s&\-'.]{2,40})\s*(?:GmbH|Co\.?\s?KG|AG|e\.K\.|OHG|UG|SE|Ltd|Inc|SAS|SARL|S\.A\.|Oy)",
+        raw_text
+    )
+    if company_match:
+        name = company_match.group(1).strip()
+        name = re.sub(r"[\s\-:,]+$", "", name).strip()
+        if len(name) >= 3 and name.lower() not in ("die", "der", "das", "für", "und", "mit"):
+            return name
+
+    return "Unbekannt"
 
 
 # ════════════════════════════════════════════════════════════════
@@ -1024,6 +1157,11 @@ def parse_invoice(raw_text: str) -> dict:
         }
 
     vendor = extract_vendor(raw_text)
+    # If vendor not found, try deep search in full OCR text
+    if vendor == "Unbekannt" or len(vendor) <= 2:
+        deep_vendor = _deep_vendor_search(raw_text)
+        if deep_vendor != "Unbekannt":
+            vendor = deep_vendor
     country = detect_country(raw_text)
     category = detect_category(vendor, raw_text)
     date = extract_date(raw_text)
