@@ -482,7 +482,8 @@ function DashboardView({refreshKey}){
    ══════════════════════════════════════════ */
 function InvoicesView({refreshKey,showToast}){
   const[invoices,setInvoices]=useState([]);const[total,setTotal]=useState(0);const[loading,setLoading]=useState(true);
-  const[filter,setFilter]=useState("");const[filterCat,setFilterCat]=useState("");const[dateFrom,setDateFrom]=useState(new Date().getFullYear()+"-01-01");const[dateTo,setDateTo]=useState(new Date().toISOString().slice(0,10));const[filterStatus,setFilterStatus]=useState("");
+  const _now=new Date();const _today=_now.getFullYear()+"-"+String(_now.getMonth()+1).padStart(2,"0")+"-"+String(_now.getDate()).padStart(2,"0");const _jan1=_now.getFullYear()+"-01-01";
+  const[filter,setFilter]=useState("");const[filterCat,setFilterCat]=useState("");const[dateFrom,setDateFrom]=useState(_jan1);const[dateTo,setDateTo]=useState(_today);const[filterStatus,setFilterStatus]=useState("");
   const[editId,setEditId]=useState(null);const[editData,setEditData]=useState({});
   const[selected,setSelected]=useState(new Set());
   const[deleting,setDeleting]=useState(false);
@@ -539,13 +540,13 @@ function InvoicesView({refreshKey,showToast}){
     }
     <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
       <div style={{position:"relative",flex:1,minWidth:160}}><input style={{...css.input,paddingLeft:36}} placeholder="Suche Lieferant..." value={filter} onChange={e=>setFilter(e.target.value)}/><div style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)"}}><Icon d={I.search} size={16} color={theme.textDim}/></div></div>
-      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:theme.textDim}}>Von</span><input style={{...css.input,width:130}} type="date" min="2020-01-01" max="2030-12-31" value={dateFrom} onChange={e=>{const v=e.target.value;if(v&&parseInt(v)>=2020&&parseInt(v)<=2030)setDateFrom(v);}}/></div>
-      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:theme.textDim}}>Bis</span><input style={{...css.input,width:130}} type="date" min="2020-01-01" max="2030-12-31" value={dateTo} onChange={e=>{const v=e.target.value;if(v&&parseInt(v)>=2020&&parseInt(v)<=2030)setDateTo(v);}}/></div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:theme.textDim}}>Von</span><input style={{...css.input,width:140}} type="date" min="2020-01-01" max={dateTo||_today} value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/></div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:theme.textDim}}>Bis</span><input style={{...css.input,width:140}} type="date" min={dateFrom||"2020-01-01"} max={_today} value={dateTo} onChange={e=>setDateTo(e.target.value)}/></div>
       <select style={{...css.input,width:130}} value={filterCat} onChange={e=>setFilterCat(e.target.value)}><option value="">Alle Kategorien</option><option value="food">Lebensmittel</option><option value="restaurant">Bewirtung</option><option value="fuel">Kraftstoff</option><option value="clothing">Kleidung</option><option value="electronics">Elektronik</option><option value="office">Büro</option><option value="telecom">Telefon</option><option value="transport">Transport</option><option value="drugstore">Drogerie</option><option value="other">Sonstiges</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
       <select style={{...css.input,width:120}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">Alle Belege</option><option value="read">Erkannt</option><option value="unread">Nicht erkannt</option></select>
       <button style={{...css.btn(),padding:"10px 16px",fontSize:12}} onClick={doSearch}>Suche</button>
       <button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={syncAll} disabled={syncing}>{syncing?"...":"Kassenbuch sync"}</button>
-      {(filter||filterCat||filterStatus)&&<button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={()=>{setFilter("");setDateFrom(new Date().getFullYear()+"-01-01");setDateTo(new Date().toISOString().slice(0,10));setFilterCat("");setFilterStatus("");load("","",new Date().getFullYear()+"-01-01",new Date().toISOString().slice(0,10));}}>Reset</button>}
+      {(filter||filterCat||filterStatus)&&<button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={()=>{setFilter("");setDateFrom(_jan1);setDateTo(_today);setFilterCat("");setFilterStatus("");load("","",_jan1,_today);}}>Reset</button>}
     </div>
     {editId&&<div style={css.card}>
       <h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 12px"}}>Rechnung bearbeiten</h3>
