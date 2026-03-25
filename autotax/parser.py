@@ -748,7 +748,8 @@ _TOTAL_KEYWORDS_HIGH = [
 
 _TOTAL_KEYWORDS_MED = [
     # Generic / multi-language
-    r"total", r"summe", r"gesamt", r"betrag", r"brutto", r"netto",
+    r"total", r"summe", r"s[uü]mme", r"gesamt", r"betrag", r"brutto", r"netto",
+    r"5umme", r"surnme", r"sumrne", r"ge5amt", r"t0tal", r"tota1",  # OCR misreads
     r"subtotal", r"sub\s*total", r"amount", r"sum", r"due", r"price",
     # Deutsch
     r"preis", r"steuerbetrag", r"teilbetrag", r"restbetrag",

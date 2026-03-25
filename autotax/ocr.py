@@ -16,15 +16,44 @@ def preprocess_image(content: bytes) -> bytes:
     Works well on dark, wrinkled, or low-quality receipts.
     """
     try:
-        from PIL import Image, ImageEnhance, ImageFilter
+        from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+        import math
         img = Image.open(io.BytesIO(content))
+
+        # Fix EXIF rotation (phone photos are often rotated)
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
 
         # Convert to grayscale
         img = img.convert("L")
 
         # Auto-contrast: stretch histogram
-        from PIL import ImageOps
         img = ImageOps.autocontrast(img, cutoff=2)
+
+        # Deskew: detect and fix tilted images
+        try:
+            # Simple deskew using variance of row sums
+            import numpy as np
+            arr = np.array(img)
+            best_angle = 0
+            best_score = 0
+            for angle in [a * 0.5 for a in range(-10, 11)]:  # -5 to +5 degrees
+                rotated = img.rotate(angle, fillcolor=255, expand=False)
+                row_sums = np.sum(np.array(rotated) < 128, axis=1)
+                score = np.var(row_sums)
+                if score > best_score:
+                    best_score = score
+                    best_angle = angle
+            if abs(best_angle) > 0.5:
+                img = img.rotate(best_angle, fillcolor=255, expand=True)
+                logger.info("Deskewed image by %.1f degrees", best_angle)
+        except ImportError:
+            # numpy not available — skip deskew
+            pass
+        except Exception:
+            pass
 
         # Increase contrast
         img = ImageEnhance.Contrast(img).enhance(1.8)
@@ -35,8 +64,10 @@ def preprocess_image(content: bytes) -> bytes:
         # Sharpen
         img = ImageEnhance.Sharpness(img).enhance(2.0)
 
+        # Denoise: median filter removes speckle noise
+        img = img.filter(ImageFilter.MedianFilter(size=3))
+
         # Binarize (adaptive threshold simulation)
-        # Convert to pure black & white with threshold
         threshold = 140
         img = img.point(lambda x: 255 if x > threshold else 0, "1")
 
@@ -74,7 +105,7 @@ async def extract_image_text(content: bytes, filename: str) -> str:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     OCR_API_URL,
-                    data={"apikey": OCR_API_KEY, "OCREngine": "1"},
+                    data={"apikey": OCR_API_KEY, "OCREngine": "2", "detectOrientation": "true", "scale": "true", "isTable": "true"},
                     files={"file": (filename, processed)},
                 )
                 resp.raise_for_status()
