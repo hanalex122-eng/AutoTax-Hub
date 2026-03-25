@@ -1023,8 +1023,38 @@ def sync_invoices_to_bookkeeping(user: dict = Depends(get_current_user)):
             )
             db.add(entry)
             synced += 1
+        # Reverse sync: CashEntry → Invoice (for manual entries without invoice)
+        existing_inv_refs = set()
+        for inv in invoices:
+            if inv.raw_text and inv.raw_text.startswith("manual entry:"):
+                existing_inv_refs.add(inv.raw_text)
+        rev_synced = 0
+        for entry in all_entries:
+            if entry.invoice_id:
+                continue  # already linked to an invoice
+            ref_key = f"manual entry: {safe_str(entry.description)}"
+            if ref_key in existing_inv_refs:
+                continue  # already has matching invoice
+            inv = Invoice(
+                user_id=user["sub"],
+                filename=None,
+                vendor=entry.vendor or "Manual Entry",
+                total_amount=safe_float(entry.gross_amount),
+                vat_amount=safe_float(entry.vat_amount),
+                vat_rate=entry.vat_rate or "0%",
+                date=entry.date.strftime("%Y-%m-%d") if entry.date else "",
+                raw_text=ref_key,
+                invoice_type=entry.entry_type or "expense",
+                invoice_number="",
+                payment_method=safe_str(entry.payment_method),
+                category=safe_category(entry.category),
+                processed=True,
+            )
+            db.add(inv)
+            rev_synced += 1
+
         db.commit()
-        return {"synced": synced, "skipped": skipped}
+        return {"synced": synced, "skipped": skipped, "reverse_synced": rev_synced}
     except HTTPException:
         raise
     except Exception:
