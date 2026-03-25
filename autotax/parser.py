@@ -711,6 +711,11 @@ _TOTAL_KEYWORDS_HIGH = [
     r"montant\s*ttc", r"somme\s*totale", r"total\s*[àa]\s*payer",
     r"montant\s*[àa]\s*payer", r"montant\s*d[ûu]", r"solde\s*[àa]\s*payer",
     r"total\s*g[ée]n[ée]ral",
+    r"montant\s*r[ée]el", r"montant\s*net", r"montant\s*brut",
+    r"montant\s*facture", r"montant\s*hors\s*taxe", r"montant\s*ht",
+    r"prix\s*total", r"prix\s*[àa]\s*payer", r"prix\s*net",
+    r"reste\s*d[ûu]", r"solde\s*d[ûu]",
+    r"total\s*facture", r"total\s*net", r"total\s*brut",
     # Türkçe
     r"toplam\s*tutar", r"genel\s*toplam", r"[öo]denecek\s*tutar",
     r"toplam\s*fiyat", r"kdv\s*dahil\s*toplam", r"vergiler\s*dahil",
