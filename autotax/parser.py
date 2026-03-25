@@ -455,6 +455,82 @@ _VENDOR_OCR_CORRECTIONS = {
     # Software
     "microsoft": "MICROSOFT", "google": "GOOGLE", "adobe": "ADOBE",
     "spotify": "SPOTIFY", "netflix": "NETFLIX", "paypal": "PAYPAL",
+    # === FRANCE ===
+    "auchan": "AUCHAN", "auchan.fr": "AUCHAN", "auchanfr": "AUCHAN",
+    "carrefour": "CARREFOUR", "carref0ur": "CARREFOUR", "carrefour market": "CARREFOUR",
+    "carrefour city": "CARREFOUR", "carrefour express": "CARREFOUR",
+    "leclerc": "E.LECLERC", "e.leclerc": "E.LECLERC", "e leclerc": "E.LECLERC",
+    "monoprix": "MONOPRIX", "m0noprix": "MONOPRIX", "monop'": "MONOPRIX",
+    "intermarche": "INTERMARCHÉ", "intermarché": "INTERMARCHÉ",
+    "casino": "CASINO", "géant casino": "GÉANT CASINO", "geant casino": "GÉANT CASINO",
+    "franprix": "FRANPRIX", "picard": "PICARD",
+    "boulangerie": "BOULANGERIE", "patisserie": "PÂTISSERIE",
+    "bricomarche": "BRICOMARCHÉ", "bricorama": "BRICORAMA",
+    "leroy merlin": "LEROY MERLIN", "leroymerlin": "LEROY MERLIN",
+    "castorama": "CASTORAMA", "darty": "DARTY", "fnac": "FNAC",
+    "boulanger": "BOULANGER", "sncf": "SNCF", "ratp": "RATP",
+    "la poste": "LA POSTE", "chronopost": "CHRONOPOST",
+    "orange": "ORANGE", "sfr": "SFR", "bouygues": "BOUYGUES TELECOM",
+    "free": "FREE", "free mobile": "FREE",
+    "total": "TOTALENERGIES", "totalenergies": "TOTALENERGIES",
+    "decathlon": "DECATHLON", "d3cathlon": "DECATHLON",
+    "kiabi": "KIABI", "action": "ACTION",
+    # === ITALY ===
+    "esselunga": "ESSELUNGA", "conad": "CONAD", "coop italia": "COOP",
+    "eurospin": "EUROSPIN", "lidl italia": "LIDL", "md discount": "MD",
+    "pam": "PAM", "despar": "DESPAR", "bennet": "BENNET",
+    "autogrill": "AUTOGRILL", "eni": "ENI", "agip": "AGIP",
+    "trenitalia": "TRENITALIA", "italo": "ITALO",
+    "tim": "TIM", "wind tre": "WINDTRE", "iliad": "ILIAD",
+    "poste italiane": "POSTE ITALIANE", "mediaworld": "MEDIAWORLD",
+    "unieuro": "UNIEURO", "feltrinelli": "FELTRINELLI",
+    "ovs": "OVS", "calzedonia": "CALZEDONIA", "intimissimi": "INTIMISSIMI",
+    # === SPAIN ===
+    "mercadona": "MERCADONA", "mercad0na": "MERCADONA",
+    "dia": "DIA", "el corte ingles": "EL CORTE INGLÉS",
+    "el corte inglés": "EL CORTE INGLÉS", "eroski": "EROSKI",
+    "hipercor": "HIPERCOR", "alcampo": "ALCAMPO",
+    "consum": "CONSUM", "bonpreu": "BONPREU", "caprabo": "CAPRABO",
+    "repsol": "REPSOL", "cepsa": "CEPSA",
+    "renfe": "RENFE", "iberia": "IBERIA", "vueling": "VUELING",
+    "movistar": "MOVISTAR", "vodafone": "VODAFONE",
+    "correos": "CORREOS", "mediamarkt": "MEDIA MARKT",
+    "zara": "ZARA", "mango": "MANGO", "desigual": "DESIGUAL",
+    "massimo dutti": "MASSIMO DUTTI", "bershka": "BERSHKA",
+    "pull&bear": "PULL&BEAR", "stradivarius": "STRADIVARIUS",
+    # === UK / USA ===
+    "tesco": "TESCO", "tesc0": "TESCO", "sainsbury": "SAINSBURY'S",
+    "sainsbury's": "SAINSBURY'S", "asda": "ASDA", "morrisons": "MORRISONS",
+    "waitrose": "WAITROSE", "marks & spencer": "MARKS & SPENCER", "m&s": "M&S",
+    "walmart": "WALMART", "wa1mart": "WALMART", "wal-mart": "WALMART",
+    "target": "TARGET", "targ3t": "TARGET",
+    "costco": "COSTCO", "c0stco": "COSTCO",
+    "whole foods": "WHOLE FOODS", "trader joe": "TRADER JOE'S",
+    "trader joe's": "TRADER JOE'S", "kroger": "KROGER",
+    "walgreens": "WALGREENS", "cvs": "CVS", "rite aid": "RITE AID",
+    "home depot": "HOME DEPOT", "lowe's": "LOWE'S", "lowes": "LOWE'S",
+    "best buy": "BEST BUY", "bestbuy": "BEST BUY",
+    "apple store": "APPLE", "amazon.com": "AMAZON",
+    "uber eats": "UBER EATS", "doordash": "DOORDASH", "grubhub": "GRUBHUB",
+    "lyft": "LYFT", "uber": "UBER",
+    "at&t": "AT&T", "verizon": "VERIZON", "t-mobile": "T-MOBILE",
+    "usps": "USPS", "fedex": "FEDEX", "ups": "UPS",
+    "nike": "NIKE", "adidas": "ADIDAS", "gap": "GAP",
+    "old navy": "OLD NAVY", "forever 21": "FOREVER 21",
+    # === TURKEY ===
+    "bim": "BİM", "a101": "A101", "şok": "ŞOK", "sok": "ŞOK",
+    "migros": "MİGROS", "carrefoursa": "CARREFOURSA",
+    "macro center": "MACRO CENTER", "metro": "METRO",
+    "gratis": "GRATIS", "watsons": "WATSONS",
+    "teknosa": "TEKNOSA", "mediamarkt": "MEDIA MARKT",
+    "koçtaş": "KOÇTAŞ", "koctas": "KOÇTAŞ", "bauhaus": "BAUHAUS",
+    "lc waikiki": "LC WAIKIKI", "defacto": "DEFACTO",
+    "turkcell": "TURKCELL", "vodafone": "VODAFONE", "türk telekom": "TÜRK TELEKOM",
+    "ptt": "PTT", "yurtiçi kargo": "YURTİÇİ KARGO", "aras kargo": "ARAS KARGO",
+    "thy": "TÜRK HAVA YOLLARI", "türk hava": "TÜRK HAVA YOLLARI",
+    "pegasus": "PEGASUS", "sunexpress": "SUNEXPRESS",
+    "opet": "OPET", "petrol ofisi": "PETROL OFİSİ", "bp": "BP",
+    "starbucks": "STARBUCKS", "burger king": "BURGER KING",
 }
 
 # Website → Vendor mapping (found in OCR text)
@@ -483,6 +559,26 @@ _WEBSITE_VENDOR_MAP = {
     "dhl.de": "DHL", "paypal.com": "PAYPAL",
     "spotify.com": "SPOTIFY", "netflix.com": "NETFLIX",
     "google.com": "GOOGLE", "adobe.com": "ADOBE",
+    # France
+    "auchan.fr": "AUCHAN", "carrefour.fr": "CARREFOUR", "leclerc.fr": "E.LECLERC",
+    "monoprix.fr": "MONOPRIX", "intermarche.com": "INTERMARCHÉ",
+    "fnac.com": "FNAC", "darty.com": "DARTY", "leroymerlin.fr": "LEROY MERLIN",
+    "sncf.com": "SNCF", "decathlon.fr": "DECATHLON",
+    # Italy
+    "esselunga.it": "ESSELUNGA", "conad.it": "CONAD", "trenitalia.it": "TRENITALIA",
+    "mediaworld.it": "MEDIAWORLD", "posteitaliane.it": "POSTE ITALIANE",
+    # Spain
+    "mercadona.es": "MERCADONA", "elcorteingles.es": "EL CORTE INGLÉS",
+    "renfe.com": "RENFE", "zara.com": "ZARA", "mango.com": "MANGO",
+    # UK
+    "tesco.com": "TESCO", "sainsburys.co.uk": "SAINSBURY'S", "asda.com": "ASDA",
+    # USA
+    "walmart.com": "WALMART", "target.com": "TARGET", "costco.com": "COSTCO",
+    "bestbuy.com": "BEST BUY", "homedepot.com": "HOME DEPOT",
+    # Turkey
+    "bim.com.tr": "BİM", "a101.com.tr": "A101", "migros.com.tr": "MİGROS",
+    "teknosa.com": "TEKNOSA", "lcwaikiki.com": "LC WAIKIKI",
+    "thy.com": "TÜRK HAVA YOLLARI", "pegasus.com": "PEGASUS",
 }
 
 # Tax ID prefixes → known vendors (German USt-IdNr.)
@@ -493,6 +589,13 @@ _TAX_ID_VENDOR_MAP = {
     "DE811154539": "SHELL", "DE811515593": "ARAL",
     "DE113549055": "DM", "DE116304402": "ROSSMANN",
     "DE129384285": "IKEA", "DE811228562": "TELEKOM",
+    # France (SIRET/SIREN patterns — first digits)
+    "FR40303656985": "CARREFOUR", "FR39552096281": "AUCHAN",
+    "FR72428240760": "E.LECLERC", "FR03552083297": "MONOPRIX",
+    # Spain (CIF)
+    "ESA46103834": "MERCADONA",
+    # Italy (P.IVA)
+    "IT02153300963": "ESSELUNGA",
 }
 
 
@@ -523,12 +626,22 @@ def _deep_vendor_search(raw_text: str) -> str:
         if site in text_lower:
             return vendor
 
-    # 2. Tax ID detection (very reliable for German invoices)
-    tax_match = re.search(r"(DE\d{9})", raw_text)
-    if tax_match:
-        tax_id = tax_match.group(1)
-        if tax_id in _TAX_ID_VENDOR_MAP:
-            return _TAX_ID_VENDOR_MAP[tax_id]
+    # 2. Tax ID detection (DE, FR, ES, IT, etc.)
+    tax_patterns = [
+        r"(DE\d{9})",                    # Germany USt-IdNr
+        r"(FR\d{11})",                   # France TVA
+        r"(ES[A-Z]\d{8})",              # Spain CIF
+        r"(IT\d{11})",                   # Italy P.IVA
+        r"(GB\d{9})",                    # UK VAT
+        r"(AT\d{9})",                    # Austria
+        r"(CH\d{9})",                    # Switzerland
+    ]
+    for pat in tax_patterns:
+        tax_match = re.search(pat, raw_text)
+        if tax_match:
+            tax_id = tax_match.group(1)
+            if tax_id in _TAX_ID_VENDOR_MAP:
+                return _TAX_ID_VENDOR_MAP[tax_id]
 
     # 3. Known vendor name in full text (not just first lines)
     for vendor_key in sorted(VENDOR_CATEGORY_MAP.keys(), key=len, reverse=True):
@@ -554,9 +667,9 @@ def _deep_vendor_search(raw_text: str) -> str:
                 if similarity >= 0.75:  # 75% match
                     return known.upper() if len(known) <= 5 else known.title()
 
-    # 6. Look for GmbH / Co.KG / e.K. pattern anywhere in text
+    # 6. Look for company suffix patterns anywhere in text (international)
     company_match = re.search(
-        r"([A-ZÄÖÜa-zäöüß][\w\s&\-'.]{2,40})\s*(?:GmbH|Co\.?\s?KG|AG|e\.K\.|OHG|UG|SE|Ltd|Inc|SAS|SARL|S\.A\.|Oy)",
+        r"([A-ZÄÖÜa-zäöüß][\w\s&\-'.]{2,40})\s*(?:GmbH|Co\.?\s?KG|AG|e\.K\.|OHG|UG|SE|Ltd\.?|Inc\.?|SAS|SARL|S\.A\.?|S\.L\.?|S\.R\.L\.?|Oy|AB|NV|BV|PLC|LLC|Corp\.?|Pty|A\.Ş\.|Ş[tT]i\.?|LTD\.?\s*ŞTİ)",
         raw_text
     )
     if company_match:
