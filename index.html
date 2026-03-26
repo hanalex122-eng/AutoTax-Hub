@@ -24,6 +24,9 @@ tr { transition: background 0.15s ease; }
 tr:hover { background: rgba(26,34,52,0.5) !important; transition-delay: 45ms; }
 thead tr:hover { background: transparent !important; transition-delay: 0ms; }
 .cb-cell input[type="checkbox"] { width:16px; height:16px; accent-color:#10b981; cursor:pointer; }
+input[type="date"] { color: #e2e8f0; color-scheme: dark; }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8) sepia(1) saturate(3) hue-rotate(100deg); cursor: pointer; padding: 2px; }
+input[type="date"]::-webkit-inner-spin-button { filter: invert(0.8) sepia(1) saturate(3) hue-rotate(100deg); }
 @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes iconIn { from { transform: scale(0.9); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
