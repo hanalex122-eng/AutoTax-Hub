@@ -184,6 +184,12 @@ VENDOR_CATEGORY_MAP: dict[str, str] = {
     "amazon": "shopping",
     "ebay": "shopping",
     "paypal": "shopping",
+    "walmart": "shopping",
+    "action": "shopping",
+    "tedi": "shopping",
+    "target": "shopping",
+    "costco": "shopping",
+    "tk maxx": "shopping",
     "microsoft": "software",
     "google": "software",
     "adobe": "software",
@@ -606,6 +612,18 @@ def _clean_vendor_name(name: str) -> str:
     """Clean up vendor name: remove trailing punctuation, asterisks, OCR corrections."""
     name = re.sub(r"[*#]+", "", name).strip()
     name = re.sub(r"[\s\-:,]+$", "", name).strip()
+
+    # Garbage detection — if too few real letters vs symbols, it's OCR noise
+    # BUT first check if it's a known short vendor name (H&M, DM, etc.)
+    letters_only = re.sub(r"[^a-zA-ZäöüÄÖÜß]", "", name)
+    name_check = name.lower().strip()
+    is_known_vendor = any(v in name_check for v in VENDOR_CATEGORY_MAP if len(v) >= 2)
+    if not is_known_vendor:
+        if len(letters_only) < 3:
+            return "Unbekannt"
+        if len(name) > 0 and len(letters_only) / len(name) < 0.5:
+            return "Unbekannt"
+
     # OCR correction: check if cleaned name matches a known misread
     name_lower = re.sub(r"[^a-zäöüß0-9]", "", name.lower())
     for wrong, correct in _VENDOR_OCR_CORRECTIONS.items():
