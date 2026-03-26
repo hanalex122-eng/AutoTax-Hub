@@ -87,7 +87,7 @@ async def extract_image_text(content: bytes, filename: str) -> str:
     for engine in ["1", "2"]:
         for attempt in range(2):
             try:
-                async with httpx.AsyncClient(timeout=25) as client:
+                async with httpx.AsyncClient(timeout=12) as client:
                     resp = await client.post(
                         OCR_API_URL,
                         data={
@@ -122,7 +122,7 @@ async def extract_handwriting_text(content: bytes, filename: str) -> str:
     processed = preprocess_image(content)
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=25) as client:
+            async with httpx.AsyncClient(timeout=12) as client:
                 resp = await client.post(
                     OCR_API_URL,
                     data={"apikey": OCR_API_KEY, "OCREngine": "2"},
