@@ -1174,15 +1174,13 @@ def _extract_vat_rates(text: str, country: str) -> list[float]:
     # Find all percentage mentions
     for m in re.findall(r"(\d{1,2}(?:[.,]\d{1,2})?)\s*%", text):
         val = float(m.replace(",", "."))
-        if known and val in known:
-            rates.add(val)
-        elif 2 <= val <= 27:
+        if 0 < val <= 30:
             rates.add(val)
 
     # Look for MwSt/USt specific patterns
-    for m in re.findall(r"(?:mwst|ust|tva|vat|iva|btw)\s*:?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%?", text, re.IGNORECASE):
+    for m in re.findall(r"(?:mwst|ust|tva|vat|iva|btw|kdv)\s*:?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%?", text, re.IGNORECASE):
         val = float(m.replace(",", "."))
-        if 2 <= val <= 27:
+        if 0 < val <= 30:
             rates.add(val)
 
     return sorted(rates, reverse=True)
