@@ -75,7 +75,33 @@ def extract_pdf_text(content: bytes) -> str:
             t = page.extract_text()
             if t:
                 text_parts.append(t)
-    return "\n".join(text_parts)
+    text = "\n".join(text_parts).strip()
+    if text and len(text) >= 20:
+        return text
+    # Scanned PDF — no text layer. Convert first page to image for OCR.
+    try:
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            if pdf.pages:
+                img = pdf.pages[0].to_image(resolution=200).original
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                logger.info("Scanned PDF detected — converted page 1 to image (%d bytes)", len(buf.getvalue()))
+                return "__SCANNED_PDF__:" + str(len(buf.getvalue()))
+    except Exception as e:
+        logger.warning("PDF to image conversion failed: %s", e)
+    return text
+
+
+def extract_pdf_page_as_image(content: bytes) -> bytes:
+    """Convert first page of PDF to PNG image bytes."""
+    import pdfplumber
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        if pdf.pages:
+            img = pdf.pages[0].to_image(resolution=200).original
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+    return b""
 
 
 async def extract_image_text(content: bytes, filename: str) -> str:
@@ -150,7 +176,14 @@ async def extract_text(file: UploadFile, handwriting: bool = False) -> str:
         return await extract_handwriting_text(content, file.filename or "upload.png")
 
     if content_type == "application/pdf" or filename.endswith(".pdf"):
-        return extract_pdf_text(content)
+        text = extract_pdf_text(content)
+        if text.startswith("__SCANNED_PDF__") or not text or len(text) < 20:
+            # Scanned PDF — convert to image and OCR
+            img_bytes = extract_pdf_page_as_image(content)
+            if img_bytes:
+                logger.info("Scanned PDF fallback: sending page image to OCR")
+                return await extract_image_text(img_bytes, "scanned_page.png")
+        return text
 
     if content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".tiff")):
         return await extract_image_text(content, file.filename or "upload.png")
@@ -180,6 +213,11 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False) -> tu
         ocr_text = await extract_handwriting_text(content, file.filename or "upload.png")
     elif content_type == "application/pdf" or filename.endswith(".pdf"):
         ocr_text = extract_pdf_text(content)
+        if ocr_text.startswith("__SCANNED_PDF__") or not ocr_text or len(ocr_text) < 20:
+            img_bytes = extract_pdf_page_as_image(content)
+            if img_bytes:
+                logger.info("Scanned PDF fallback (text_and_qr): sending page image to OCR")
+                ocr_text = await extract_image_text(img_bytes, "scanned_page.png")
     elif content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".tiff")):
         ocr_text = await extract_image_text(content, file.filename or "upload.png")
     else:
