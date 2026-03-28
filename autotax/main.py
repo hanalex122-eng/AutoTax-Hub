@@ -1162,7 +1162,9 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
     import csv
     content = await file.read()
     text = content.decode("utf-8", errors="ignore")
-    reader = csv.DictReader(io.StringIO(text), delimiter=",")
+    first_line = text.split("\n")[0] if text else ""
+    delimiter = ";" if ";" in first_line else ","
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
 
     db = SessionLocal()
     imported = 0
@@ -1243,6 +1245,89 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
         db.rollback()
         logger.exception("CSV import failed")
         err(500, "CSV import failed")
+    finally:
+        db.close()
+
+
+# ============================================================
+# BOOKKEEPING: PHOTO IMPORT (Handwritten Kassenbuch)
+# ============================================================
+
+@app.post("/bookkeeping/import-photo")
+async def import_kassenbuch_photo(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Import handwritten Kassenbuch photo — OCR handwriting + table parsing"""
+    from autotax.ocr import extract_handwriting_text
+    import re as _re
+
+    content = await file.read()
+    text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
+    if not text:
+        err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
+
+    lines = text.strip().split("\n")
+    db = SessionLocal()
+    imported = 0
+    try:
+        for line in lines:
+            line = line.strip()
+            if not line or len(line) < 5:
+                continue
+            m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+(\d+[.,]\d{2})\s*$", line)
+            if not m:
+                m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s*[|/]?\s*(.+?)\s+[/|]?\s*(\d+[.,]\d{2})", line)
+            if not m:
+                continue
+            datum_raw = m.group(1)
+            beschreibung = m.group(2).strip()
+            betrag = float(m.group(3).replace(",", "."))
+            if betrag <= 0 or len(beschreibung) < 2:
+                continue
+            parts = datum_raw.replace("/", ".").split(".")
+            date_str = ""
+            if len(parts) == 3:
+                d, mo, y = parts
+                if len(y) == 2:
+                    y = "20" + y
+                date_str = f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+            vat_amount = round(betrag * 19 / 119, 2)
+            entry = CashEntry(
+                user_id=user["sub"],
+                description=beschreibung,
+                vendor=beschreibung[:50],
+                gross_amount=betrag,
+                vat_amount=vat_amount,
+                vat_rate="19%",
+                entry_type="expense",
+                category="other",
+                payment_method="",
+                reference="",
+                notes="Kassenbuch Foto Import",
+                date=parse_date_str_to_datetime(date_str),
+            )
+            db.add(entry)
+            inv = Invoice(
+                user_id=user["sub"],
+                filename="kassenbuch-foto",
+                vendor=beschreibung[:50],
+                total_amount=betrag,
+                vat_amount=vat_amount,
+                vat_rate="19%",
+                date=date_str,
+                raw_text=f"Kassenbuch Foto: {beschreibung}",
+                invoice_type="expense",
+                invoice_number="",
+                payment_method="",
+                category="other",
+                processed=True,
+            )
+            db.add(inv)
+            imported += 1
+        db.commit()
+        return {"success": True, "imported": imported, "ocr_text": text[:500]}
+    except Exception:
+        db.rollback()
+        logger.exception("Kassenbuch photo import failed")
+        err(500, "Import failed")
     finally:
         db.close()
 
