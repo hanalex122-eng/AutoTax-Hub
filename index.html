@@ -781,7 +781,7 @@ function BookkeepingView({refreshKey}){
   const[editData,setEditData]=useState({});
   const csvRef=useRef(null);const photoRef=useRef(null);
   const[importing,setImporting]=useState(false);
-  const importCSV=async(e)=>{const f=e.target.files?.[0];if(!f)return;setImporting(true);const fd=new FormData();fd.append("file",f);const token=localStorage.getItem("atx_token");try{const res=await fetch(API+"/bookkeeping/import-csv",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();alert(d.imported+" Einträge importiert"+(d.errors?.length?" ("+d.errors.length+" Fehler)":""));load();}catch(ex){alert("Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";};
+  const importCSV=async(e)=>{const f=e.target.files?.[0];if(!f)return;setImporting(true);const fd=new FormData();fd.append("file",f);const tk=localStorage.getItem("atx_token");if(!tk){alert("Bitte zuerst einloggen");setImporting(false);return;}try{const res=await fetch(API+"/bookkeeping/import-csv",{method:"POST",headers:{"Authorization":"Bearer "+tk},body:fd});const d=await res.json();if(d.success)alert(d.imported+" Einträge importiert"+(d.errors?.length?" ("+d.errors.length+" Fehler)":""));else alert("Fehler: "+(d.detail||JSON.stringify(d)));load();}catch(ex){alert("Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";};
   const load=()=>{api("/bookkeeping?limit=100").then(d=>{setEntries(Array.isArray(d)?d:(d.items||[]));if(d.summary)setSummary(d.summary);setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
     api("/bookkeeping/summary/overview").then(s=>{if(s)setSummary(prev=>({...prev,...s}));}).catch(()=>{});};
   useEffect(load,[refreshKey]);
@@ -817,7 +817,7 @@ function BookkeepingView({refreshKey}){
         <button style={css.btnOutline} onClick={()=>csvRef.current?.click()} disabled={importing}>{importing?"...":"CSV Import"}</button>
         <input ref={csvRef} type="file" accept=".csv,.txt" style={{display:"none"}} onChange={importCSV}/>
         <button style={css.btnOutline} onClick={()=>photoRef.current?.click()} disabled={importing}>Foto Import</button>
-        <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={async(e)=>{const f=e.target.files?.[0];if(!f)return;setImporting(true);const fd=new FormData();fd.append("file",f);const token=localStorage.getItem("atx_token");try{const res=await fetch(API+"/bookkeeping/import-photo",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();alert(d.imported+" Einträge aus Foto importiert");load();}catch(ex){alert("Foto-Import fehlgeschlagen");}setImporting(false);e.target.value="";}}/>
+        <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={async(e)=>{const f=e.target.files?.[0];if(!f)return;const tk=localStorage.getItem("atx_token");if(!tk){alert("Bitte zuerst einloggen");return;}setImporting(true);const fd=new FormData();fd.append("file",f);try{const res=await fetch(API+"/bookkeeping/import-photo",{method:"POST",headers:{"Authorization":"Bearer "+tk},body:fd});const d=await res.json();if(d.success)alert(d.imported+" Einträge aus Foto importiert");else alert("Fehler: "+(d.detail||JSON.stringify(d)));load();}catch(ex){alert("Foto-Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";}}/>
       </div>
     </div>
     {summary&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:12}}>
