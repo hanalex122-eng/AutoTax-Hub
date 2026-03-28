@@ -801,7 +801,12 @@ def _list_bookkeeping(skip, limit, user):
                 "total_vat": round(total_vat, 2),
                 "total_income": round(total_income, 2),
                 "total_expense": round(total_expense, 2),
+                "total_expenses": round(total_expense, 2),
                 "net": round(total_income - total_expense, 2),
+                "net_profit": round(total_income - total_expense, 2),
+                "vat_balance": round(
+                    sum(safe_float(e.vat_amount) for e in all_entries if e.entry_type == "income") -
+                    sum(safe_float(e.vat_amount) for e in all_entries if e.entry_type == "expense"), 2),
                 "entry_count": total_count,
             },
         }
