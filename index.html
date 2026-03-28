@@ -779,6 +779,9 @@ function BookkeepingView({refreshKey}){
   const[deleting,setDeleting]=useState(false);
   const[editId,setEditId]=useState(null);
   const[editData,setEditData]=useState({});
+  const csvRef=useRef(null);
+  const[importing,setImporting]=useState(false);
+  const importCSV=async(e)=>{const f=e.target.files?.[0];if(!f)return;setImporting(true);const fd=new FormData();fd.append("file",f);const token=localStorage.getItem("atx_token");try{const res=await fetch(API+"/bookkeeping/import-csv",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();alert(d.imported+" Einträge importiert"+(d.errors?.length?" ("+d.errors.length+" Fehler)":""));load();}catch(ex){alert("Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";};
   const load=()=>{api("/bookkeeping?limit=100").then(d=>{setEntries(Array.isArray(d)?d:(d.items||[]));if(d.summary)setSummary(d.summary);setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
     api("/bookkeeping/summary/overview?year="+new Date().getFullYear()).then(s=>{if(s)setSummary(prev=>({...prev,...s}));}).catch(()=>{});};
   useEffect(load,[refreshKey]);
@@ -811,6 +814,8 @@ function BookkeepingView({refreshKey}){
         <button style={css.btn()} onClick={()=>setShowForm(!showForm)}>+ Eintrag</button>
         <button style={css.btnOutline} onClick={sync} disabled={syncing}>{syncing?"...":"Rechnungen sync"}</button>
         <button style={css.btnOutline} onClick={()=>window.open(API+"/bookkeeping/export/csv?year="+new Date().getFullYear(),"_blank")}>CSV Export</button>
+        <button style={css.btnOutline} onClick={()=>csvRef.current?.click()} disabled={importing}>{importing?"...":"CSV Import"}</button>
+        <input ref={csvRef} type="file" accept=".csv" style={{display:"none"}} onChange={importCSV}/>
       </div>
     </div>
     {summary&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:12}}>

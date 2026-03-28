@@ -1154,6 +1154,100 @@ def export_bookkeeping_csv(year: int = Query(None), user: dict = Depends(get_cur
 
 
 # ============================================================
+# BOOKKEEPING: CSV IMPORT
+# ============================================================
+
+@app.post("/bookkeeping/import-csv")
+async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    import csv
+    content = await file.read()
+    text = content.decode("utf-8", errors="ignore")
+    reader = csv.DictReader(io.StringIO(text), delimiter=",")
+
+    db = SessionLocal()
+    imported = 0
+    errors = []
+    try:
+        for idx, row in enumerate(reader, 1):
+            try:
+                beschreibung = row.get("Beschreibung") or row.get("description") or row.get("Description") or ""
+                datum = row.get("Datum") or row.get("date") or row.get("Date") or ""
+                ausgaben = row.get("Ausgaben") or row.get("expenses") or row.get("amount") or row.get("Betrag") or "0"
+                einnahmen = row.get("Einnahmen") or row.get("income") or "0"
+                vendor = row.get("Vendor") or row.get("Lieferant") or beschreibung[:50] or "Import"
+                category = row.get("Kategorie") or row.get("category") or "other"
+                payment = row.get("Zahlungsmethode") or row.get("payment_method") or ""
+
+                ausgaben_val = float(str(ausgaben).replace(",", ".").replace("€", "").replace(" ", "").strip() or "0")
+                einnahmen_val = float(str(einnahmen).replace(",", ".").replace("€", "").replace(" ", "").strip() or "0")
+
+                amount = einnahmen_val if einnahmen_val > 0 else ausgaben_val
+                entry_type = "income" if einnahmen_val > 0 else "expense"
+
+                if amount <= 0 and not beschreibung:
+                    continue
+
+                date_val = None
+                if datum:
+                    parts = datum.strip().split(".")
+                    if len(parts) == 3:
+                        try:
+                            date_val = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+                        except ValueError:
+                            pass
+                    if not date_val:
+                        date_val = parse_date_str_to_datetime(datum)
+                if not date_val:
+                    date_val = datetime.now()
+
+                vat_amount = round(amount * 19 / 119, 2) if amount > 0 else 0
+
+                entry = CashEntry(
+                    user_id=user["sub"],
+                    description=beschreibung or vendor,
+                    vendor=vendor,
+                    gross_amount=amount,
+                    vat_amount=vat_amount,
+                    vat_rate="19%",
+                    entry_type=entry_type,
+                    category=category,
+                    payment_method=payment,
+                    reference=f"CSV-Import Zeile {idx}",
+                    notes="Importiert aus CSV",
+                    date=date_val,
+                )
+                db.add(entry)
+
+                inv = Invoice(
+                    user_id=user["sub"],
+                    filename=f"csv-import-{idx}",
+                    vendor=vendor,
+                    total_amount=amount,
+                    vat_amount=vat_amount,
+                    vat_rate="19%",
+                    date=date_val.strftime("%Y-%m-%d") if date_val else "",
+                    raw_text=f"CSV Import: {beschreibung}",
+                    invoice_type=entry_type,
+                    invoice_number="",
+                    payment_method=payment,
+                    category=category,
+                    processed=True,
+                )
+                db.add(inv)
+                imported += 1
+            except Exception as e:
+                errors.append(f"Zeile {idx}: {str(e)[:80]}")
+        db.commit()
+        return {"success": True, "imported": imported, "errors": errors}
+    except Exception:
+        db.rollback()
+        logger.exception("CSV import failed")
+        err(500, "CSV import failed")
+    finally:
+        db.close()
+
+
+# ============================================================
 # TAX: EÜR
 # ============================================================
 
