@@ -1492,6 +1492,18 @@ def auto_fill_euer(steuerjahr: int = Query(...), user: dict = Depends(get_curren
 # CHAT
 # ============================================================
 
+
+@app.post("/feedback")
+def submit_feedback(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    message = body.get("message", "")
+    if not message.strip():
+        err(400, "Feedback message is empty")
+    logger.info("FEEDBACK from user %s: %s", user.get("email", user["sub"]), message[:500])
+    return {"success": True, "message": "Feedback received"}
+
+
+# ============================================================
+
 @app.post("/chat")
 def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)):
     message = body.get("message", "")
