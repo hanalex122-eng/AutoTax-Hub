@@ -1172,19 +1172,40 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
     try:
         for idx, row in enumerate(reader, 1):
             try:
-                beschreibung = row.get("Beschreibung") or row.get("description") or row.get("Description") or ""
+                # Flexible column mapping — supports Export format + custom formats
+                vendor = row.get("Lieferant") or row.get("Vendor") or row.get("vendor") or ""
+                beschreibung = row.get("Beschreibung") or row.get("description") or row.get("Description") or vendor or ""
                 datum = row.get("Datum") or row.get("date") or row.get("Date") or ""
-                ausgaben = row.get("Ausgaben") or row.get("expenses") or row.get("amount") or row.get("Betrag") or "0"
+                betrag_raw = row.get("Betrag") or row.get("Ausgaben") or row.get("amount") or row.get("expenses") or "0"
                 einnahmen = row.get("Einnahmen") or row.get("income") or "0"
-                vendor = row.get("Vendor") or row.get("Lieferant") or beschreibung[:50] or "Import"
-                category = row.get("Kategorie") or row.get("category") or "other"
-                payment = row.get("Zahlungsmethode") or row.get("payment_method") or ""
+                typ = row.get("Typ") or row.get("type") or row.get("Type") or ""
+                category = row.get("Kategorie") or row.get("category") or row.get("Category") or "other"
+                payment = row.get("Zahlungsart") or row.get("Zahlungsmethode") or row.get("payment_method") or ""
+                mwst_raw = row.get("MwSt") or row.get("vat_amount") or ""
+                mwst_satz = row.get("MwSt-Satz") or row.get("vat_rate") or "19%"
+                inv_nr = row.get("Rechnungs-Nr.") or row.get("invoice_number") or ""
+                if not vendor:
+                    vendor = beschreibung[:50] or "Import"
 
-                ausgaben_val = float(str(ausgaben).replace(",", ".").replace("€", "").replace(" ", "").strip() or "0")
-                einnahmen_val = float(str(einnahmen).replace(",", ".").replace("€", "").replace(" ", "").strip() or "0")
+                def _parse_num(s):
+                    return float(str(s).replace(",", ".").replace("€", "").replace("%", "").replace(" ", "").strip() or "0")
 
-                amount = einnahmen_val if einnahmen_val > 0 else ausgaben_val
-                entry_type = "income" if einnahmen_val > 0 else "expense"
+                betrag_val = _parse_num(betrag_raw)
+                einnahmen_val = _parse_num(einnahmen)
+
+                # Determine type: from Typ column, or from Einnahmen column
+                if typ.lower() in ("income", "einnahme", "einnahmen"):
+                    entry_type = "income"
+                    amount = betrag_val if betrag_val > 0 else einnahmen_val
+                elif typ.lower() in ("expense", "ausgabe", "ausgaben"):
+                    entry_type = "expense"
+                    amount = betrag_val
+                elif einnahmen_val > 0:
+                    entry_type = "income"
+                    amount = einnahmen_val
+                else:
+                    entry_type = "expense"
+                    amount = betrag_val
 
                 if amount <= 0 and not beschreibung:
                     continue
@@ -1202,7 +1223,15 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
                 if not date_val:
                     date_val = datetime.now()
 
-                vat_amount = round(amount * 19 / 119, 2) if amount > 0 else 0
+                # Use MwSt from CSV if provided, otherwise calculate
+                if mwst_raw:
+                    vat_amount = _parse_num(mwst_raw)
+                else:
+                    rate = _parse_num(mwst_satz) if mwst_satz else 19
+                    vat_amount = round(amount * rate / (100 + rate), 2) if amount > 0 else 0
+                vat_rate_str = mwst_satz if mwst_satz else "19%"
+                if "%" not in vat_rate_str:
+                    vat_rate_str += "%"
 
                 entry = CashEntry(
                     user_id=user["sub"],
@@ -1210,7 +1239,7 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
                     vendor=vendor,
                     gross_amount=amount,
                     vat_amount=vat_amount,
-                    vat_rate="19%",
+                    vat_rate=vat_rate_str,
                     entry_type=entry_type,
                     category=category,
                     payment_method=payment,
@@ -1226,11 +1255,11 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
                     vendor=vendor,
                     total_amount=amount,
                     vat_amount=vat_amount,
-                    vat_rate="19%",
+                    vat_rate=vat_rate_str,
                     date=date_val.strftime("%Y-%m-%d") if date_val else "",
                     raw_text=f"CSV Import: {beschreibung}",
                     invoice_type=entry_type,
-                    invoice_number="",
+                    invoice_number=inv_nr,
                     payment_method=payment,
                     category=category,
                     processed=True,
