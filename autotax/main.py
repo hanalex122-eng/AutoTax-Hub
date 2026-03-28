@@ -1494,28 +1494,56 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = f"🧾 Rechnungen: {inv_count} gesamt (€{inv_sum:.2f})\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}\n\nTipp: Über 'Upload' kannst du neue Belege hochladen."
 
         # Upload
-        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr", "yükle", "foto", "bild", "datei"]):
-            reply = "📤 Upload-Anleitung:\n1. Gehe zu 'Upload'\n2. Ziehe PDF, PNG oder JPEG in den Bereich\n3. Bis zu 20 Dateien gleichzeitig\n4. Die OCR erkennt automatisch: Lieferant, Betrag, MwSt, Datum\n5. Belege erscheinen in Rechnungen UND Kassenbuch"
+        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr", "yükle", "bild", "datei"]):
+            reply = "📤 Upload & OCR:\n• Unterstützte Formate: PDF, PNG, JPEG, TIFF, WEBP (max. 5 MB)\n• Einzel- oder Batch-Upload (bis zu 20 Dateien)\n• OCR erkennt: Lieferant, Betrag, MwSt, Datum, Kategorie\n• Handschrift-Modus für handgeschriebene Belege\n• Einnahme/Ausgabe vor Upload wählbar\n• Belege erscheinen in Rechnungen UND Kassenbuch\n• Über 350 Firmen werden automatisch erkannt\n• QR-Codes auf Rechnungen werden gelesen"
 
         # Export
-        elif any(w in msg for w in ["export", "csv", "excel", "datev", "download", "herunterladen"]):
-            reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel\n• DATEV — für deinen Steuerberater\n• Excel — .xlsx Format\n• JSON — für Entwickler\n\nGehe zu 'Export', wähle das Jahr und klicke den gewünschten Button."
+        elif any(w in msg for w in ["export", "excel", "datev", "download", "herunterladen", "exportieren"]):
+            reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel (Komma-getrennt)\n• DATEV — Standard für deutsche Steuerberater\n• Excel — .xlsx mit formatierten Spalten\n• JSON — für Entwickler & Backup\n• Kassenbuch CSV — eigener Export im Kassenbuch\n\nGehe zu 'Export', wähle das Jahr und klicke den Button.\nKassenbuch Export: Kassenbuch → 'CSV Export'\n\nTipp: Exportierte CSV kann direkt wieder importiert werden!"
+
+        # CSV (specific)
+        elif any(w in msg for w in ["csv"]):
+            reply = "📄 CSV Funktionen:\n\n• CSV Export (Rechnungen): Export-Seite → 'CSV'\n• CSV Export (Kassenbuch): Kassenbuch → 'CSV Export'\n• CSV Import: Kassenbuch → 'CSV Import'\n\nCSV Format: Datum, Lieferant, Rechnungs-Nr., Typ, Betrag, MwSt, MwSt-Satz, Kategorie, Zahlungsart\nTrennzeichen: Komma oder Semikolon (automatisch erkannt)\nSpalten: Deutsch oder Englisch"
 
         # Import
         elif any(w in msg for w in ["import", "importieren", "csv import", "foto import", "defter", "içe aktar", "einlesen"]):
-            reply = "📥 Import-Optionen:\n\n1. CSV Import:\n• Kassenbuch → 'CSV Import' Button\n• Komma oder Semikolon — automatisch erkannt\n• Spalten: Datum, Beschreibung, Ausgaben, Einnahmen, Lieferant, Kategorie\n• Deutsch oder Englisch\n\n2. Foto Import:\n• Kassenbuch → 'Foto Import' Button\n• Foto deines handschriftlichen Kassenbuchs hochladen\n• OCR erkennt: Datum | Beschreibung | Betrag\n\nMehr Infos: Gehe zu 'Hilfe' → 'Import (CSV & Foto)'"
+            reply = "📥 Import-Optionen:\n\n1. CSV Import:\n• Kassenbuch → 'CSV Import' Button\n• Komma oder Semikolon — automatisch erkannt\n• Spalten: Datum, Lieferant, Typ, Betrag, MwSt, Kategorie, Zahlungsart\n• Deutsch oder Englisch\n• Gleiche Format wie CSV Export!\n\n2. Foto Import:\n• Kassenbuch → 'Foto Import' Button\n• OCR erkennt handgeschriebene Tabellen\n• Format: Datum | Beschreibung | Betrag\n\n3. Beleg Upload:\n• Upload-Seite → PDF/Foto hochladen"
 
-        # EÜR
-        elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung"]):
-            reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\nGehe zu 'Steuer (EÜR)', wähle das Steuerjahr und klicke 'Generieren'.\nDie EÜR wird automatisch aus deinen Rechnungen und Kassenbuch-Einträgen erstellt."
+        # EÜR / Steuerformular
+        elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung", "steuerformular", "steuererklärung"]):
+            reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\n• Gehe zu 'Steuer (EÜR)'\n• Wähle das Steuerjahr\n• Klicke 'Generieren'\n• Automatische Berechnung aus Rechnungen + Kassenbuch\n• Enthält: Betriebseinnahmen, Betriebsausgaben, Gewinn/Verlust, MwSt\n• Für Freiberufler und Kleinunternehmer\n\nHinweis: Für die offizielle Steuererklärung immer Steuerberater konsultieren."
+
+        # Dashboard
+        elif any(w in msg for w in ["dashboard", "übersicht", "überblick", "grafik", "chart", "diagramm"]):
+            reply = f"📊 Dashboard:\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n• Rechnungen: {inv_count}\n\nFeatures:\n• Steuerschätzung nach deutschem Recht\n• Monatliche Auswertung als Diagramm\n• Kategorien-Verteilung\n• CSV Export Button"
 
         # Löschen / Delete
         elif any(w in msg for w in ["lösch", "delete", "entfern", "zurücksetz", "sil", "kaldır", "temizle"]):
-            reply = "🗑️ Löschen:\n• Einzeln: Klicke das Papierkorb-Symbol neben dem Eintrag\n• Mehrere: Häkchen setzen → 'X löschen' Button\n• Alles zurücksetzen: Dashboard → 'Zurücksetzen' (ACHTUNG: unwiderruflich!)"
+            reply = "🗑️ Löschen:\n• Einzeln: Papierkorb-Symbol neben dem Eintrag\n• Mehrere: Häkchen setzen → 'X löschen' Button\n• Alles zurücksetzen: Dashboard → 'Zurücksetzen'\n  (ACHTUNG: Doppelbestätigung, unwiderruflich!)\n\nLöschen funktioniert in Rechnungen UND Kassenbuch."
+
+        # Passwort / Login
+        elif any(w in msg for w in ["passwort", "password", "şifre", "kennwort", "login", "anmeld", "registrier", "konto"]):
+            reply = "🔐 Konto & Sicherheit:\n• Passwort: Min. 8 Zeichen, 1 Großbuchstabe, 1 Zahl\n• Login: E-Mail + Passwort\n• Token: Automatische Erneuerung (1h Access, 7 Tage Refresh)\n• Registrierung: Auf der Login-Seite 'Registrieren' klicken"
+
+        # Sync / Synchronisieren
+        elif any(w in msg for w in ["sync", "synchron", "senkron", "abgleich"]):
+            reply = "🔄 Synchronisation:\n• Upload → Beleg erscheint automatisch in Rechnungen + Kassenbuch\n• Kassenbuch → 'Rechnungen sync' synchronisiert fehlende Einträge\n• Rechnungen → 'Kassenbuch sync' synchronisiert in beide Richtungen\n• Duplikate werden automatisch erkannt und übersprungen"
+
+        # Reconcile / Abstimmen
+        elif any(w in msg for w in ["reconcil", "abstimm", "abgleich", "häkchen", "checkbox"]):
+            reply = "✅ Abstimmung (Reconcile):\n• Kassenbuch → Klicke ⬜ neben einem Eintrag → wird ✅\n• Markiert den Eintrag als 'abgestimmt'\n• Hilft beim Abgleich mit Kontoauszügen\n• Kann jederzeit rückgängig gemacht werden"
+
+        # QR Code
+        elif any(w in msg for w in ["qr", "qr code", "barcode"]):
+            reply = "📱 QR-Code Erkennung:\n• QR-Codes auf Rechnungen werden automatisch gelesen\n• Unterstützt: EPC/SEPA (GiroCode), Swiss QR, ZUGFeRD\n• Extrahiert: Firma, IBAN, Betrag, Referenz\n• QR-Daten überschreiben OCR wenn verfügbar (genauer)"
+
+        # Foto / Bild Qualität
+        elif any(w in msg for w in ["foto", "qualität", "unscharf", "dunkel", "yamuk", "blurry"]):
+            reply = "📸 Foto-Tipps für bessere Erkennung:\n• Gute Beleuchtung — kein Schatten auf dem Beleg\n• Gerade fotografieren — nicht schief\n• Gesamten Beleg im Bild\n• Original-Foto verwenden (nicht WhatsApp-komprimiert)\n• PDF ist besser als Foto (wenn verfügbar)\n• Handschrift-Modus für handgeschriebene Belege aktivieren"
 
         # Hilfe / Help
         elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "nasıl", "nedir", "ne yapabilir", "fonksiyon", "how", "what can"]):
-            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' — Vorsteuer & USt Übersicht\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Kassenbuch' — Kassenbuch-Übersicht\n• 'Upload' — Wie lade ich Belege hoch?\n• 'Import' — CSV oder Foto importieren\n• 'Export' — CSV, DATEV, Excel, JSON\n• 'EÜR' — Steuererklärung generieren\n\nMehr Details: Gehe zu 'Hilfe' Seite\nFrag einfach!"
+            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Foto' — Tipps für bessere Fotos\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nAlle Details: Gehe zur 'Hilfe' Seite!"
 
         # Hallo / Greeting
         elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten", "selam", "nabız", "servus", "grüß"]):
