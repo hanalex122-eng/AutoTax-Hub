@@ -293,7 +293,7 @@ function AuthScreen({onLogin}){
     <div style={{...css.card,width:420,maxWidth:"100%",position:"relative",padding:40}}>
       <div style={{textAlign:"center",marginBottom:32}}>
         <div style={{display:"inline-flex",marginBottom:16}}><ATLogo size={64}/></div>
-        <h1 style={{fontSize:24,fontWeight:700,color:theme.text,margin:0}}>AutoTax-<span style={{color:"#00a8cc"}}>HUB</span></h1>
+        <h1 style={{fontSize:24,fontWeight:700,color:theme.text,margin:0}}>AutoTax-<span style={{color:"#00a8cc"}}>HUB</span><span style={{background:"#f59e0b",color:"#000",fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>BETA</span></h1>
         <p style={{color:theme.textMuted,fontSize:14,margin:"8px 0 0"}}>{mode==="login"?"Willkommen zurück":"Neues Konto erstellen"}</p>
       </div>
       {mode==="register"&&<div style={{marginBottom:16}}><label style={{fontSize:12,color:theme.textMuted,marginBottom:6,display:"block",fontWeight:500}}>Vollständiger Name</label><input ref={nameRef} style={css.input} value={name} onChange={e=>setName(e.target.value)} placeholder="Max Mustermann"/></div>}
@@ -354,7 +354,7 @@ function Sidebar({active,onNav,onLogout,collapsed}){
   return(<div style={{width:collapsed?72:248,background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden"}}>
     <div style={{padding:collapsed?"20px 16px":"20px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${theme.border}`,minHeight:77}}>
       <div style={{flexShrink:0}}><ATLogo size={36}/></div>
-      {!collapsed&&<div style={{display:"flex",flexDirection:"column",lineHeight:1}}><span style={{fontSize:15,fontWeight:700,color:theme.text,whiteSpace:"nowrap"}}>AutoTax</span><span style={{fontSize:10,fontWeight:800,color:"#00a8cc",letterSpacing:2}}>HUB</span></div>}
+      {!collapsed&&<div style={{display:"flex",flexDirection:"column",lineHeight:1}}><span style={{fontSize:15,fontWeight:700,color:theme.text,whiteSpace:"nowrap"}}>AutoTax <span style={{background:"#f59e0b",color:"#000",fontSize:8,fontWeight:700,padding:"1px 4px",borderRadius:3,verticalAlign:"middle"}}>BETA</span></span><span style={{fontSize:10,fontWeight:800,color:"#00a8cc",letterSpacing:2}}>HUB</span></div>}
     </div>
     <div style={{flex:1,padding:"14px 10px",display:"flex",flexDirection:"column",gap:3}}>
       {items.map(it=>(<div key={it.id} onClick={()=>onNav(it.id)} onMouseEnter={()=>setHovered(it.id)} onMouseLeave={()=>setHovered(null)}
@@ -1169,7 +1169,7 @@ function App(){
           <div style={{cursor:"pointer",padding:6,borderRadius:8,transition:"background 0.15s"}} onClick={()=>setCollapsed(!collapsed)} onMouseEnter={e=>e.currentTarget.style.background=theme.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Icon d={I.menu} size={20} color={theme.textDim}/></div>
           <div style={{width:1,height:20,background:theme.border}}/>
           <span style={{fontSize:14,fontWeight:600,color:theme.text}}>{pageLabels[page]||"Dashboard"}</span>
-          <span style={{fontSize:11,color:theme.textDim,fontFamily:mono,background:theme.surfaceAlt,padding:"2px 8px",borderRadius:12,border:"1px solid "+theme.border}}>v5.4.0</span>
+          <span style={{fontSize:11,color:theme.textDim,fontFamily:mono,background:theme.surfaceAlt,padding:"2px 8px",borderRadius:12,border:"1px solid "+theme.border}}>v5.5.0-beta</span>
         </div>
         <div style={{position:"relative"}}>
           <div onClick={()=>setProfileOpen(!profileOpen)} style={{width:36,height:36,borderRadius:10,background:theme.purpleSoft,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all 0.2s",border:profileOpen?"2px solid "+theme.purple:"2px solid transparent"}}>
@@ -1178,7 +1178,7 @@ function App(){
           {profileOpen&&<div style={{position:"absolute",right:0,top:44,background:theme.card,border:"1px solid "+theme.border,borderRadius:12,padding:8,minWidth:200,zIndex:500,boxShadow:"0 8px 30px rgba(0,0,0,0.4)",animation:"fadeIn 0.15s ease"}}>
             <div style={{padding:"10px 14px",borderBottom:"1px solid "+theme.border,marginBottom:4}}>
               <div style={{fontSize:13,fontWeight:600,color:theme.text}}>Mein Konto</div>
-              <div style={{fontSize:11,color:theme.textDim,marginTop:2}}>AutoTax-HUB</div>
+              <div style={{fontSize:11,color:theme.textDim,marginTop:2}}>AutoTax-HUB <span style={{background:"#f59e0b",color:"#000",fontSize:8,fontWeight:700,padding:"1px 4px",borderRadius:3}}>BETA</span></div>
             </div>
             <div onClick={()=>{setPage("help");setProfileOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,cursor:"pointer",color:theme.textMuted,transition:"all 0.15s"}} onMouseEnter={e=>e.currentTarget.style.background=theme.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <Icon d={I.help} size={16}/><span style={{fontSize:13}}>Hilfe & FAQ</span>

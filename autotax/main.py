@@ -209,7 +209,7 @@ async def serve_frontend_app():
 
 
 @app.post("/admin/reset-password")
-def admin_reset_password(body: dict = Body(...)):
+def admin_reset_password(body: dict = Body(...), user: dict = Depends(get_current_user)):
     email = body.get("email")
     new_password = body.get("new_password")
     if not email or not new_password:
