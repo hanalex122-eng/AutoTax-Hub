@@ -1642,19 +1642,45 @@ def export_datev(year: int = Query(None), user: dict = Depends(get_current_user)
 
 @app.get("/export/excel")
 def export_excel(year: int = Query(None), user: dict = Depends(get_current_user)):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, numbers
     db = SessionLocal()
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
-        buf = io.StringIO()
-        buf.write("Datum,Lieferant,Rechnungs-Nr.,Typ,Betrag,MwSt,MwSt-Satz,Kategorie,Zahlungsart\n")
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "AutoTax Export"
+        headers = ["Datum", "Lieferant", "Rechnungs-Nr.", "Typ", "Betrag", "MwSt", "MwSt-Satz", "Kategorie", "Zahlungsart"]
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+        row = 2
         for i in invoices:
             d = safe_date_str(i.date)
             if year and not d.startswith(str(year)):
                 continue
-            vendor = (i.vendor or "").replace('"', '""')
-            buf.write(f'{d},"{vendor}",{safe_str(i.invoice_number)},{safe_invoice_type(i.invoice_type)},{safe_float(i.total_amount):.2f},{safe_float(i.vat_amount):.2f},{safe_vat_rate(i.vat_rate)},{safe_category(i.category)},{safe_str(i.payment_method)}\n')
+            ws.cell(row=row, column=1, value=d)
+            ws.cell(row=row, column=2, value=safe_vendor(i.vendor))
+            ws.cell(row=row, column=3, value=safe_str(i.invoice_number))
+            ws.cell(row=row, column=4, value=safe_invoice_type(i.invoice_type))
+            c5 = ws.cell(row=row, column=5, value=safe_float(i.total_amount))
+            c5.number_format = '#,##0.00'
+            c6 = ws.cell(row=row, column=6, value=safe_float(i.vat_amount))
+            c6.number_format = '#,##0.00'
+            ws.cell(row=row, column=7, value=safe_vat_rate(i.vat_rate))
+            ws.cell(row=row, column=8, value=safe_category(i.category))
+            ws.cell(row=row, column=9, value=safe_str(i.payment_method))
+            row += 1
+        for col in range(1, 10):
+            ws.column_dimensions[chr(64 + col)].width = 18
+        buf = io.BytesIO()
+        wb.save(buf)
         buf.seek(0)
-        return StreamingResponse(buf, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=autotax_excel_{year or 'all'}.xlsx"})
+        return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=autotax_{year or 'all'}.xlsx"})
     except Exception:
         logger.exception("Excel export failed")
         err(500, "Export failed")
