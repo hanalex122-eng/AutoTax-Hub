@@ -813,7 +813,7 @@ function BookkeepingView({refreshKey}){
         {selected.size>0&&<button style={css.btn(theme.danger)} onClick={deleteSelected} disabled={deleting}><Icon d={I.trash} size={14} color="#fff"/>{deleting?"...":selected.size+" löschen"}</button>}
         <button style={css.btn()} onClick={()=>setShowForm(!showForm)}>+ Eintrag</button>
         <button style={css.btnOutline} onClick={sync} disabled={syncing}>{syncing?"...":"Rechnungen sync"}</button>
-        <button style={css.btnOutline} onClick={()=>window.open(API+"/bookkeeping/export/csv?year="+new Date().getFullYear(),"_blank")}>CSV Export</button>
+        <button style={css.btnOutline} onClick={async()=>{try{const r=await fetch(API+"/bookkeeping/export/csv",{headers:{"Authorization":"Bearer "+localStorage.getItem("atx_token")}});if(!r.ok){alert("Export fehlgeschlagen");return;}const blob=await r.blob();const url=window.URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="kassenbuch_export.csv";a.click();window.URL.revokeObjectURL(url);}catch(e){alert("Export fehlgeschlagen: "+e.message);}}}>CSV Export</button>
         <button style={css.btnOutline} onClick={()=>csvRef.current?.click()} disabled={importing}>{importing?"...":"CSV Import"}</button>
         <input ref={csvRef} type="file" accept=".csv,.txt" style={{display:"none"}} onChange={importCSV}/>
         <button style={css.btnOutline} onClick={()=>photoRef.current?.click()} disabled={importing}>Foto Import</button>
