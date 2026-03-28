@@ -3,7 +3,10 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional, List
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
@@ -18,10 +21,14 @@ from autotax.auth import hash_password, verify_password, create_token, create_ac
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("autotax")
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="AutoTax-HUB",
     version="5.5.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
@@ -273,7 +280,8 @@ class RegisterRequest(BaseModel):
 
 
 @app.post("/auth/register")
-def register(body: RegisterRequest):
+@limiter.limit("3/minute")
+def register(request: Request, body: RegisterRequest):
     if len(body.password) < 8:
         err(400, "Password must be at least 8 characters")
     if not any(c.isupper() for c in body.password):
@@ -301,7 +309,8 @@ def register(body: RegisterRequest):
 
 
 @app.post("/auth/login")
-def login(body: AuthRequest):
+@limiter.limit("5/minute")
+def login(request: Request, body: AuthRequest):
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == body.email).first()
@@ -366,7 +375,8 @@ def change_password(body: ChangePasswordRequest, user: dict = Depends(get_curren
 
 
 @app.post("/auth/reset-password")
-def reset_password(body: dict = Body(...)):
+@limiter.limit("3/minute")
+def reset_password(request: Request, body: dict = Body(...)):
     """Send password reset — for now just verify email exists and return token."""
     email = body.get("email", "").strip().lower()
     if not email:
@@ -396,7 +406,8 @@ def reset_password(body: dict = Body(...)):
 # ============================================================
 
 @app.post("/invoices/upload")
-async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
     if file.content_type not in ALLOWED_TYPES:
         err(400, f"Invalid file type: {file.content_type}. Allowed: PDF, JPG, PNG, TIFF, WEBP")
 
