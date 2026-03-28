@@ -12,7 +12,7 @@ SECRET = os.getenv("JWT_SECRET", "")
 if not SECRET:
     import secrets as _s
     SECRET = _s.token_urlsafe(32)
-    logger.warning("JWT_SECRET not set — using random secret (tokens won't survive restart)")
+    logger.critical("JWT_SECRET is not set! Using random secret. Tokens will NOT survive restart. Set JWT_SECRET in environment variables!")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60       # 1 hour
