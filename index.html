@@ -995,6 +995,20 @@ function HelpView(){
         "Anleitungen: 'Wie lade ich Belege hoch?', 'Wie exportiere ich?'",
         "Daten aus Rechnungen UND Kassenbuch werden berücksichtigt",
       ]},
+    {icon:"📥",title:"Import (CSV & Foto)",desc:"Daten aus CSV-Dateien oder Kassenbuch-Fotos importieren",
+      details:[
+        "CSV Import: Kassenbuch → 'CSV Import' Button → CSV-Datei auswählen",
+        "Unterstützte Trennzeichen: Komma (,) und Semikolon (;) — automatische Erkennung",
+        "Flexible Spaltenbezeichnungen: Deutsch (Beschreibung, Datum, Ausgaben, Einnahmen) oder Englisch (description, date, expenses, income)",
+        "Datumsformat: DD.MM.YYYY (z.B. 15.03.2026) oder YYYY-MM-DD",
+        "Einnahmen/Ausgaben werden automatisch erkannt anhand der Spalte",
+        "MwSt wird automatisch mit 19% berechnet",
+        "Jede Zeile erstellt einen Kassenbuch-Eintrag UND eine Rechnung",
+        "Foto Import: Kassenbuch → 'Foto Import' Button → Foto des handschriftlichen Kassenbuchs",
+        "OCR erkennt handgeschriebene Tabellen: Datum | Beschreibung | Betrag",
+        "Tipp: Foto gerade und bei guter Beleuchtung aufnehmen für beste Ergebnisse",
+        "Beispiel CSV: Datum,Beschreibung,Lieferant,Ausgaben,Einnahmen,Kategorie",
+      ]},
   ];
   const faqs=[
     {q:"Wie lade ich Belege hoch?",a:"Gehe zu 'Upload', ziehe Dateien in den Upload-Bereich oder klicke darauf. PDF, PNG, JPEG, TIFF und WEBP werden unterstützt. Bis zu 20 Dateien gleichzeitig, max. 5 MB pro Datei. Die OCR erkennt automatisch alle relevanten Daten."},
@@ -1009,6 +1023,8 @@ function HelpView(){
     {q:"Wie wird die Steuer berechnet?",a:"AutoTax nutzt die deutschen Einkommensteuer-Progressionsstufen: bis €10.908 = 0%, bis €17.005 = 14%, bis €61.356 = 30%, bis €277.826 = 42%, darüber = 45%. Die Berechnung basiert auf dem Nettogewinn (Einnahmen minus Ausgaben). Dies ist eine Schätzung — für die offizielle Steuererklärung bitte einen Steuerberater konsultieren."},
     {q:"Welche Kategorien gibt es?",a:"Automatisch erkannte Kategorien: Lebensmittel (food), Restaurant, Kraftstoff (fuel), Shopping, Transport, Elektronik, Versicherung, Bürobedarf (office), Miete (rent), Telekommunikation, Medizin (medical), Bildung (education), Unterhaltung (entertainment), Sonstiges (other). Die Kategorie kann jederzeit manuell geändert werden."},
     {q:"Kann ich den AI Chat für Steuerfragen nutzen?",a:"Ja! Der AI Steuer-Assistent kennt alle deine Rechnungen und Kassenbuch-Einträge. Frag nach: Gesamtbeträgen, Kategorien, MwSt, Steuerschätzung, Gewinn, Lieferanten oder Anleitungen. Beispiel: 'Wie viel habe ich für Lebensmittel ausgegeben?' oder 'Was ist mein MwSt-Saldo?'"},
+    {q:"Wie importiere ich eine CSV-Datei?",a:"Gehe zu Kassenbuch → klicke 'CSV Import' → wähle deine CSV-Datei. Die Spalten können Deutsch oder Englisch benannt sein. Komma und Semikolon als Trennzeichen werden automatisch erkannt. Jede Zeile wird als Kassenbuch-Eintrag UND Rechnung angelegt."},
+    {q:"Wie importiere ich ein Kassenbuch-Foto?",a:"Gehe zu Kassenbuch → klicke 'Foto Import' → wähle ein Foto deines handschriftlichen Kassenbuchs. Die OCR erkennt Tabellenzeilen mit Datum, Beschreibung und Betrag. Tipp: Gute Beleuchtung und gerades Foto für beste Ergebnisse."},
   ];
   return(<div style={{display:"flex",flexDirection:"column",gap:24,maxWidth:800}}>
     <div>
