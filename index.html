@@ -629,11 +629,12 @@ function InvoicesView({refreshKey,showToast}){
 
 function UploadView({triggerRefresh,onNav,showToast}){
   const[files,setFiles]=useState([]);const[results,setResults]=useState([]);const[uploading,setUploading]=useState(false);const[dragOver,setDragOver]=useState(false);const fileRef=useRef(null);
+  const[invoiceType,setInvoiceType]=useState("expense");
   const addFiles=(nf)=>{const fa=Array.from(nf);setFiles(p=>{const ex=new Set(p.map(f=>f.name+f.size));return[...p,...fa.filter(f=>!ex.has(f.name+f.size))].slice(0,20);});};
   const upload=async()=>{if(!files.length)return;setUploading(true);setResults([]);const token=localStorage.getItem("atx_token");
     let okCount=0;
-    try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok)okCount=1;}
-    else{const fd=new FormData();files.forEach(f=>fd.append("files",f));const res=await fetch(API+"/invoices/batch",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();const r=d.results||[];setResults(r);okCount=r.filter(x=>x.status==="ok").length;}}
+    try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok)okCount=1;}
+    else{const fd=new FormData();files.forEach(f=>fd.append("files",f));fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/batch",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();const r=d.results||[];setResults(r);okCount=r.filter(x=>x.status==="ok").length;}}
     catch(e){setResults([{filename:"Error",status:"error",message:e.message}]);}
     setUploading(false);setFiles([]);
     if(triggerRefresh)triggerRefresh();
@@ -644,6 +645,10 @@ function UploadView({triggerRefresh,onNav,showToast}){
   };
   return(<div style={{display:"flex",flexDirection:"column",gap:24}}>
     <div><h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:0}}>Rechnungen hochladen</h2><p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 0"}}>PDF, PNG, JPEG — bis zu 20 Dateien</p></div>
+    <div style={{display:"flex",gap:8}}>
+      <button style={{padding:"10px 20px",borderRadius:8,border:"2px solid "+(invoiceType==="expense"?"#ef4444":"transparent"),background:invoiceType==="expense"?"rgba(239,68,68,0.15)":theme.card,color:invoiceType==="expense"?"#ef4444":theme.textDim,fontWeight:invoiceType==="expense"?700:400,fontSize:14,cursor:"pointer"}} onClick={()=>setInvoiceType("expense")}>Ausgabe (Gider)</button>
+      <button style={{padding:"10px 20px",borderRadius:8,border:"2px solid "+(invoiceType==="income"?"#22c55e":"transparent"),background:invoiceType==="income"?"rgba(34,197,94,0.15)":theme.card,color:invoiceType==="income"?"#22c55e":theme.textDim,fontWeight:invoiceType==="income"?700:400,fontSize:14,cursor:"pointer"}} onClick={()=>setInvoiceType("income")}>Einnahme (Gelir)</button>
+    </div>
     <div style={{...css.card,textAlign:"center",padding:48,border:"2px dashed "+(dragOver?theme.accent:theme.border),cursor:"pointer",background:dragOver?theme.accentSoft:theme.card}} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);addFiles(e.dataTransfer.files);}}>
       <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff" style={{display:"none"}} onChange={e=>{addFiles(e.target.files);e.target.value="";}}/>
       <div style={{width:56,height:56,borderRadius:14,background:theme.accentSoft,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:16}}><Icon d={I.upload} size={24} color={theme.accent}/></div>

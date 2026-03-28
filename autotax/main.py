@@ -322,7 +322,7 @@ def refresh_token_endpoint(body: dict = Body(...)):
 # ============================================================
 
 @app.post("/invoices/upload")
-async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False, user: dict = Depends(get_current_user)):
+async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
     if file.content_type not in ALLOWED_TYPES:
         err(400, f"Invalid file type: {file.content_type}. Allowed: PDF, JPG, PNG, TIFF, WEBP")
 
@@ -378,6 +378,9 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
     finally:
         db_check.close()
 
+    if invoice_type in ("income", "expense"):
+        result["invoice_type"] = invoice_type
+
     try:
         invoice_id = save_invoice(result, user_id=user["sub"], filename=file.filename)
     except Exception:
@@ -395,7 +398,7 @@ async def upload_invoice(file: UploadFile = File(...), handwriting: bool = False
 
 
 @app.post("/invoices/batch")
-async def upload_batch(files: List[UploadFile] = File(...), user: dict = Depends(get_current_user)):
+async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = "expense", user: dict = Depends(get_current_user)):
     results = []
     for file in files:
         try:
@@ -433,6 +436,8 @@ async def upload_batch(files: List[UploadFile] = File(...), user: dict = Depends
             if dup:
                 results.append({"filename": file.filename, "status": "duplicate", "message": "Duplikat erkannt"})
                 continue
+            if invoice_type in ("income", "expense"):
+                parsed["invoice_type"] = invoice_type
             invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename)
             auto_create_cash_entry(invoice_id, user["sub"], parsed)
             results.append({
