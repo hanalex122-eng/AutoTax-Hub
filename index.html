@@ -1139,12 +1139,26 @@ function App(){
   const showToast=(message,type="success")=>setToasts(prev=>[...prev,{message,type,id:Date.now()+Math.random()}].slice(-5));
   const removeToast=(id)=>setToasts(prev=>prev.filter(t=>t.id!==id));
   const logout=()=>{localStorage.removeItem("atx_token");localStorage.removeItem("atx_refresh");setAuthed(false);};
+  const[showPwChange,setShowPwChange]=useState(false);
+  const[pwForm,setPwForm]=useState({old_password:"",new_password:"",confirm:""});
   if(!authed)return<Fragment><AuthScreen onLogin={()=>setAuthed(true)}/><CookieConsent/></Fragment>;
   const views={dashboard:DashboardView,invoices:InvoicesView,upload:UploadView,bookkeeping:BookkeepingView,export:ExportView,chat:ChatView,help:HelpView};
   const pageLabels={dashboard:"Dashboard",invoices:"Rechnungen",upload:"Upload",bookkeeping:"Kassenbuch",export:"Export",chat:"AI Chat",help:"Hilfe"};
   const View=views[page]||DashboardView;
   return(<div style={{display:"flex",minHeight:"100vh",background:theme.bg,fontFamily:font,color:theme.text}}>
     <CookieConsent/>
+    {showPwChange&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowPwChange(false)}>
+      <div style={{background:theme.surface,borderRadius:16,padding:32,width:400,maxWidth:"90vw"}} onClick={e=>e.stopPropagation()}>
+        <h3 style={{color:theme.text,margin:"0 0 16px",fontSize:18}}>🔑 Passwort ändern</h3>
+        <input style={{...css.input,width:"100%",marginBottom:8}} type="password" placeholder="Altes Passwort" value={pwForm.old_password} onChange={e=>setPwForm({...pwForm,old_password:e.target.value})}/>
+        <input style={{...css.input,width:"100%",marginBottom:8}} type="password" placeholder="Neues Passwort (min. 8 Zeichen, 1 Großbuchstabe, 1 Zahl)" value={pwForm.new_password} onChange={e=>setPwForm({...pwForm,new_password:e.target.value})}/>
+        <input style={{...css.input,width:"100%",marginBottom:16}} type="password" placeholder="Neues Passwort bestätigen" value={pwForm.confirm} onChange={e=>setPwForm({...pwForm,confirm:e.target.value})}/>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...css.btn(),flex:1}} onClick={async()=>{if(pwForm.new_password!==pwForm.confirm){alert("Passwörter stimmen nicht überein");return;}try{const r=await fetch(API+"/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+localStorage.getItem("atx_token")},body:JSON.stringify({old_password:pwForm.old_password,new_password:pwForm.new_password})});const d=await r.json();if(r.ok){alert("Passwort erfolgreich geändert!");setShowPwChange(false);setPwForm({old_password:"",new_password:"",confirm:""});}else{alert(d.detail?.error||d.detail||"Fehler");}}catch(e){alert("Fehler: "+e.message);}}}>Ändern</button>
+          <button style={{...css.btnOutline,flex:1}} onClick={()=>setShowPwChange(false)}>Abbrechen</button>
+        </div>
+      </div>
+    </div>}
     {toasts.length>0&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,display:"flex",flexDirection:"column",gap:8,pointerEvents:"none"}}>
       {toasts.map(t=>(<div key={t.id} style={{pointerEvents:"auto"}}><ToastItem message={t.message} type={t.type} onClose={()=>removeToast(t.id)}/></div>))}
     </div>}
@@ -1171,6 +1185,9 @@ function App(){
             </div>
             <div onClick={()=>{setPage("dashboard");setProfileOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,cursor:"pointer",color:theme.textMuted,transition:"all 0.15s"}} onMouseEnter={e=>e.currentTarget.style.background=theme.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <Icon d={I.dashboard} size={16}/><span style={{fontSize:13}}>Dashboard</span>
+            </div>
+            <div onClick={()=>{setShowPwChange(true);setProfileOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,cursor:"pointer",color:theme.textMuted,transition:"all 0.15s"}} onMouseEnter={e=>e.currentTarget.style.background=theme.surfaceAlt} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <span style={{fontSize:16}}>🔑</span><span style={{fontSize:13}}>Passwort ändern</span>
             </div>
             <div style={{height:1,background:theme.border,margin:"4px 0"}}/>
             <div onClick={()=>{logout();setProfileOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,cursor:"pointer",color:theme.danger,transition:"all 0.15s"}} onMouseEnter={e=>e.currentTarget.style.background=theme.dangerSoft} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
