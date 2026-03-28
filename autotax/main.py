@@ -1210,6 +1210,15 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
                 if amount <= 0 and not beschreibung:
                     continue
 
+                # Duplicate check
+                existing = db.query(CashEntry).filter(
+                    CashEntry.user_id == user["sub"],
+                    CashEntry.description == (beschreibung or vendor),
+                    CashEntry.gross_amount == amount,
+                ).first()
+                if existing:
+                    continue
+
                 date_val = None
                 if datum:
                     parts = datum.strip().split(".")
