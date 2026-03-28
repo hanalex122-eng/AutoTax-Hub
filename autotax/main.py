@@ -1472,6 +1472,10 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         elif any(w in msg for w in ["export", "csv", "excel", "datev", "download", "herunterladen"]):
             reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel\n• DATEV — für deinen Steuerberater\n• Excel — .xlsx Format\n• JSON — für Entwickler\n\nGehe zu 'Export', wähle das Jahr und klicke den gewünschten Button."
 
+        # Import
+        elif any(w in msg for w in ["import", "importieren", "csv import", "foto import", "defter", "içe aktar", "einlesen"]):
+            reply = "📥 Import-Optionen:\n\n1. CSV Import:\n• Kassenbuch → 'CSV Import' Button\n• Komma oder Semikolon — automatisch erkannt\n• Spalten: Datum, Beschreibung, Ausgaben, Einnahmen, Lieferant, Kategorie\n• Deutsch oder Englisch\n\n2. Foto Import:\n• Kassenbuch → 'Foto Import' Button\n• Foto deines handschriftlichen Kassenbuchs hochladen\n• OCR erkennt: Datum | Beschreibung | Betrag\n\nMehr Infos: Gehe zu 'Hilfe' → 'Import (CSV & Foto)'"
+
         # EÜR
         elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung"]):
             reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\nGehe zu 'Steuer (EÜR)', wähle das Steuerjahr und klicke 'Generieren'.\nDie EÜR wird automatisch aus deinen Rechnungen und Kassenbuch-Einträgen erstellt."
@@ -1482,7 +1486,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Hilfe / Help
         elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "nasıl", "nedir", "ne yapabilir", "fonksiyon", "how", "what can"]):
-            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' — Vorsteuer & USt Übersicht\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Kassenbuch' — Kassenbuch-Übersicht\n• 'Upload' — Wie lade ich Belege hoch?\n• 'Export' — Welche Export-Formate gibt es?\n• 'EÜR' — Steuererklärung generieren\n\nFrag einfach!"
+            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' — Vorsteuer & USt Übersicht\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Kassenbuch' — Kassenbuch-Übersicht\n• 'Upload' — Wie lade ich Belege hoch?\n• 'Import' — CSV oder Foto importieren\n• 'Export' — CSV, DATEV, Excel, JSON\n• 'EÜR' — Steuererklärung generieren\n\nMehr Details: Gehe zu 'Hilfe' Seite\nFrag einfach!"
 
         # Hallo / Greeting
         elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten", "selam", "nabız", "servus", "grüß"]):
@@ -1514,7 +1518,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Fallback — clear helpful message instead of generic summary
         else:
-            reply = f"Das habe ich nicht ganz verstanden. Hier sind Themen, bei denen ich helfen kann:\n\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Eintragen' — Wie erstelle ich Einträge?\n• 'Suche' — Wie finde ich Rechnungen?\n• 'Upload' — Belege hochladen\n• 'Export' — CSV, DATEV, Excel\n• 'Hilfe' — Alle Funktionen\n\nAktuell: {inv_count} Rechnungen, €{net_profit:.2f} Gewinn"
+            reply = f"Das habe ich nicht ganz verstanden. Hier sind Themen, bei denen ich helfen kann:\n\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Eintragen' — Wie erstelle ich Einträge?\n• 'Suche' — Wie finde ich Rechnungen?\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' — CSV, DATEV, Excel\n• 'Hilfe' — Alle Funktionen\n\n📌 Mehr Details findest du auf der 'Hilfe' Seite!\n\nAktuell: {inv_count} Rechnungen, €{net_profit:.2f} Gewinn"
 
         return {"reply": reply}
     except Exception:
