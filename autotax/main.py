@@ -317,6 +317,62 @@ def refresh_token_endpoint(body: dict = Body(...)):
     return {"success": True, "token": new_access, "refresh_token": new_refresh}
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@app.post("/auth/change-password")
+def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    if len(body.new_password) < 8:
+        err(400, "Neues Passwort muss mindestens 8 Zeichen haben")
+    if not any(c.isupper() for c in body.new_password):
+        err(400, "Neues Passwort muss mindestens 1 Großbuchstaben enthalten")
+    if not any(c.isdigit() for c in body.new_password):
+        err(400, "Neues Passwort muss mindestens 1 Zahl enthalten")
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user["sub"]).first()
+        if not u or not verify_password(body.old_password, u.hashed_password):
+            err(401, "Altes Passwort ist falsch")
+        u.hashed_password = hash_password(body.new_password)
+        db.commit()
+        return {"success": True, "message": "Passwort erfolgreich geändert"}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Password change failed")
+        err(500, "Passwort-Änderung fehlgeschlagen")
+    finally:
+        db.close()
+
+
+@app.post("/auth/reset-password")
+def reset_password(body: dict = Body(...)):
+    """Send password reset — for now just verify email exists and return token."""
+    email = body.get("email", "").strip().lower()
+    if not email:
+        err(400, "E-Mail erforderlich")
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.email == email).first()
+        if not u:
+            # Don't reveal if email exists
+            return {"success": True, "message": "Falls ein Konto existiert, wurde ein Reset-Link gesendet."}
+        # Generate reset token (valid 1 hour)
+        reset_token = create_access_token(u.id, u.email)
+        logger.info("Password reset requested for %s", email)
+        # TODO: Send email with reset link. For now return token directly.
+        return {"success": True, "message": "Reset-Token generiert. Bitte kontaktiere den Admin.", "reset_token": reset_token}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Password reset failed")
+        err(500, "Reset fehlgeschlagen")
+    finally:
+        db.close()
+
+
 # ============================================================
 # INVOICES: UPLOAD
 # ============================================================

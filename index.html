@@ -311,6 +311,9 @@ function AuthScreen({onLogin}){
         <span style={{color:theme.textDim,fontSize:13}}>{mode==="login"?"Noch kein Konto? ":"Bereits registriert? "}</span>
         <span style={{color:theme.accent,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={()=>{setMode(mode==="login"?"register":"login");setError("");}}>{mode==="login"?"Registrieren":"Anmelden"}</span>
       </div>
+      {mode==="login"&&<div style={{textAlign:"center",marginTop:8}}>
+        <span style={{color:theme.blue,fontSize:12,cursor:"pointer",textDecoration:"underline"}} onClick={async()=>{const em=prompt("E-Mail-Adresse eingeben:");if(!em)return;try{const res=await fetch(API+"/auth/reset-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})});const d=await res.json();alert(d.message||"Fehler");}catch(e){alert("Fehler: "+e.message);}}}>Passwort vergessen?</span>
+      </div>}
       <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:20,paddingTop:16,borderTop:`1px solid ${theme.border}`}}>
         <span style={{fontSize:11,color:theme.textDim,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowDS(true)}>Datenschutz</span>
         <span style={{fontSize:11,color:theme.textDim,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowImp(true)}>Impressum</span>
