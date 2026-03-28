@@ -973,6 +973,8 @@ function HelpView(){
         "JSON: Strukturiertes Datenformat für Entwickler und API-Integration",
         "Jahresfilter: Wähle ein bestimmtes Steuerjahr oder exportiere alles",
         "Direkter Download: Dateien werden sofort im Browser heruntergeladen",
+        "Kassenbuch CSV Export: Kassenbuch → 'CSV Export' Button — exportiert alle Kassenbuch-Einträge",
+        "Tipp: Exportierte CSV kann direkt wieder mit 'CSV Import' importiert werden (gleiches Format)",
       ]},
     {icon:"🧾",title:"Steuer (EÜR)",desc:"Einnahmen-Überschuss-Rechnung automatisch generieren",
       details:[
@@ -1035,6 +1037,7 @@ function HelpView(){
     {q:"Wie importiere ich ein Kassenbuch-Foto?",a:"Gehe zu Kassenbuch → klicke 'Foto Import' → wähle ein Foto deines handschriftlichen Kassenbuchs. Die OCR erkennt Tabellenzeilen mit Datum, Beschreibung und Betrag. Tipp: Gute Beleuchtung und gerades Foto für beste Ergebnisse."},
     {q:"Wie erfasse ich eine Einnahme?",a:"Beim Upload: Klicke den grünen 'Einnahme (Gelir)' Button → dann Beleg hochladen. Im Kassenbuch: '+ Eintrag' → Typ 'Einnahme' wählen. Die Einnahme erscheint im Dashboard als grüner Wert."},
     {q:"Welches CSV-Format wird benötigt?",a:"Spalten: Datum (TT.MM.JJJJ), Beschreibung, Ausgaben, Einnahmen. Trennzeichen: Komma oder Semikolon (automatisch erkannt). Tipp: Exportiere erst eine CSV als Vorlage — dann im gleichen Format importieren."},
+    {q:"Wie exportiere ich das Kassenbuch?",a:"Kassenbuch → 'CSV Export' Button. Die CSV enthält: Datum, Lieferant, Rechnungs-Nr., Typ, Betrag, MwSt, MwSt-Satz, Kategorie, Zahlungsart. Diese Datei kann in Excel geöffnet oder wieder importiert werden."},
   ];
   return(<div style={{display:"flex",flexDirection:"column",gap:24,maxWidth:800}}>
     <div>
