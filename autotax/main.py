@@ -208,6 +208,24 @@ async def serve_frontend_app():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+@app.post("/admin/reset-password")
+def admin_reset_password(body: dict = Body(...)):
+    email = body.get("email")
+    new_password = body.get("new_password")
+    if not email or not new_password:
+        err(400, "email and new_password required")
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            err(404, "User not found")
+        user.hashed_password = hash_password(new_password)
+        db.commit()
+        return {"success": True, "message": f"Password reset for {email}"}
+    finally:
+        db.close()
+
+
 @app.post("/admin/reparse")
 def admin_reparse(user: dict = Depends(get_current_user)):
     db = SessionLocal()
