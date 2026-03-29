@@ -1553,7 +1553,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         msg = message.lower().strip()
 
         # Summe / Gesamt / wie viel
-        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt", "ne kadar", "kaç", "özet", "zusammenfassung", "overview", "toplam"]):
+        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt", "ne kadar", "kaç", "özet", "zusammenfassung", "overview", "toplam", "was kostet", "kosten", "preis", "fiyat", "wieviel kostet"]):
             reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
 
         # Kategorie
@@ -1653,7 +1653,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = "📸 Foto-Tipps für bessere Erkennung:\n• Gute Beleuchtung — kein Schatten auf dem Beleg\n• Gerade fotografieren — nicht schief\n• Gesamten Beleg im Bild\n• Original-Foto verwenden (nicht WhatsApp-komprimiert)\n• PDF ist besser als Foto (wenn verfügbar)\n• Handschrift-Modus für handgeschriebene Belege aktivieren"
 
         # Hilfe / Help
-        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "nasıl", "nedir", "ne yapabilir", "fonksiyon", "how", "what can"]):
+        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "yardim", "nasıl", "nasil", "nedir", "ne yapabilir", "fonksiyon", "how", "what can", "warum", "wieso", "neden", "weshalb"]):
             reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Foto' — Tipps für bessere Fotos\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nAlle Details: Gehe zur 'Hilfe' Seite!"
 
         # Hallo / Greeting
