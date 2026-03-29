@@ -1378,6 +1378,171 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
 
 
 # ============================================================
+# BOOKKEEPING: XLSX IMPORT
+# ============================================================
+
+@app.post("/bookkeeping/import-xlsx")
+async def import_xlsx(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Import Excel (.xlsx) file into Kassenbuch + Rechnungen."""
+    from openpyxl import load_workbook
+    content = await file.read()
+    wb = load_workbook(io.BytesIO(content), read_only=True)
+    ws = wb.active
+    db = SessionLocal()
+    imported = 0
+    errors = []
+    try:
+        headers = []
+        for idx, row in enumerate(ws.iter_rows(values_only=True), 1):
+            if idx == 1:
+                headers = [str(c or "").strip().lower() for c in row]
+                continue
+            if not any(row):
+                continue
+            rd = dict(zip(headers, [c for c in row]))
+
+            def _col(names):
+                for n in names:
+                    v = rd.get(n) or rd.get(n.lower())
+                    if v is not None and str(v).strip():
+                        return str(v).strip()
+                return ""
+
+            beschreibung = _col(["beschreibung", "description", "lieferant", "vendor"])
+            datum = _col(["datum", "date"])
+            vendor = _col(["lieferant", "vendor"]) or beschreibung[:50] or "Import"
+            category = _col(["kategorie", "category"]) or "other"
+            payment = _col(["zahlungsart", "zahlungsmethode", "payment_method"]) or ""
+            inv_nr = _col(["rechnungs-nr.", "invoice_number"]) or ""
+            typ = _col(["typ", "type"]) or ""
+
+            def _num(names):
+                raw = _col(names)
+                if not raw:
+                    return 0.0
+                return float(str(raw).replace(",", ".").replace("€", "").replace(" ", "").strip() or "0")
+
+            betrag = _num(["betrag", "ausgaben", "amount", "expenses"])
+            einnahmen = _num(["einnahmen", "income"])
+            mwst = _num(["mwst", "vat_amount"])
+            mwst_satz = _col(["mwst-satz", "vat_rate"]) or "19%"
+            if "%" not in mwst_satz:
+                mwst_satz += "%"
+
+            if typ.lower() in ("income", "einnahme", "einnahmen"):
+                entry_type = "income"
+                amount = betrag if betrag > 0 else einnahmen
+            elif einnahmen > 0:
+                entry_type = "income"
+                amount = einnahmen
+            else:
+                entry_type = "expense"
+                amount = betrag
+
+            if amount <= 0 and not beschreibung:
+                continue
+
+            date_val = parse_date_str_to_datetime(str(datum)) if datum else None
+            if not date_val:
+                date_val = datetime.now()
+            if not mwst and amount > 0:
+                rate = float(mwst_satz.replace("%", "").replace(",", ".").strip() or "19")
+                mwst = round(amount * rate / (100 + rate), 2)
+
+            try:
+                entry = CashEntry(user_id=user["sub"], description=beschreibung or vendor, vendor=vendor,
+                    gross_amount=amount, vat_amount=mwst, vat_rate=mwst_satz, entry_type=entry_type,
+                    category=category, payment_method=payment, reference=f"XLSX-Import Zeile {idx}",
+                    notes="XLSX Import", date=date_val)
+                db.add(entry)
+                inv = Invoice(user_id=user["sub"], filename=f"xlsx-import-{idx}", vendor=vendor,
+                    total_amount=amount, vat_amount=mwst, vat_rate=mwst_satz,
+                    date=date_val.strftime("%Y-%m-%d") if date_val else "", raw_text=f"XLSX Import: {beschreibung}",
+                    invoice_type=entry_type, invoice_number=inv_nr, payment_method=payment,
+                    category=category, processed=True)
+                db.add(inv)
+                imported += 1
+            except Exception as e:
+                errors.append(f"Zeile {idx}: {str(e)[:80]}")
+        db.commit()
+        return {"success": True, "imported": imported, "errors": errors}
+    except Exception:
+        db.rollback()
+        logger.exception("XLSX import failed")
+        err(500, "XLSX Import failed")
+    finally:
+        db.close()
+
+
+# ============================================================
+# BOOKKEEPING: DATEV IMPORT
+# ============================================================
+
+@app.post("/bookkeeping/import-datev")
+async def import_datev(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Import DATEV Buchungsstapel (.csv, semicolon-separated)."""
+    import csv
+    content = await file.read()
+    text = content.decode("utf-8", errors="ignore")
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
+    db = SessionLocal()
+    imported = 0
+    errors = []
+    try:
+        for idx, row in enumerate(reader, 1):
+            try:
+                # DATEV format: Umsatz;Soll/Haben;Konto;Gegenkonto;BU;Belegdatum;Buchungstext;USt
+                umsatz_raw = row.get("Umsatz") or row.get("umsatz") or "0"
+                sh = row.get("Soll/Haben") or row.get("soll/haben") or "S"
+                buchungstext = row.get("Buchungstext") or row.get("buchungstext") or ""
+                belegdatum = row.get("Belegdatum") or row.get("belegdatum") or ""
+                ust = row.get("USt") or row.get("ust") or "19"
+
+                amount = float(umsatz_raw.replace(",", ".").replace(" ", "").strip() or "0")
+                if amount <= 0:
+                    continue
+
+                entry_type = "expense" if sh.upper() == "S" else "income"
+
+                # Parse DATEV date: DDMM or DDMMYYYY
+                date_val = None
+                bd = belegdatum.strip()
+                if len(bd) == 4:
+                    date_val = parse_date_str_to_datetime(f"20{datetime.now().year % 100}-{bd[2:4]}-{bd[0:2]}")
+                elif len(bd) >= 6:
+                    date_val = parse_date_str_to_datetime(f"{bd[4:]}-{bd[2:4]}-{bd[0:2]}")
+                if not date_val:
+                    date_val = datetime.now()
+
+                vat_rate = f"{ust}%"
+                rate_f = float(ust.replace(",", ".").strip() or "19")
+                vat_amount = round(amount * rate_f / (100 + rate_f), 2)
+
+                entry = CashEntry(user_id=user["sub"], description=buchungstext, vendor=buchungstext[:50] or "DATEV Import",
+                    gross_amount=amount, vat_amount=vat_amount, vat_rate=vat_rate, entry_type=entry_type,
+                    category="other", payment_method="", reference=f"DATEV-Import Zeile {idx}",
+                    notes="DATEV Import", date=date_val)
+                db.add(entry)
+                inv = Invoice(user_id=user["sub"], filename=f"datev-import-{idx}", vendor=buchungstext[:50] or "DATEV Import",
+                    total_amount=amount, vat_amount=vat_amount, vat_rate=vat_rate,
+                    date=date_val.strftime("%Y-%m-%d") if date_val else "", raw_text=f"DATEV Import: {buchungstext}",
+                    invoice_type=entry_type, invoice_number="", payment_method="",
+                    category="other", processed=True)
+                db.add(inv)
+                imported += 1
+            except Exception as e:
+                errors.append(f"Zeile {idx}: {str(e)[:80]}")
+        db.commit()
+        return {"success": True, "imported": imported, "errors": errors}
+    except Exception:
+        db.rollback()
+        logger.exception("DATEV import failed")
+        err(500, "DATEV Import failed")
+    finally:
+        db.close()
+
+
+# ============================================================
 # BOOKKEEPING: PHOTO IMPORT (Handwritten Kassenbuch)
 # ============================================================
 
