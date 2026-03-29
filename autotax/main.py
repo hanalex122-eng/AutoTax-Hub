@@ -1466,12 +1466,24 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     Columns: Nr, Datum, Beschreibung, Einnahmen, Ausgaben, Saldo
     Returns JSON rows + CSV string. If save=true, also saves to DB.
     """
-    from autotax.ocr import extract_handwriting_text, extract_image_text
+    from autotax.ocr import extract_handwriting_text, extract_image_text, extract_pdf_text, extract_pdf_page_as_image
     import re as _re
 
     content = await file.read()
-    # Try handwriting OCR first, fallback to printed
-    text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
+    filename = (file.filename or "").lower()
+    content_type = (file.content_type or "").lower()
+
+    # PDF support
+    if "pdf" in content_type or filename.endswith(".pdf"):
+        text = extract_pdf_text(content)
+        if not text or len(text.strip()) < 20:
+            img_bytes = extract_pdf_page_as_image(content)
+            if img_bytes:
+                text = await extract_image_text(img_bytes, "scanned.png")
+    else:
+        # Image: try handwriting OCR first, fallback to printed
+        text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
+
     if not text or len(text.strip()) < 20:
         text = await extract_image_text(content, file.filename or "kassenbuch.png")
     if not text or len(text.strip()) < 10:
