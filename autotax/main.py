@@ -1460,6 +1460,148 @@ async def import_kassenbuch_photo(file: UploadFile = File(...), user: dict = Dep
         db.close()
 
 
+@app.post("/api/import-image")
+async def import_image_table(file: UploadFile = File(...), save: bool = False, user: dict = Depends(get_current_user)):
+    """Import Kassenbuch table image → OCR → structured rows + CSV.
+    Columns: Nr, Datum, Beschreibung, Einnahmen, Ausgaben, Saldo
+    Returns JSON rows + CSV string. If save=true, also saves to DB.
+    """
+    from autotax.ocr import extract_handwriting_text, extract_image_text
+    import re as _re
+
+    content = await file.read()
+    # Try handwriting OCR first, fallback to printed
+    text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
+    if not text or len(text.strip()) < 20:
+        text = await extract_image_text(content, file.filename or "kassenbuch.png")
+    if not text or len(text.strip()) < 10:
+        err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
+
+    lines = text.strip().split("\n")
+    rows = []
+
+    for line in lines:
+        line = line.strip()
+        if not line or len(line) < 5:
+            continue
+        # Skip header/total rows
+        line_lower = line.lower()
+        if any(w in line_lower for w in ["total", "summe", "gesamt", "saldo", "nr.", "datum", "beschreibung", "einnahmen", "ausgaben", "übertrag"]):
+            continue
+
+        # Pattern: optional Nr + Date + Description + numbers
+        # Try: Nr Date Description Amount1 Amount2
+        m = _re.search(
+            r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$",
+            line
+        )
+        if m:
+            datum_raw, beschreibung, num1, num2 = m.group(1), m.group(2).strip(), m.group(3), m.group(4)
+            val1 = float(num1.replace(",", ".")) if num1 else 0
+            val2 = float(num2.replace(",", ".")) if num2 else 0
+            # Heuristic: if first number is 0 or empty-like, it's Einnahmen=0, Ausgaben=val2
+            einnahmen = val1 if val1 > 0 and val2 > 0 else 0
+            ausgaben = val2 if val1 == 0 or (val1 > 0 and val2 > 0) else val1
+            if einnahmen == 0 and ausgaben == 0:
+                ausgaben = max(val1, val2)
+        else:
+            # Simpler: Date + Description + single amount
+            m2 = _re.search(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*$", line)
+            if not m2:
+                continue
+            datum_raw, beschreibung, betrag_raw = m2.group(1), m2.group(2).strip(), m2.group(3)
+            ausgaben = float(betrag_raw.replace(",", "."))
+            einnahmen = 0
+
+        if not beschreibung or len(beschreibung) < 2:
+            continue
+
+        # Parse date: DD.MM.YY or DD.MM.YYYY
+        parts = datum_raw.replace("/", ".").split(".")
+        if len(parts) == 3:
+            d, mo, y = parts[0].strip(), parts[1].strip(), parts[2].strip()
+            if len(y) == 2:
+                y = "20" + y
+            date_str = f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+        else:
+            date_str = datum_raw
+
+        rows.append({
+            "date": date_str,
+            "description": beschreibung,
+            "income": round(einnahmen, 2),
+            "expense": round(ausgaben, 2),
+        })
+
+    # Generate CSV
+    csv_lines = ["Datum,Beschreibung,Einnahmen,Ausgaben"]
+    for r in rows:
+        desc = r["description"].replace('"', '""')
+        csv_lines.append(f'{r["date"]},"{desc}",{r["income"]:.2f},{r["expense"]:.2f}')
+    csv_text = "\n".join(csv_lines)
+
+    # Optionally save to DB
+    saved = 0
+    if save and rows:
+        db = SessionLocal()
+        try:
+            for r in rows:
+                amount = r["income"] if r["income"] > 0 else r["expense"]
+                entry_type = "income" if r["income"] > 0 else "expense"
+                vat_amount = round(amount * 19 / 119, 2) if amount > 0 else 0
+                date_val = parse_date_str_to_datetime(r["date"])
+                if not date_val:
+                    date_val = datetime.now()
+                entry = CashEntry(
+                    user_id=user["sub"],
+                    description=r["description"],
+                    vendor=r["description"][:50],
+                    gross_amount=amount,
+                    vat_amount=vat_amount,
+                    vat_rate="19%",
+                    entry_type=entry_type,
+                    category="other",
+                    payment_method="",
+                    reference="",
+                    notes="Bild Import",
+                    date=date_val,
+                )
+                db.add(entry)
+                inv = Invoice(
+                    user_id=user["sub"],
+                    filename="bild-import",
+                    vendor=r["description"][:50],
+                    total_amount=amount,
+                    vat_amount=vat_amount,
+                    vat_rate="19%",
+                    date=r["date"],
+                    raw_text=f"Bild Import: {r['description']}",
+                    invoice_type=entry_type,
+                    invoice_number="",
+                    payment_method="",
+                    category="other",
+                    processed=True,
+                )
+                db.add(inv)
+                saved += 1
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Image table import save failed")
+        finally:
+            db.close()
+
+    return {
+        "success": True,
+        "rows": rows,
+        "row_count": len(rows),
+        "saved": saved,
+        "csv": csv_text,
+        "ocr_text": text[:500],
+    }
+
+
+
 # ============================================================
 # TAX: EÜR
 # ============================================================
