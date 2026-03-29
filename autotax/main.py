@@ -1684,9 +1684,18 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         elif any(w in msg for w in ["datum", "date", "tarih", "wann", "zeitraum", "monat", "jahr"]):
             reply = "📅 Datum-Filter:\n• Rechnungen → Von/Bis Felder nutzen\n• Unterstützte Formate: DD.MM.YYYY, YYYY-MM-DD\n• Monatsansicht: Dashboard zeigt monatliche Auswertung\n• Export: Nach Jahr filterbar"
 
-        # Fallback — clear helpful message instead of generic summary
+        # Vendor search — if no keyword matched, try searching vendor names
         else:
-            reply = f"Das habe ich nicht ganz verstanden. Hier sind Themen, bei denen ich helfen kann:\n\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Eintragen' — Wie erstelle ich Einträge?\n• 'Suche' — Wie finde ich Rechnungen?\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' — CSV, DATEV, Excel\n• 'Hilfe' — Alle Funktionen\n\n📌 Mehr Details findest du auf der 'Hilfe' Seite!\n\nAktuell: {inv_count} Rechnungen, €{net_profit:.2f} Gewinn"
+            vendor_results = [i for i in invoices if msg in (i.vendor or "").lower()]
+            if not vendor_results:
+                vendor_results = db.query(Invoice).filter(Invoice.user_id == user["sub"], Invoice.vendor.ilike(f"%{msg}%")).all()
+            if vendor_results:
+                vr_total = sum(safe_float(i.total_amount) for i in vendor_results)
+                vr_vat = sum(safe_float(i.vat_amount) for i in vendor_results)
+                latest = safe_date_str(vendor_results[0].date) if vendor_results[0].date else "unbekannt"
+                reply = f"🔍 Für '{msg.title()}' habe ich {len(vendor_results)} Rechnung(en) gefunden:\n• Gesamtbetrag: €{vr_total:.2f}\n• MwSt: €{vr_vat:.2f}\n• Letzte Rechnung: {latest}"
+            else:
+                reply = f"Das habe ich nicht ganz verstanden. Versuche z.B.:\n• 'Wie viele Rechnungen?'\n• 'MwSt Übersicht'\n• 'Gewinn'\n• Einen Lieferanten-Namen (z.B. 'Lidl')\n• 'Hilfe' für alle Themen\n\nAktuell: {inv_count} Rechnungen, €{net_profit:.2f} Gewinn"
 
         return {"reply": reply}
     except Exception:
