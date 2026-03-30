@@ -408,9 +408,17 @@ def reset_password(request: Request, body: dict = Body(...)):
 
 @app.post("/invoices/create")
 def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_current_user)):
-    """Create invoice from JSON (for cross-page transfer)."""
+    """Create invoice from JSON (for cross-page transfer). Skips duplicates."""
     db = SessionLocal()
     try:
+        # Duplicate check
+        dup = db.query(Invoice).filter(
+            Invoice.user_id == user["sub"],
+            Invoice.vendor == (body.get("vendor") or "Manual"),
+            Invoice.total_amount == float(body.get("total_amount") or 0),
+        ).first()
+        if dup:
+            return {"success": True, "id": dup.id, "message": "already exists"}
         inv = Invoice(
             user_id=user["sub"],
             filename=None,
