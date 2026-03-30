@@ -98,6 +98,16 @@ def calc_vat(gross, vat_rate_str):
     return round(gross * rate / (100 + rate), 2)
 
 
+def _fuzzy_match(a: str, b: str, threshold: float = 0.75) -> bool:
+    if not a or not b:
+        return False
+    a, b = a.lower().replace(" ", ""), b.lower().replace(" ", "")
+    if a == b or a in b or b in a:
+        return True
+    common = sum(1 for c in a if c in b)
+    return common / max(len(a), len(b)) >= threshold
+
+
 def parse_date_str_to_datetime(date_str):
     if not date_str:
         return None
@@ -277,6 +287,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     full_name: Optional[str] = None
+    company_name: Optional[str] = None
 
 
 @app.post("/auth/register")
@@ -296,7 +307,17 @@ def register(request: Request, body: RegisterRequest):
         db.add(user)
         db.commit()
         db.refresh(user)
-        logger.info("User registered: %s", body.email)
+        # Auto-create company
+        comp_name = (body.company_name or "").strip()
+        if not comp_name:
+            comp_name = (body.full_name or "").strip()
+        if not comp_name:
+            comp_name = body.email.split("@")[0].strip()
+        if comp_name:
+            company = UserCompany(user_id=user.id, company_name=comp_name)
+            db.add(company)
+            db.commit()
+        logger.info("User registered: %s (company: %s)", body.email, comp_name)
         token = create_token(user.id, user.email)
         return {"success": True, "token": token, "email": user.email}
     except HTTPException:
@@ -524,7 +545,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
             if inv and inv.vendor:
                 vendor_lower = inv.vendor.lower()
                 for uc in user_companies:
-                    if uc.company_name.lower() in vendor_lower or vendor_lower in uc.company_name.lower():
+                    if uc.company_name.lower() in vendor_lower or vendor_lower in uc.company_name.lower() or _fuzzy_match(uc.company_name, inv.vendor):
                         inv.invoice_type = "income"
                         db_c.commit()
                         break
