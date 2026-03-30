@@ -225,6 +225,34 @@ async def serve_frontend_app():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+@app.get("/agb", response_class=HTMLResponse)
+def agb_page():
+    return HTMLResponse(content="""<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>AGB — AutoTax-HUB</title>
+<style>body{font-family:'DM Sans',sans-serif;max-width:800px;margin:40px auto;padding:20px;background:#050a12;color:#e8edf5;line-height:1.8}
+h1{color:#10b981;font-size:28px}h2{color:#00a8cc;margin-top:30px;font-size:18px}strong{color:#f59e0b}
+a{color:#10b981}p{margin:12px 0}</style></head><body>
+<h1>Allgemeine Geschäftsbedingungen</h1>
+<p><em>AutoTax-HUB — Stand: März 2026</em></p>
+<h2>§1 Geltungsbereich</h2>
+<p>Diese AGB gelten für die Nutzung von AutoTax-HUB, einem Software-Werkzeug zur automatischen Erfassung und Verwaltung von Belegen und Kassenbüchern.</p>
+<h2>§2 Leistungsbeschreibung</h2>
+<p>AutoTax-HUB bietet: OCR-Erkennung von Belegen, automatische Kategorisierung, Kassenbuchführung, Export in verschiedene Formate (CSV, DATEV, Excel, JSON), sowie eine EÜR-Übersicht.</p>
+<h2>§3 Keine Steuerberatung</h2>
+<p>AutoTax-HUB ist ein Software-Werkzeug. Der Dienst stellt <strong>KEINE Steuerberatung</strong> dar. Die automatische Erkennung kann Fehler enthalten. Der Nutzer ist <strong>allein verantwortlich</strong> für die Überprüfung aller Daten und die Richtigkeit seiner Buchhaltung. Für die Steuererklärung wird dringend empfohlen, einen Steuerberater zu konsultieren.</p>
+<h2>§4 Haftungsbeschränkung</h2>
+<p>Der Anbieter haftet <strong>nicht</strong> für: falsch erkannte Beträge, fehlerhafte MwSt-Berechnungen, steuerliche Nachteile, verlorene Daten oder sonstige Schäden, die aus der Nutzung des Dienstes entstehen. Die Haftung ist auf den vom Nutzer gezahlten Betrag der letzten 12 Monate beschränkt.</p>
+<h2>§5 Prüfungspflicht</h2>
+<p>Der Nutzer ist <strong>verpflichtet</strong>, alle automatisch erkannten Daten (Beträge, Lieferanten, Kategorien, MwSt-Sätze, Datumsangaben) vor Verwendung zu überprüfen und ggf. zu korrigieren.</p>
+<h2>§6 Datenschutz</h2>
+<p>Daten werden DSGVO-konform in der EU gespeichert. Originalbilder werden nach der OCR-Verarbeitung nicht dauerhaft auf dem Server gespeichert. Personenbezogene Daten werden nicht an Dritte weitergegeben. Details siehe <a href="/datenschutz">Datenschutzerklärung</a>.</p>
+<h2>§7 Beta-Phase</h2>
+<p>AutoTax-HUB befindet sich in der <strong>Beta-Phase</strong>. Funktionen können sich ändern. Es wird keine Garantie für ununterbrochene Verfügbarkeit gegeben.</p>
+<h2>§8 Kündigung</h2>
+<p>Das Nutzerkonto kann jederzeit gelöscht werden. Alle Daten werden dabei unwiderruflich entfernt.</p>
+<p style="margin-top:40px;color:#64748b;font-size:13px">© 2026 AutoTax-HUB — Alle Rechte vorbehalten.</p>
+</body></html>""")
+
+
 @app.post("/admin/reset-password")
 def admin_reset_password(body: dict = Body(...), user: dict = Depends(get_current_user)):
     email = body.get("email")
