@@ -826,13 +826,17 @@ function BookkeepingView({refreshKey,onNav}){
         <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={async(e)=>{const f=e.target.files?.[0];if(!f)return;const tk=localStorage.getItem("atx_token");if(!tk){alert("Bitte zuerst einloggen");return;}setImporting(true);const fd=new FormData();fd.append("file",f);try{const r=await fetch(API+"/bookkeeping/import-photo",{method:"POST",headers:{"Authorization":"Bearer "+tk},body:fd});const d=await r.json();if(d.success){alert(d.imported+" Einträge aus Foto importiert");load();}else alert("Foto-Import fehlgeschlagen: "+(d.detail||"unbekannt"));}catch(ex){alert("Foto-Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";}}/>
       </div>
     </div>
-    <div style={{margin:"12px 0"}}><input style={{...css.input,width:"100%",maxWidth:400}} placeholder="Suche Beschreibung, Lieferant..." value={searchKB} onChange={e=>setSearchKB(e.target.value)}/></div>
-    {summary&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:12}}>
-      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Einnahmen</div><div style={{fontSize:22,fontWeight:700,color:theme.accent,fontFamily:mono}}>€{Number(summary.total_income||0).toFixed(2)}</div></div>
-      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Ausgaben</div><div style={{fontSize:22,fontWeight:700,color:theme.danger,fontFamily:mono}}>€{Number(summary.total_expenses||0).toFixed(2)}</div></div>
-      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Gewinn/Verlust</div><div style={{fontSize:22,fontWeight:700,color:(summary.net_profit||0)>=0?theme.accent:theme.danger,fontFamily:mono}}>€{Number(summary.net_profit||0).toFixed(2)}</div></div>
-      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>MwSt Saldo</div><div style={{fontSize:22,fontWeight:700,color:theme.blue,fontFamily:mono}}>€{Number(summary.vat_balance||0).toFixed(2)}</div></div>
-    </div>}
+    <div style={{display:"flex",gap:8,margin:"12px 0",maxWidth:500}}>
+      <input style={{...css.input,flex:1}} placeholder="Suche Beschreibung, Lieferant..." value={searchKB} onChange={e=>setSearchKB(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")e.preventDefault();}}/>
+      {searchKB&&<button style={{...css.btnOutline,padding:"8px 12px"}} onClick={()=>setSearchKB("")}>x</button>}
+    </div>
+    {(()=>{const fe=entries.filter(e=>!searchKB||(e.description||"").toLowerCase().includes(searchKB.toLowerCase())||(e.vendor||"").toLowerCase().includes(searchKB.toLowerCase()));const fInc=fe.filter(e=>e.entry_type==="income").reduce((s,e)=>s+(e.gross_amount||0),0);const fExp=fe.filter(e=>e.entry_type==="expense").reduce((s,e)=>s+(e.gross_amount||0),0);const fNet=fInc-fExp;const fVat=fe.filter(e=>e.entry_type==="income").reduce((s,e)=>s+(e.vat_amount||0),0)-fe.filter(e=>e.entry_type==="expense").reduce((s,e)=>s+(e.vat_amount||0),0);return(
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:12}}>
+      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Einnahmen{searchKB?" (gefiltert)":""}</div><div style={{fontSize:22,fontWeight:700,color:theme.accent,fontFamily:mono}}>€{fInc.toFixed(2)}</div></div>
+      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Ausgaben{searchKB?" (gefiltert)":""}</div><div style={{fontSize:22,fontWeight:700,color:theme.danger,fontFamily:mono}}>€{fExp.toFixed(2)}</div></div>
+      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>Gewinn/Verlust{searchKB?" (gefiltert)":""}</div><div style={{fontSize:22,fontWeight:700,color:fNet>=0?theme.accent:theme.danger,fontFamily:mono}}>€{fNet.toFixed(2)}</div></div>
+      <div style={css.card}><div style={{fontSize:12,color:theme.textMuted}}>MwSt Saldo{searchKB?" (gefiltert)":""}</div><div style={{fontSize:22,fontWeight:700,color:theme.blue,fontFamily:mono}}>€{fVat.toFixed(2)}</div></div>
+    </div>);})()}
     {showForm&&<div style={css.card}>
       <h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 16px"}}>Neuer Eintrag</h3>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
