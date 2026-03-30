@@ -1226,16 +1226,16 @@ def sync_invoices_to_bookkeeping(user: dict = Depends(get_current_user)):
             db.add(entry)
             synced += 1
         # Reverse sync: CashEntry → Invoice (for manual entries without invoice)
-        existing_inv_refs = set()
+        existing_inv_vendors_amounts = set()
         for inv in invoices:
-            if inv.raw_text and inv.raw_text.startswith("manual entry:"):
-                existing_inv_refs.add(inv.raw_text)
+            existing_inv_vendors_amounts.add(f"{(inv.vendor or '').lower()}-{safe_float(inv.total_amount)}")
         rev_synced = 0
         for entry in all_entries:
             if entry.invoice_id:
                 continue  # already linked to an invoice
-            ref_key = f"manual entry: {safe_str(entry.description)}"
-            if ref_key in existing_inv_refs:
+            # Duplicate check: vendor + amount
+            dup_key = f"{(entry.vendor or entry.description or '').lower()}-{safe_float(entry.gross_amount)}"
+            if dup_key in existing_inv_vendors_amounts:
                 continue  # already has matching invoice
             inv = Invoice(
                 user_id=user["sub"],
@@ -1245,7 +1245,7 @@ def sync_invoices_to_bookkeeping(user: dict = Depends(get_current_user)):
                 vat_amount=safe_float(entry.vat_amount),
                 vat_rate=entry.vat_rate or "0%",
                 date=entry.date.strftime("%Y-%m-%d") if entry.date else "",
-                raw_text=ref_key,
+                raw_text=f"Sync from Kassenbuch: {safe_str(entry.description)}",
                 invoice_type=entry.entry_type or "expense",
                 invoice_number="",
                 payment_method=safe_str(entry.payment_method),
