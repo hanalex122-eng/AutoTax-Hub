@@ -405,6 +405,39 @@ def reset_password(request: Request, body: dict = Body(...)):
 # INVOICES: UPLOAD
 # ============================================================
 
+
+@app.post("/invoices/create")
+def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Create invoice from JSON (for cross-page transfer)."""
+    db = SessionLocal()
+    try:
+        inv = Invoice(
+            user_id=user["sub"],
+            filename=None,
+            vendor=body.get("vendor") or "Manual",
+            total_amount=float(body.get("total_amount") or 0),
+            vat_amount=float(body.get("vat_amount") or 0),
+            vat_rate=body.get("vat_rate") or "19%",
+            date=body.get("date") or "",
+            raw_text=body.get("raw_text") or "Manual entry",
+            invoice_type=body.get("invoice_type") or "expense",
+            invoice_number=body.get("invoice_number") or "",
+            payment_method=body.get("payment_method") or "",
+            category=body.get("category") or "other",
+            processed=True,
+        )
+        db.add(inv)
+        db.commit()
+        db.refresh(inv)
+        return {"success": True, "id": inv.id}
+    except Exception:
+        db.rollback()
+        logger.exception("Create invoice failed")
+        err(500, "Failed")
+    finally:
+        db.close()
+
+
 @app.post("/invoices/upload")
 @limiter.limit("20/minute")
 async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
