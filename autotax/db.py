@@ -2,7 +2,7 @@ import logging
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from autotax.models import Base, Invoice, User, CashEntry
+from autotax.models import Base, Invoice, User, CashEntry, UserCompany
 
 logger = logging.getLogger("autotax")
 

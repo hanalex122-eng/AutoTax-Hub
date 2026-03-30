@@ -15,7 +15,7 @@ import io
 from autotax.ocr import extract_text, extract_text_and_qr
 from autotax.parser import parse_invoice
 from autotax.db import init_db, save_invoice, SessionLocal
-from autotax.models import Invoice, User, CashEntry
+from autotax.models import Invoice, User, CashEntry, UserCompany
 from autotax.auth import hash_password, verify_password, create_token, create_access_token, create_refresh_token, decode_token, get_current_user
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -473,6 +473,23 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
         err(500, "Failed to save invoice")
 
     auto_create_cash_entry(invoice_id, user["sub"], result)
+
+    # Auto-detect income: if vendor matches user's registered company
+    try:
+        db_c = SessionLocal()
+        user_companies = db_c.query(UserCompany).filter(UserCompany.user_id == user["sub"]).all()
+        if user_companies:
+            inv = db_c.query(Invoice).filter(Invoice.id == invoice_id).first()
+            if inv and inv.vendor:
+                vendor_lower = inv.vendor.lower()
+                for uc in user_companies:
+                    if uc.company_name.lower() in vendor_lower or vendor_lower in uc.company_name.lower():
+                        inv.invoice_type = "income"
+                        db_c.commit()
+                        break
+        db_c.close()
+    except Exception:
+        pass
 
     return {
         "id": invoice_id,
@@ -1830,6 +1847,61 @@ def submit_feedback(body: dict = Body(...), user: dict = Depends(get_current_use
         err(400, "Feedback message is empty")
     logger.info("FEEDBACK from user %s: %s", user.get("email", user["sub"]), message[:500])
     return {"success": True, "message": "Feedback received"}
+
+
+# ============================================================
+# COMPANIES (max 2 per user)
+# ============================================================
+
+@app.get("/companies")
+def list_companies(user: dict = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        companies = db.query(UserCompany).filter(UserCompany.user_id == user["sub"]).all()
+        return [{"id": c.id, "company_name": c.company_name} for c in companies]
+    finally:
+        db.close()
+
+
+@app.post("/companies")
+def add_company(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    company_name = body.get("company_name", "").strip()
+    if not company_name:
+        err(400, "Firmenname ist erforderlich")
+    db = SessionLocal()
+    try:
+        existing = db.query(UserCompany).filter(UserCompany.user_id == user["sub"]).count()
+        if existing >= 2:
+            err(400, "Maximal 2 Firmen erlaubt. Upgrade auf Pro für mehr.")
+        dup = db.query(UserCompany).filter(UserCompany.user_id == user["sub"], UserCompany.company_name == company_name).first()
+        if dup:
+            err(400, "Firma existiert bereits")
+        c = UserCompany(user_id=user["sub"], company_name=company_name)
+        db.add(c)
+        db.commit()
+        db.refresh(c)
+        return {"success": True, "id": c.id, "company_name": c.company_name}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Add company failed")
+        err(500, "Failed")
+    finally:
+        db.close()
+
+
+@app.delete("/companies/{company_id}")
+def delete_company(company_id: int, user: dict = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        c = db.query(UserCompany).filter(UserCompany.id == company_id, UserCompany.user_id == user["sub"]).first()
+        if not c:
+            err(404, "Firma nicht gefunden")
+        db.delete(c)
+        db.commit()
+        return {"success": True}
+    finally:
+        db.close()
 
 
 # ============================================================
