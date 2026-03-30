@@ -2196,6 +2196,7 @@ def export_csv(year: int = Query(None), user: dict = Depends(get_current_user)):
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
         buf = io.StringIO()
+        buf.write("# HINWEIS: Automatisch erstellt von AutoTax-HUB. Alle Daten vor Verwendung pruefen. Keine Steuerberatung.\n")
         buf.write("Datum,Lieferant,Rechnungs-Nr.,Typ,Betrag,MwSt,MwSt-Satz,Kategorie,Zahlungsart\n")
         for i in invoices:
             d = safe_date_str(i.date)
@@ -2218,6 +2219,7 @@ def export_datev(year: int = Query(None), user: dict = Depends(get_current_user)
     try:
         invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
         buf = io.StringIO()
+        buf.write("# HINWEIS: AutoTax-HUB - Alle Daten pruefen. Keine Steuerberatung.\n")
         buf.write("Umsatz;Soll/Haben;Konto;Gegenkonto;BU;Belegdatum;Buchungstext;USt\n")
         for i in invoices:
             d = safe_date_str(i.date)
@@ -2251,15 +2253,19 @@ def export_excel(year: int = Query(None), user: dict = Depends(get_current_user)
         wb = Workbook()
         ws = wb.active
         ws.title = "AutoTax Export"
+        # Disclaimer row
+        disc = ws.cell(row=1, column=1, value="HINWEIS: Automatisch erstellt von AutoTax-HUB. Alle Daten vor Verwendung prüfen. Keine Steuerberatung.")
+        disc.font = Font(italic=True, color="F59E0B")
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=9)
         headers = ["Datum", "Lieferant", "Rechnungs-Nr.", "Typ", "Betrag", "MwSt", "MwSt-Satz", "Kategorie", "Zahlungsart"]
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
         for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
+            cell = ws.cell(row=2, column=col, value=h)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center")
-        row = 2
+        row = 3
         for i in invoices:
             d = safe_date_str(i.date)
             if year and not d.startswith(str(year)):

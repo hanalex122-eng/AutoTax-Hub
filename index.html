@@ -318,7 +318,9 @@ function AuthScreen({onLogin}){
       <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:20,paddingTop:16,borderTop:`1px solid ${theme.border}`}}>
         <span style={{fontSize:11,color:theme.textDim,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowDS(true)}>Datenschutz</span>
         <span style={{fontSize:11,color:theme.textDim,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setShowImp(true)}>Impressum</span>
+        <span style={{fontSize:11,color:theme.textDim,cursor:"pointer",textDecoration:"underline"}} onClick={()=>window.open("/agb","_blank")}>AGB</span>
       </div>
+      <div style={{fontSize:10,color:"#4a5e7a",marginTop:8,textAlign:"center"}}>AutoTax-HUB ist ein Buchhaltungs-Tool und keine Steuerberatung.</div>
     </div>
     {showDS&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowDS(false)}>
       <div style={{...css.card,maxWidth:640,maxHeight:"80vh",overflowY:"auto",padding:32}} onClick={e=>e.stopPropagation()}>
@@ -482,6 +484,7 @@ function DashboardView({refreshKey}){
         </div>
       </div>
     </div>
+    <div style={{padding:"12px 16px",margin:"24px 0 0",borderRadius:8,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.15)",fontSize:11,color:"#f59e0b",lineHeight:1.5}}>Alle Daten wurden automatisch erfasst und können Fehler enthalten. AutoTax-HUB ersetzt keine Steuerberatung.</div>
   </div>);
 }
 
@@ -719,6 +722,7 @@ function ExportView(){
 
   return(<div style={{display:"flex",flexDirection:"column",gap:24}}>
     <div><h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:0}}>Export</h2><p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 0"}}>Daten herunterladen — CSV funktioniert direkt in Excel</p></div>
+    <div style={{padding:"14px 16px",borderRadius:10,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.15)",fontSize:12,color:"#f59e0b",lineHeight:1.6}}>Wichtig: Alle automatisch erkannten Daten können Fehler enthalten. Prüfe Beträge und MwSt vor der Weitergabe. Keine Steuerberatung.</div>
     <div style={{display:"flex",gap:12,alignItems:"center"}}><label style={{color:theme.textMuted,fontSize:13}}>Jahr:</label><select style={{...css.input,width:140}} value={year} onChange={e=>setYear(e.target.value)}><option value="">Alle Jahre</option>{[2021,2022,2023,2024,2025,2026].map(y=><option key={y} value={y}>{y}</option>)}</select></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))",gap:16}}>
       {exports.map(ex=>{const st=exportStatus[ex.type];return(
@@ -764,7 +768,10 @@ function ChatView(){
   return(<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 120px)"}}>
     <div><h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:0}}>AI Steuer-Assistent</h2><p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 16px"}}>Fragen zu Rechnungen, MwSt, Kategorien</p></div>
     <div style={{...css.card,flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:16,marginBottom:16}}>
-      {messages.length===0&&<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:theme.textDim,fontSize:14}}>Stell eine Frage...</div>}
+      {messages.length===0&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
+        <div style={{color:theme.textDim,fontSize:14}}>Stell eine Frage...</div>
+        <div style={{padding:"8px 14px",borderRadius:8,background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.1)",fontSize:11,color:"#f59e0b",maxWidth:400,textAlign:"center"}}>AI-Assistent gibt allgemeine Auskünfte. Keine Steuerberatung.</div>
+      </div>}
       {messages.map((m,i)=>(<div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
         <div style={{maxWidth:"75%",padding:"12px 16px",borderRadius:14,fontSize:14,lineHeight:1.5,background:m.role==="user"?theme.accent:theme.surfaceAlt,color:m.role==="user"?"#fff":theme.text}}>{m.text}</div>
       </div>))}
@@ -916,6 +923,7 @@ function BookkeepingView({refreshKey,onNav}){
         </tfoot>}
       </table>}
     </div>
+    <div style={{padding:"12px 16px",margin:"24px 0 0",borderRadius:8,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.15)",fontSize:11,color:"#f59e0b",lineHeight:1.5}}>Alle Kassenbuch-Einträge sind automatisch generiert. Prüfe alle Beträge vor dem Export.</div>
   </div>);
 }
 
