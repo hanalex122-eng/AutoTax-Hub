@@ -349,7 +349,7 @@ function AuthScreen({onLogin}){
 }
 
 function Sidebar({active,onNav,onLogout,collapsed}){
-  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
+  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
   const[hovered,setHovered]=useState(null);
   return(<div style={{width:collapsed?72:248,background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden"}}>
     <div style={{padding:collapsed?"20px 16px":"20px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${theme.border}`,minHeight:77}}>
@@ -912,6 +912,40 @@ function BookkeepingView({refreshKey,onNav}){
   </div>);
 }
 
+function CompaniesView(){
+  const[companies,setCompanies]=useState([]);const[newName,setNewName]=useState("");const[loading,setLoading]=useState(true);
+  const load=async()=>{try{const r=await api("/companies");setCompanies(r);}catch(e){}setLoading(false);};
+  useEffect(()=>{load();},[]);
+  const add=async()=>{if(!newName.trim())return;try{const r=await api("/companies",{method:"POST",body:JSON.stringify({company_name:newName})});if(r.success){setNewName("");load();}}catch(e){alert(e.message);}};
+  const del=async(id)=>{if(!confirm("Firma löschen?"))return;try{await api("/companies/"+id,{method:"DELETE"});load();}catch(e){alert(e.message);}};
+  return(<div style={{maxWidth:600}}>
+    <h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:"0 0 8px"}}>Meine Firmen</h2>
+    <p style={{color:theme.textMuted,fontSize:14,margin:"0 0 24px"}}>Registriere deine Firma(en). Rechnungen mit deinem Firmennamen werden automatisch als <span style={{color:theme.accent,fontWeight:600}}>Einnahme</span> erkannt.</p>
+    <div style={{...css.card,background:"linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(59,130,246,0.06) 100%)",border:"1px solid rgba(16,185,129,0.2)",marginBottom:20}}>
+      <div style={{fontSize:13,color:theme.textMuted,lineHeight:1.7}}>
+        <strong style={{color:theme.accent}}>So funktioniert's:</strong><br/>
+        1. Firma registrieren (max. 2 Firmen im Beta)<br/>
+        2. Beleg hochladen<br/>
+        3. Wenn der Lieferant deinem Firmennamen entspricht → automatisch Einnahme
+      </div>
+    </div>
+    {loading?<div style={{color:theme.textMuted,padding:20}}>Laden...</div>:<div>
+      {companies.length===0&&<div style={{...css.card,textAlign:"center",padding:32,color:theme.textDim}}>Noch keine Firma registriert</div>}
+      {companies.map(c=><div key={c.id} style={{...css.card,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <div><div style={{fontSize:16,fontWeight:700,color:theme.text}}>{c.company_name}</div><div style={{fontSize:11,color:theme.textMuted,marginTop:2}}>Einnahmen werden automatisch erkannt</div></div>
+        <button style={{background:"transparent",border:"1px solid rgba(239,68,68,0.3)",color:theme.danger,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12}} onClick={()=>del(c.id)}>Entfernen</button>
+      </div>)}
+      {companies.length<2?<div style={{display:"flex",gap:8,marginTop:16}}>
+        <input style={{...css.input,flex:1}} placeholder="Firmenname eingeben..." value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}/>
+        <button style={css.btn()} onClick={add}>Firma hinzufügen</button>
+      </div>:<div style={{...css.card,background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)",textAlign:"center",padding:16,marginTop:16}}>
+        <div style={{color:"#f59e0b",fontWeight:600,fontSize:14}}>Maximum 2 Firmen erreicht (Beta)</div>
+        <div style={{color:theme.textMuted,fontSize:12,marginTop:4}}>Upgrade auf Pro für unbegrenzte Firmen</div>
+      </div>}
+    </div>}
+  </div>);
+}
+
 function FeedbackView(){
   const[msg,setMsg]=useState("");const[sent,setSent]=useState(false);
   const send=async()=>{if(!msg.trim())return;try{await fetch(API+"/feedback",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+localStorage.getItem("atx_token")},body:JSON.stringify({message:msg})});setSent(true);setMsg("");}catch(e){alert("Fehler: "+e.message);}};
@@ -1160,8 +1194,8 @@ function App(){
   const loadCompanies=async()=>{try{const r=await fetch(API+"/companies",{headers:{"Authorization":"Bearer "+localStorage.getItem("atx_token")}});setCompanies(await r.json());}catch(e){}};
   const[pwForm,setPwForm]=useState({old_password:"",new_password:"",confirm:""});
   if(!authed)return<Fragment><AuthScreen onLogin={()=>setAuthed(true)}/><CookieConsent/></Fragment>;
-  const views={dashboard:DashboardView,invoices:InvoicesView,upload:UploadView,bookkeeping:BookkeepingView,export:ExportView,chat:ChatView,help:HelpView,feedback:FeedbackView};
-  const pageLabels={dashboard:"Dashboard",invoices:"Rechnungen",upload:"Upload",bookkeeping:"Kassenbuch",export:"Export",chat:"AI Chat",help:"Hilfe",feedback:"Feedback"};
+  const views={dashboard:DashboardView,invoices:InvoicesView,upload:UploadView,bookkeeping:BookkeepingView,export:ExportView,chat:ChatView,companies:CompaniesView,help:HelpView,feedback:FeedbackView};
+  const pageLabels={dashboard:"Dashboard",invoices:"Rechnungen",upload:"Upload",bookkeeping:"Kassenbuch",export:"Export",chat:"AI Chat",companies:"Firmen",help:"Hilfe",feedback:"Feedback"};
   const View=views[page]||DashboardView;
   return(<div style={{display:"flex",minHeight:"100vh",background:theme.bg,fontFamily:font,color:theme.text}}>
     <CookieConsent/>
