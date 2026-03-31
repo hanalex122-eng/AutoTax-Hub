@@ -673,6 +673,8 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
             payment_method="",
             category=category,
             processed=True,
+            file_data=content,
+            file_content_type=file.content_type or "application/xml",
         )
         db.add(inv)
         db.commit()
@@ -2290,6 +2292,7 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
                 "category": safe_category(inv.category),
                 "filename": inv.filename or "",
                 "has_original": inv.file_data is not None and len(inv.file_data) > 0 if inv.file_data else False,
+                "file_content_type": inv.file_content_type or "",
                 "invoice_type": safe_invoice_type(inv.invoice_type),
             })
         return {"items": items, "total": len(items)}
@@ -2298,8 +2301,8 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
 
 
 @app.get("/vault/{invoice_id}/download")
-def download_vault_file(invoice_id: int, user: dict = Depends(get_current_user)):
-    """Download original receipt file from DB."""
+def download_vault_file(invoice_id: int, mode: str = Query("inline"), user: dict = Depends(get_current_user)):
+    """Download original receipt file from DB. mode=inline (preview) or attachment (download)."""
     db = SessionLocal()
     try:
         inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
@@ -2309,7 +2312,8 @@ def download_vault_file(invoice_id: int, user: dict = Depends(get_current_user))
             err(404, "Kein Original gespeichert")
         ct = inv.file_content_type or "application/octet-stream"
         fname = inv.filename or "beleg"
-        return StreamingResponse(io.BytesIO(inv.file_data), media_type=ct, headers={"Content-Disposition": f"inline; filename={fname}"})
+        disposition = "attachment" if mode == "attachment" else "inline"
+        return StreamingResponse(io.BytesIO(inv.file_data), media_type=ct, headers={"Content-Disposition": f"{disposition}; filename={fname}"})
     finally:
         db.close()
 

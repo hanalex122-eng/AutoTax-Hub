@@ -1016,14 +1016,17 @@ function VaultView(){
           <div style={{fontSize:20,fontWeight:700,color:theme.text,fontFamily:mono}}>€{Number(i.total_amount||0).toFixed(2)}</div>
           <span style={{fontSize:11,color:theme.textMuted}}>{i.category}</span>
         </div>
+        {i.has_original&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
+          <span style={{fontSize:10,color:theme.accent}}>Original gespeichert ✔</span>
+          <span style={{fontSize:9,color:theme.textDim,background:theme.surfaceAlt,padding:"1px 6px",borderRadius:4}}>{(i.file_content_type||"").includes("pdf")?"PDF":(i.file_content_type||"").includes("png")?"PNG":(i.file_content_type||"").includes("xml")?"XML":"JPG"}</span>
+        </div>}
         <div style={{display:"flex",gap:6,marginTop:4}}>
           {i.has_original?<Fragment>
-            <button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>Original ansehen</button>
-            <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Download</button>
+            <button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>Original anzeigen</button>
+            <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Original herunterladen</button>
           </Fragment>:<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original — nur OCR-Daten vorhanden</div>}
           <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️ PDF</button>
         </div>
-        {i.has_original&&<div style={{fontSize:10,color:theme.accent}}>Original gespeichert ✔</div>}
       </div>)}
     </div>}
     <div style={{fontSize:11,color:theme.textDim,marginTop:16,textAlign:"center"}}>{items.length} Belege gefunden</div>
