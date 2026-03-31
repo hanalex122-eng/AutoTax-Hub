@@ -172,6 +172,8 @@ function StatCard({label,value,sub,icon,color,bgColor,sparkData}){return(
   </div>
 );}
 
+const downloadPDF=async(id)=>{try{const r=await fetch(API+"/invoices/"+id+"/pdf",{headers:{Authorization:"Bearer "+localStorage.getItem("atx_token")}});if(!r.ok){alert("PDF Fehler");return;}const blob=await r.blob();const url=window.URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="Rechnung_"+id+".pdf";a.click();window.URL.revokeObjectURL(url);}catch(e){alert("PDF Download fehlgeschlagen");}};
+
 function BarChart({data}){
   const mx=Math.max(...data.flatMap(d=>[d.income||0,d.expenses||0]),1);
   const monthNames=["","Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
@@ -567,7 +569,7 @@ function InvoicesView({refreshKey,showToast}){
           <div><label style={{fontSize:11,color:theme.textMuted}}>Rechnungs-Nr.</label><input style={{...css.input,width:"100%"}} value={newInv.rechnung_nr} onChange={e=>setNewInv({...newInv,rechnung_nr:e.target.value})} placeholder="RE-2026-001"/></div>
         </div>
         <div style={{display:"flex",gap:8,marginTop:16}}>
-          <button style={{...css.btn(),flex:1}} onClick={async()=>{if(!newInv.kunde||!newInv.betrag){alert("Kunde und Betrag erforderlich");return;}try{const r=await api("/invoices/create-rechnung",{method:"POST",body:JSON.stringify(newInv)});if(r.success){if(showToast)showToast("Rechnung erstellt","success");setShowCreateInv(false);setNewInv({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});doSearch();}}catch(e){alert(e.message);}}}>Speichern</button>
+          <button style={{...css.btn(),flex:1}} onClick={async()=>{if(!newInv.kunde||!newInv.betrag){alert("Kunde und Betrag erforderlich");return;}try{const r=await api("/invoices/create-rechnung",{method:"POST",body:JSON.stringify(newInv)});if(r.success){if(showToast)showToast("Rechnung erstellt","success");if(r.id&&confirm("Rechnung als PDF herunterladen?")){downloadPDF(r.id);}setShowCreateInv(false);setNewInv({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});doSearch();}}catch(e){alert(e.message);}}}>Speichern</button>
           <button style={{...css.btnOutline,flex:1}} onClick={()=>setShowCreateInv(false)}>Abbrechen</button>
         </div>
         <div style={{fontSize:11,color:"#f59e0b",marginTop:8}}>Wird als Einnahme gespeichert. MwSt wird automatisch berechnet.</div>
@@ -625,6 +627,7 @@ function InvoicesView({refreshKey,showToast}){
             <td style={{padding:"12px 16px",color:theme.textMuted,fontFamily:mono,fontSize:12}}>€{inv.vat_amount?.toFixed(2)}</td>
             <td style={{padding:"12px 16px"}}>{inv.category?<span style={css.badge(theme.blueSoft,theme.blue)}>{inv.category}</span>:<span style={{color:theme.textDim,fontSize:11}}>—</span>}</td>
             <td style={{padding:"12px 10px"}}><div style={{cursor:"pointer",padding:"5px 12px",borderRadius:6,background:theme.blueSoft,color:theme.blue,fontSize:11,fontWeight:600,textAlign:"center",transition:"all 0.15s",border:`1px solid ${theme.blue}22`}} onClick={()=>startEdit(inv)} onMouseEnter={e=>e.currentTarget.style.background=theme.blue+"22"} onMouseLeave={e=>e.currentTarget.style.background=theme.blueSoft}>Bearbeiten</div></td>
+            <td style={{padding:"12px 6px"}}><button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit"}} onClick={()=>downloadPDF(inv.id)}>🖨️ PDF</button></td>
             <td style={{padding:"12px 8px"}}><div style={{cursor:"pointer",padding:5,borderRadius:6,transition:"background 0.15s"}} onClick={()=>del(inv.id)} onMouseEnter={e=>e.currentTarget.style.background=theme.dangerSoft} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Icon d={I.x} size={14} color={theme.danger}/></div></td>
           </tr>);})}</tbody>
       </table>}
@@ -931,6 +934,7 @@ function BookkeepingView({refreshKey,onNav}){
             <td style={{padding:"10px 14px"}}>{e.category?<span style={css.badge(theme.blueSoft,theme.blue)}>{e.category}</span>:"—"}</td>
             <td style={{padding:"10px 14px",cursor:"pointer"}} onClick={()=>reconcile(e.id)}><span style={{fontSize:16}}>{e.is_reconciled?"✅":"⬜"}</span></td>
             <td style={{padding:"10px 8px"}}><div style={{cursor:"pointer",padding:"4px 8px",borderRadius:6,background:theme.blueSoft,color:theme.blue,fontSize:11,fontWeight:600,textAlign:"center"}} onClick={()=>startEdit(e)}>Bearbeiten</div></td>
+            <td style={{padding:"10px 6px"}}>{e.invoice_id&&<button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit"}} onClick={()=>downloadPDF(e.invoice_id)}>🖨️ PDF</button>}</td>
             <td style={{padding:"10px 8px"}}><div style={{cursor:"pointer",padding:4}} onClick={()=>del(e.id)}><Icon d={I.x} size={14} color={theme.danger}/></div></td>
           </tr>);})}</tbody>
         {summary&&<tfoot>
@@ -1016,6 +1020,7 @@ function VaultView(){
             <button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>Original ansehen</button>
             <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Download</button>
           </Fragment>:<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original — nur OCR-Daten vorhanden</div>}
+          <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️ PDF</button>
         </div>
         {i.has_original&&<div style={{fontSize:10,color:theme.accent}}>Original gespeichert ✔</div>}
       </div>)}

@@ -236,6 +236,96 @@ def service_worker():
     return RawResponse(content="self.addEventListener('fetch',e=>{});", media_type="application/javascript")
 
 
+@app.get("/invoices/{invoice_id}/pdf")
+def generate_invoice_pdf(invoice_id: int, user: dict = Depends(get_current_user)):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas as pdf_canvas
+    from reportlab.lib.units import cm
+    from reportlab.lib.colors import HexColor
+
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+
+        companies = db.query(UserCompany).filter(UserCompany.user_id == user["sub"]).all()
+        company_name = companies[0].company_name if companies else "Meine Firma"
+        u = db.query(User).filter(User.id == user["sub"]).first()
+
+        buf = io.BytesIO()
+        c = pdf_canvas.Canvas(buf, pagesize=A4)
+        w, h = A4
+
+        c.setFillColor(HexColor("#1a2d4a"))
+        c.setFont("Helvetica-Bold", 22)
+        c.drawString(2*cm, h-2.5*cm, company_name)
+        c.setFillColor(HexColor("#00e5a0"))
+        c.setFont("Helvetica", 9)
+        c.drawString(2*cm, h-3*cm, f"E-Mail: {u.email if u else ''}")
+
+        c.setFillColor(HexColor("#1a2d4a"))
+        c.setFont("Helvetica-Bold", 16)
+        typ = "RECHNUNG" if inv.invoice_type == "income" else "BELEG"
+        c.drawString(2*cm, h-4.5*cm, typ)
+        c.setFont("Helvetica", 11)
+        c.drawString(12*cm, h-4.5*cm, f"Nr: {inv.invoice_number or f'RE-{inv.id}'}")
+        c.drawString(12*cm, h-5.1*cm, f"Datum: {inv.date or 'k.A.'}")
+
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(2*cm, h-6*cm, "An:" if inv.invoice_type == "income" else "Von:")
+        c.setFont("Helvetica", 11)
+        c.drawString(2*cm, h-6.6*cm, inv.vendor or "Unbekannt")
+
+        y = h - 8.5*cm
+        c.setFillColor(HexColor("#1a2d4a"))
+        c.rect(2*cm, y, 17*cm, 0.8*cm, fill=1)
+        c.setFillColor(HexColor("#ffffff"))
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(2.2*cm, y+0.25*cm, "Beschreibung")
+        c.drawString(10*cm, y+0.25*cm, "Kategorie")
+        c.drawString(13*cm, y+0.25*cm, "MwSt")
+        c.drawString(16*cm, y+0.25*cm, "Betrag")
+
+        y -= 0.8*cm
+        c.setFillColor(HexColor("#1a2d4a"))
+        c.setFont("Helvetica", 10)
+        c.drawString(2.2*cm, y+0.25*cm, inv.vendor or "Position 1")
+        c.drawString(10*cm, y+0.25*cm, inv.category or "other")
+        c.drawString(13*cm, y+0.25*cm, f"{inv.vat_rate or '19%'}")
+        c.drawString(16*cm, y+0.25*cm, f"EUR {inv.total_amount or 0:.2f}")
+        c.line(2*cm, y, 19*cm, y)
+
+        y -= 1.5*cm
+        netto = (inv.total_amount or 0) - (inv.vat_amount or 0)
+        c.setFont("Helvetica", 10)
+        c.drawRightString(19*cm, y, f"Netto: EUR {netto:.2f}")
+        y -= 0.5*cm
+        c.drawRightString(19*cm, y, f"MwSt ({inv.vat_rate or '19%'}): EUR {inv.vat_amount or 0:.2f}")
+        y -= 0.6*cm
+        c.setFont("Helvetica-Bold", 12)
+        c.drawRightString(19*cm, y, f"Gesamtbetrag: EUR {inv.total_amount or 0:.2f}")
+
+        if hasattr(u, 'is_kleinunternehmer') and getattr(u, 'is_kleinunternehmer', False):
+            y -= 1.5*cm
+            c.setFont("Helvetica-Oblique", 8)
+            c.setFillColor(HexColor("#7a8ba8"))
+            c.drawString(2*cm, y, "Gemäß §19 UStG wird keine Umsatzsteuer berechnet.")
+
+        c.setFillColor(HexColor("#7a8ba8"))
+        c.setFont("Helvetica", 7)
+        c.drawString(2*cm, 1.5*cm, f"Erstellt mit AutoTax-HUB | {company_name} | {u.email if u else ''}")
+        c.drawString(2*cm, 1*cm, "Automatisch erstellt. Alle Angaben ohne Gewähr. Keine Steuerberatung.")
+
+        c.save()
+        buf.seek(0)
+
+        filename = f"{typ}_{inv.invoice_number or inv.id}.pdf"
+        return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}"})
+    finally:
+        db.close()
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
     index_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
