@@ -2564,7 +2564,7 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
 
         # Hilfe / Help
         elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "yardim", "nasıl", "nasil", "nedir", "ne yapabilir", "fonksiyon", "how", "what can", "warum", "wieso", "neden", "weshalb"]):
-            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Foto' — Tipps für bessere Fotos\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nAlle Details: Gehe zur 'Hilfe' Seite!"
+            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' / 'DATEV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'E-Rechnung' — XRechnung / ZUGFeRD\n• 'Rechnung erstellen' — Eigene Rechnungen\n• 'PDF' / 'Drucken' — PDF herunterladen\n• 'Kleinunternehmer' — §19 UStG\n• 'Firmen' — Firmenverwaltung\n• 'Preise' — Pläne & Abo\n• 'App' / 'PWA' — Mobile Nutzung\n• 'Belege' — Belegverwaltung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Foto' — Tipps für bessere Fotos\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nAlle Details: Gehe zur 'Hilfe' Seite!"
 
         # Hallo / Greeting
         elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten", "selam", "nabız", "servus", "grüß"]):
@@ -2593,6 +2593,42 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         # Datum / Date
         elif any(w in msg for w in ["datum", "date", "tarih", "wann", "zeitraum", "monat", "jahr"]):
             reply = "📅 Datum-Filter:\n• Rechnungen → Von/Bis Felder nutzen\n• Unterstützte Formate: DD.MM.YYYY, YYYY-MM-DD\n• Monatsansicht: Dashboard zeigt monatliche Auswertung\n• Export: Nach Jahr filterbar"
+
+        # E-Rechnung
+        elif any(w in msg for w in ["e-rechnung", "erechnung", "xrechnung", "zugferd", "xml rechnung", "elektronische rechnung"]):
+            reply = "📄 E-Rechnung (XRechnung / ZUGFeRD):\n• Upload → 'E-Rechnung hochladen' Button\n• XRechnung (XML) und ZUGFeRD (PDF) werden unterstützt\n• Automatische Erkennung: Lieferant, Betrag, MwSt, Datum, Rechnungs-Nr\n• Seit 2025 Pflicht für B2B in Deutschland\n• Kleinunternehmer müssen E-Rechnungen empfangen können"
+
+        # Rechnung erstellen
+        elif any(w in msg for w in ["rechnung erstellen", "rechnung schreiben", "fatura oluştur", "neue rechnung", "rechnung anlegen"]):
+            reply = "🧾 Rechnung erstellen:\n• Rechnungen → '+ Rechnung erstellen' Button\n• Felder: Kunde, Betrag, MwSt-Satz, Datum, Rechnungs-Nr\n• Wird als Einnahme gespeichert\n• Nach dem Speichern: PDF herunterladen möglich\n• Tipp: Kleinunternehmerregelung aktivieren für §19-Rechnungen"
+
+        # PDF Drucken
+        elif any(w in msg for w in ["drucken", "pdf", "herunterladen", "download rechnung", "ausdrucken", "yazdır"]):
+            reply = "🖨️ PDF Drucken:\n• Rechnungen → 🖨️ PDF Button neben jeder Rechnung\n• Kassenbuch → 🖨️ PDF Button (wenn Rechnung verknüpft)\n• Belege → 🖨️ PDF Button\n• Rechnung erstellen → Nach Speichern 'PDF herunterladen?'\n• PDF enthält: Firma, Kunde, Betrag, MwSt, Netto/Brutto"
+
+        # Kleinunternehmer
+        elif any(w in msg for w in ["kleinunternehmer", "§19", "paragraph 19", "keine mwst", "keine umsatzsteuer", "küçük işletme"]):
+            reply = "📋 Kleinunternehmerregelung (§19 UStG):\n• Profil → Kleinunternehmer Toggle aktivieren\n• Keine MwSt auf Rechnungen\n• Hinweis 'Gemäß §19 UStG' erscheint automatisch auf PDF\n• Grenze: 25.000€ Vorjahr / 100.000€ laufendes Jahr\n• E-Rechnungen empfangen ist trotzdem Pflicht"
+
+        # Firmen
+        elif any(w in msg for w in ["firma", "firmen", "unternehmen", "company", "şirket"]):
+            reply = "🏢 Firmen verwalten:\n• Sidebar → 'Firmen' Seite\n• Max. 2 Firmen registrieren\n• Firmenname wird für Einnahme-Erkennung verwendet\n• Upload: Vendor = deine Firma → automatisch Einnahme\n• Firma kann nicht geändert werden (Kontakt Support)"
+
+        # Preise / Pricing
+        elif any(w in msg for w in ["preis", "pricing", "abo", "plan", "upgrade", "fiyat", "ücret"]):
+            reply = "💰 Preise:\n• Free: €0/Monat — 50 Rechnungen, 2 Firmen, CSV Export\n• Early Adopter: €10/Monat — 500 Rechnungen, 5 Firmen, DATEV\n• Pro: €20/Monat — Unbegrenzt, API, Priority Support\n• Frühe Nutzer behalten ihren Preis dauerhaft!\n• Stripe-Zahlung kommt bald"
+
+        # DATEV
+        elif any(w in msg for w in ["datev", "steuerberater export", "konto", "buchungskonto", "skr"]):
+            reply = "📊 DATEV Export:\n• Export → DATEV Button\n• Automatische Kontenzuordnung:\n  - Lebensmittel → 6800\n  - Restaurant → 6640\n  - Kraftstoff → 6670\n  - Büro/Software → 6815\n  - Einnahmen → 8400\n• Dein Steuerberater kann die Datei direkt importieren"
+
+        # PWA / Mobil
+        elif any(w in msg for w in ["app", "mobil", "handy", "telefon", "pwa", "installieren", "uygulama"]):
+            reply = "📱 Mobile App (PWA):\n• Öffne AutoTax-HUB im Browser auf deinem Handy\n• iPhone: Safari → Teilen → 'Zum Home-Bildschirm'\n• Android: Chrome → Menü → 'App installieren'\n• Funktioniert wie eine native App\n• Belege direkt mit der Kamera hochladen"
+
+        # Belege
+        elif any(w in msg for w in ["beleg", "belege", "original", "dokument"]):
+            reply = "📎 Belege:\n• Sidebar → 'Belege' Seite\n• Alle hochgeladenen Belege auf einen Blick\n• 🖨️ PDF Button zum Herunterladen\n• Belege werden als Text gespeichert (Originalbild nicht dauerhaft)\n• Tipp: Exportiere regelmäßig als Backup"
 
         # Vendor search — if no keyword matched, try searching vendor names
         else:
