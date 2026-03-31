@@ -1,2 +1,9 @@
 [phases.setup]
+nixPkgs = ["python311"]
 aptPkgs = ["libzbar0"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn autotax.main:app --host 0.0.0.0 --port ${PORT:-8080}"
