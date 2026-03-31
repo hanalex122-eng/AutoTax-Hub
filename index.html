@@ -356,16 +356,16 @@ function AuthScreen({onLogin}){
 }
 
 function Sidebar({active,onNav,onLogout,collapsed}){
-  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
+  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"_sep"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
   const[hovered,setHovered]=useState(null);
   return(<div style={{width:collapsed?72:248,background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden"}}>
     <div style={{padding:collapsed?"20px 16px":"20px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${theme.border}`,minHeight:77}}>
       <div style={{flexShrink:0}}><ATLogo size={36}/></div>
       {!collapsed&&<div style={{display:"flex",flexDirection:"column",lineHeight:1}}><span style={{fontSize:15,fontWeight:700,color:theme.text,whiteSpace:"nowrap"}}>AutoTax <span style={{background:"#f59e0b",color:"#000",fontSize:8,fontWeight:700,padding:"1px 4px",borderRadius:3,verticalAlign:"middle"}}>BETA</span></span><span style={{fontSize:10,fontWeight:800,color:"#00a8cc",letterSpacing:2}}>HUB</span></div>}
     </div>
-    <div style={{flex:1,padding:"14px 10px",display:"flex",flexDirection:"column",gap:3}}>
-      {items.map(it=>(<div key={it.id} onClick={()=>onNav(it.id)} onMouseEnter={()=>setHovered(it.id)} onMouseLeave={()=>setHovered(null)}
-        style={{display:"flex",alignItems:"center",gap:12,padding:collapsed?"11px 16px":"10px 14px",borderRadius:10,cursor:"pointer",
+    <div style={{flex:1,padding:"14px 10px",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
+      {items.map(it=>it.id==="_sep"?<div key="_sep" style={{height:1,background:theme.border,margin:"6px 8px"}}/>:(<div key={it.id} onClick={()=>onNav(it.id)} onMouseEnter={()=>setHovered(it.id)} onMouseLeave={()=>setHovered(null)}
+        style={{display:"flex",alignItems:"center",gap:12,padding:collapsed?"10px 16px":"8px 14px",borderRadius:10,cursor:"pointer",
         transition:"all 0.2s cubic-bezier(0.4,0,0.2,1)",
         transitionDelay:hovered===it.id&&active!==it.id?"70ms":"0ms",
         background:active===it.id?theme.accentSoft:hovered===it.id?"rgba(148,163,184,0.06)":"transparent",
@@ -378,7 +378,7 @@ function Sidebar({active,onNav,onLogout,collapsed}){
         {collapsed&&hovered===it.id&&<div style={{position:"absolute",left:64,top:"50%",transform:"translateY(-50%)",background:theme.card,border:"1px solid "+theme.border,borderRadius:8,padding:"8px 14px",whiteSpace:"nowrap",zIndex:100,boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
           <div style={{fontSize:13,fontWeight:600,color:theme.text}}>{it.label}</div>
         </div>}
-      </div>))}
+      </div>)))}
     </div>
     <div style={{padding:"12px 10px",borderTop:`1px solid ${theme.border}`}}>
       <div onClick={onLogout} onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
