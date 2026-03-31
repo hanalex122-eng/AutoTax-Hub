@@ -27,6 +27,23 @@ def init_db():
     if db_type == "SQLite":
         logger.warning("Using SQLite fallback — set DATABASE_URL for production")
     Base.metadata.create_all(bind=engine)
+    # Add missing columns to existing tables (safe migration)
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    try:
+        user_cols = [c["name"] for c in insp.get_columns("users")]
+        with engine.begin() as conn:
+            if "plan" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
+                logger.info("Added 'plan' column to users")
+            if "stripe_customer_id" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR"))
+                logger.info("Added 'stripe_customer_id' column to users")
+            if "registered_at" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN registered_at TIMESTAMP"))
+                logger.info("Added 'registered_at' column to users")
+    except Exception as e:
+        logger.warning("Column migration skipped: %s", e)
 
 
 def get_db():
