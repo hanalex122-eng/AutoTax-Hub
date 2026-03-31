@@ -22,3 +22,4 @@ Thumbs.db
 .vscode/
 .idea/
 vault/
+node_modules/

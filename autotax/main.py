@@ -238,10 +238,13 @@ def service_worker():
 
 @app.get("/invoices/{invoice_id}/pdf")
 def generate_invoice_pdf(invoice_id: int, user: dict = Depends(get_current_user)):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas as pdf_canvas
-    from reportlab.lib.units import cm
-    from reportlab.lib.colors import HexColor
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas as pdf_canvas
+        from reportlab.lib.units import cm
+        from reportlab.lib.colors import HexColor
+    except ImportError:
+        raise HTTPException(status_code=501, detail="PDF-Generierung nicht verfügbar (reportlab fehlt)")
 
     db = SessionLocal()
     try:
