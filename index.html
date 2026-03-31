@@ -965,17 +965,37 @@ function BookkeepingView({refreshKey,onNav}){
 
 function VaultView(){
   const[items,setItems]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);
+  const[preview,setPreview]=useState(null);
   const load=(q)=>{setLoading(true);api("/vault"+(q?"?search="+encodeURIComponent(q):"")).then(d=>setItems(d.items||[])).catch(()=>{}).finally(()=>setLoading(false));};
   useEffect(()=>{load();},[]);
-  const download=async(id,fname)=>{const tk=localStorage.getItem("atx_token");try{const r=await fetch(API+"/vault/"+id+"/download",{headers:{"Authorization":"Bearer "+tk}});if(!r.ok){alert("Datei nicht verfügbar");return;}const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname||"beleg";a.click();URL.revokeObjectURL(url);}catch(e){alert("Download fehlgeschlagen");}};
+  const getFileUrl=async(id)=>{const tk=localStorage.getItem("atx_token");const r=await fetch(API+"/vault/"+id+"/download",{headers:{"Authorization":"Bearer "+tk}});if(!r.ok)return null;const blob=await r.blob();return{url:URL.createObjectURL(blob),type:blob.type};};
+  const openPreview=async(item)=>{const f=await getFileUrl(item.id);if(!f){alert("Datei nicht verfügbar");return;}setPreview({...item,...f});};
+  const download=async(id,fname)=>{const f=await getFileUrl(id);if(!f){alert("Datei nicht verfügbar");return;}const a=document.createElement("a");a.href=f.url;a.download=fname||"beleg";a.click();URL.revokeObjectURL(f.url);};
   return(<div>
     <h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:"0 0 4px"}}>Meine Belege</h2>
-    <p style={{color:theme.textMuted,fontSize:14,margin:"0 0 20px"}}>Nie wieder Rechnungen suchen</p>
+    <p style={{color:theme.textMuted,fontSize:14,margin:"0 0 20px"}}>Originalbelege ansehen, prüfen und herunterladen</p>
     <div style={{display:"flex",gap:8,marginBottom:20,maxWidth:500}}>
       <input style={{...css.input,flex:1}} placeholder="Suche Lieferant, Datum..." value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load(search)}/>
       <button style={css.btn()} onClick={()=>load(search)}>Suchen</button>
       {search&&<button style={css.btnOutline} onClick={()=>{setSearch("");load();}}>x</button>}
     </div>
+    {preview&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",padding:20,overflow:"auto"}} onClick={()=>{if(preview.url)URL.revokeObjectURL(preview.url);setPreview(null);}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",width:"100%",maxWidth:900,marginBottom:12}} onClick={e=>e.stopPropagation()}>
+        <div>
+          <div style={{color:"#fff",fontSize:16,fontWeight:700}}>{preview.vendor}</div>
+          <div style={{color:"#94a3b8",fontSize:13}}>{preview.date} — €{Number(preview.total_amount||0).toFixed(2)}</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...css.btnOutline,color:"#fff",borderColor:"rgba(255,255,255,0.3)"}} onClick={()=>download(preview.id,preview.filename)}>Download</button>
+          <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontWeight:600}} onClick={()=>{if(preview.url)URL.revokeObjectURL(preview.url);setPreview(null);}}>Schließen</button>
+        </div>
+      </div>
+      <div onClick={e=>e.stopPropagation()} style={{maxWidth:900,width:"100%",display:"flex",justifyContent:"center"}}>
+        {preview.type&&preview.type.includes("pdf")?
+          <iframe src={preview.url} style={{width:"100%",height:"80vh",border:"none",borderRadius:8,background:"#fff"}}/>:
+          <img src={preview.url} style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:8,objectFit:"contain"}}/>}
+      </div>
+    </div>}
     {loading?<div style={{color:theme.textMuted,padding:40,textAlign:"center"}}>Laden...</div>:
     items.length===0?<div style={{...css.card,textAlign:"center",padding:40,color:theme.textDim}}>Keine Belege gefunden. Lade Rechnungen über Upload hoch.</div>:
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))",gap:12}}>
@@ -992,10 +1012,12 @@ function VaultView(){
           <span style={{fontSize:11,color:theme.textMuted}}>{i.category}</span>
         </div>
         <div style={{display:"flex",gap:6,marginTop:4}}>
-          {i.has_original&&<button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Original anzeigen</button>}
-          {i.has_original&&<button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Download</button>}
-          {!i.has_original&&<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original gespeichert</div>}
+          {i.has_original?<Fragment>
+            <button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>Original ansehen</button>
+            <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Download</button>
+          </Fragment>:<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original — nur OCR-Daten vorhanden</div>}
         </div>
+        {i.has_original&&<div style={{fontSize:10,color:theme.accent}}>Original gespeichert ✔</div>}
       </div>)}
     </div>}
     <div style={{fontSize:11,color:theme.textDim,marginTop:16,textAlign:"center"}}>{items.length} Belege gefunden</div>
