@@ -840,7 +840,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
     logger.info("Upload by user %s: %s (%s, %d bytes)", user["sub"], file.filename, file.content_type, len(content))
 
     try:
-        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting), timeout=15)
+        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=15)
     except asyncio.TimeoutError:
         logger.error("OCR timeout for %s", file.filename)
         err(500, "OCR timeout")
@@ -936,7 +936,7 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
                 continue
             await file.seek(0)
             try:
-                raw_text = await asyncio.wait_for(extract_text(file, handwriting=False), timeout=15)
+                raw_text = await asyncio.wait_for(extract_text(file, handwriting=False, file_bytes=content), timeout=15)
             except Exception:
                 results.append({"filename": file.filename, "status": "error", "message": "OCR failed"})
                 continue

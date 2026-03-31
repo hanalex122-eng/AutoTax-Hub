@@ -130,8 +130,8 @@ async def extract_handwriting_text(content: bytes, filename: str) -> str:
                 return ""
 
 
-async def extract_text(file: UploadFile, handwriting: bool = False) -> str:
-    content = await file.read()
+async def extract_text(file: UploadFile, handwriting: bool = False, file_bytes: bytes = None) -> str:
+    content = file_bytes if file_bytes is not None else await file.read()
     filename = (file.filename or "").lower()
     content_type = (file.content_type or "").lower()
 
@@ -153,11 +153,12 @@ async def extract_text(file: UploadFile, handwriting: bool = False) -> str:
     return content.decode("utf-8", errors="ignore")
 
 
-async def extract_text_and_qr(file: UploadFile, handwriting: bool = False) -> tuple[str, dict]:
+async def extract_text_and_qr(file: UploadFile, handwriting: bool = False, file_bytes: bytes = None) -> tuple[str, dict]:
     """Extract both OCR text and QR code data from a file.
     Returns (ocr_text, qr_data_dict).
+    If file_bytes is provided, uses that instead of reading from file (avoids seek issues).
     """
-    content = await file.read()
+    content = file_bytes if file_bytes is not None else await file.read()
     filename = (file.filename or "").lower()
     content_type = (file.content_type or "").lower()
 
