@@ -352,7 +352,7 @@ function AuthScreen({onLogin}){
 }
 
 function Sidebar({active,onNav,onLogout,collapsed}){
-  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
+  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
   const[hovered,setHovered]=useState(null);
   return(<div style={{width:collapsed?72:248,background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden"}}>
     <div style={{padding:collapsed?"20px 16px":"20px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${theme.border}`,minHeight:77}}>
@@ -934,6 +934,45 @@ function BookkeepingView({refreshKey,onNav}){
   </div>);
 }
 
+function VaultView(){
+  const[items,setItems]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);
+  const load=(q)=>{setLoading(true);api("/vault"+(q?"?search="+encodeURIComponent(q):"")).then(d=>setItems(d.items||[])).catch(()=>{}).finally(()=>setLoading(false));};
+  useEffect(()=>{load();},[]);
+  const download=async(id,fname)=>{const tk=localStorage.getItem("atx_token");try{const r=await fetch(API+"/vault/"+id+"/download",{headers:{"Authorization":"Bearer "+tk}});if(!r.ok){alert("Datei nicht verfügbar");return;}const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname||"beleg";a.click();URL.revokeObjectURL(url);}catch(e){alert("Download fehlgeschlagen");}};
+  return(<div>
+    <h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:"0 0 4px"}}>Meine Belege</h2>
+    <p style={{color:theme.textMuted,fontSize:14,margin:"0 0 20px"}}>Nie wieder Rechnungen suchen</p>
+    <div style={{display:"flex",gap:8,marginBottom:20,maxWidth:500}}>
+      <input style={{...css.input,flex:1}} placeholder="Suche Lieferant, Datum..." value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load(search)}/>
+      <button style={css.btn()} onClick={()=>load(search)}>Suchen</button>
+      {search&&<button style={css.btnOutline} onClick={()=>{setSearch("");load();}}>x</button>}
+    </div>
+    {loading?<div style={{color:theme.textMuted,padding:40,textAlign:"center"}}>Laden...</div>:
+    items.length===0?<div style={{...css.card,textAlign:"center",padding:40,color:theme.textDim}}>Keine Belege gefunden. Lade Rechnungen über Upload hoch.</div>:
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))",gap:12}}>
+      {items.map(i=><div key={i.id} style={{...css.card,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:theme.text}}>{i.vendor}</div>
+            <div style={{fontSize:12,color:theme.textMuted,marginTop:2}}>{i.date}</div>
+          </div>
+          <span style={css.badge(i.invoice_type==="income"?theme.accentSoft:theme.dangerSoft,i.invoice_type==="income"?theme.accent:theme.danger)}>{i.invoice_type==="income"?"Einnahme":"Ausgabe"}</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:20,fontWeight:700,color:theme.text,fontFamily:mono}}>€{Number(i.total_amount||0).toFixed(2)}</div>
+          <span style={{fontSize:11,color:theme.textMuted}}>{i.category}</span>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:4}}>
+          {i.has_original&&<button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Original anzeigen</button>}
+          {i.has_original&&<button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Download</button>}
+          {!i.has_original&&<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original gespeichert</div>}
+        </div>
+      </div>)}
+    </div>}
+    <div style={{fontSize:11,color:theme.textDim,marginTop:16,textAlign:"center"}}>{items.length} Belege gefunden</div>
+  </div>);
+}
+
 function PricingView(){
   const[plan,setPlan]=useState(null);
   useEffect(()=>{api("/account/plan").then(setPlan).catch(()=>{});},[]);
@@ -1246,8 +1285,8 @@ function App(){
   const loadCompanies=async()=>{try{const r=await fetch(API+"/companies",{headers:{"Authorization":"Bearer "+localStorage.getItem("atx_token")}});setCompanies(await r.json());}catch(e){}};
   const[pwForm,setPwForm]=useState({old_password:"",new_password:"",confirm:""});
   if(!authed)return<Fragment><AuthScreen onLogin={()=>setAuthed(true)}/><CookieConsent/></Fragment>;
-  const views={dashboard:DashboardView,invoices:InvoicesView,upload:UploadView,bookkeeping:BookkeepingView,export:ExportView,chat:ChatView,companies:CompaniesView,pricing:PricingView,help:HelpView,feedback:FeedbackView};
-  const pageLabels={dashboard:"Dashboard",invoices:"Rechnungen",upload:"Upload",bookkeeping:"Kassenbuch",export:"Export",chat:"AI Chat",companies:"Firmen",pricing:"Preise",help:"Hilfe",feedback:"Feedback"};
+  const views={dashboard:DashboardView,invoices:InvoicesView,upload:UploadView,bookkeeping:BookkeepingView,export:ExportView,chat:ChatView,vault:VaultView,companies:CompaniesView,pricing:PricingView,help:HelpView,feedback:FeedbackView};
+  const pageLabels={dashboard:"Dashboard",invoices:"Rechnungen",upload:"Upload",bookkeeping:"Kassenbuch",export:"Export",chat:"AI Chat",vault:"Belege",companies:"Firmen",pricing:"Preise",help:"Hilfe",feedback:"Feedback"};
   const View=views[page]||DashboardView;
   return(<div style={{display:"flex",minHeight:"100vh",background:theme.bg,fontFamily:font,color:theme.text}}>
     <CookieConsent/>
