@@ -82,7 +82,9 @@ def extract_pdf_page_as_image(content: bytes) -> bytes:
 
 async def extract_image_text(content: bytes, filename: str) -> str:
     if not OCR_API_KEY:
+        logger.warning("OCR skipped — no API key configured")
         return ""
+    logger.info("OCR: processing %s (%d bytes), key=%s...", filename, len(content), OCR_API_KEY[:4])
     processed = preprocess_image(content)
     for attempt in range(2):
         try:
@@ -94,6 +96,9 @@ async def extract_image_text(content: bytes, filename: str) -> str:
                 )
                 resp.raise_for_status()
                 data = resp.json()
+                logger.info("OCR response: exit=%s, error=%s, text_len=%d",
+                    data.get("OCRExitCode"), data.get("IsErroredOnProcessing"),
+                    len(data.get("ParsedResults", [{}])[0].get("ParsedText", "")) if data.get("ParsedResults") else 0)
                 if data.get("IsErroredOnProcessing"):
                     return ""
                 results = data.get("ParsedResults", [])
@@ -161,6 +166,7 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False, file_
     content = file_bytes if file_bytes is not None else await file.read()
     filename = (file.filename or "").lower()
     content_type = (file.content_type or "").lower()
+    logger.info("extract_text_and_qr: file=%s, type=%s, content_len=%d, from_bytes=%s", filename, content_type, len(content), file_bytes is not None)
 
     # QR code extraction (use original image — binarization can break QR)
     qr_data = {}
