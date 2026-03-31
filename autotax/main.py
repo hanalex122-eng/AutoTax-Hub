@@ -480,22 +480,14 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
     content = await file.read()
     text = content.decode("utf-8", errors="ignore")
 
+    root = None
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
-        # Maybe PDF with embedded XML — try extracting XML from PDF
-        try:
-            import pdfplumber
-            with pdfplumber.open(io.BytesIO(content)) as pdf:
-                for page in pdf.pages:
-                    t = page.extract_text() or ""
-                    if "<Invoice" in t or "<rsm:" in t:
-                        root = ET.fromstring(t)
-                        break
-                else:
-                    err(400, "Keine gültige E-Rechnung gefunden")
-        except Exception:
-            err(400, "Keine gültige XML/E-Rechnung")
+        pass
+
+    if root is None:
+        err(400, "Keine gültige XML/E-Rechnung")
 
     # Parse with namespace-agnostic approach
     def _find(el, tags):
@@ -507,7 +499,7 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
         return ""
 
     vendor = _find(root, ["PartyName", "Name", "SellerTradeParty"])
-    invoice_number = _find(root, ["InvoiceNumber", "<ID>", "DocumentNumber"]) or _find(root, ["ID"])
+    invoice_number = _find(root, ["InvoiceNumber", "DocumentNumber"]) or _find(root, ["ID"])
     date_str = _find(root, ["IssueDate", "DateTimeString", "InvoiceDate"])
     total_str = _find(root, ["PayableAmount", "TaxInclusiveAmount", "GrandTotalAmount", "DuePayableAmount"])
     tax_str = _find(root, ["TaxAmount", "TaxTotalAmount"])
@@ -537,8 +529,11 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
         vendor = "E-Rechnung"
 
     # Use existing category detection
-    from autotax.parser import detect_category
-    category = detect_category(vendor, text)
+    try:
+        from autotax.parser import detect_category
+        category = detect_category(vendor, text)
+    except Exception:
+        category = "other"
 
     # Save invoice
     db = SessionLocal()
