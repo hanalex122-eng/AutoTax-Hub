@@ -590,6 +590,75 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
         db.close()
 
 
+@app.post("/invoices/create-rechnung")
+def create_rechnung(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Create a manual outgoing invoice (Einnahme)."""
+    db = SessionLocal()
+    try:
+        betrag = float(body.get("betrag", 0))
+        mwst_satz = body.get("mwst_satz", "19%")
+        rate = float(mwst_satz.replace("%", "").replace(",", ".").strip() or "19")
+        mwst_betrag = float(body.get("mwst_betrag", 0)) or round(betrag * rate / (100 + rate), 2)
+        inv = Invoice(
+            user_id=user["sub"], filename="rechnung-erstellt",
+            vendor=body.get("kunde", ""), total_amount=betrag,
+            vat_amount=mwst_betrag, vat_rate=mwst_satz,
+            date=body.get("datum", ""), raw_text="Manuell erstellte Rechnung",
+            invoice_type="income", invoice_number=body.get("rechnung_nr", ""),
+            payment_method=body.get("zahlungsart", ""),
+            category=body.get("kategorie", "service"), processed=True,
+        )
+        db.add(inv)
+        db.commit()
+        db.refresh(inv)
+        auto_create_cash_entry(inv.id, user["sub"], {
+            "vendor": body.get("kunde", ""), "total_amount": betrag,
+            "vat_amount": mwst_betrag, "vat_rate": mwst_satz,
+            "date": body.get("datum", ""), "category": "service",
+            "invoice_type": "income",
+        })
+        return {"success": True, "id": inv.id, "invoice_number": inv.invoice_number}
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Create Rechnung failed")
+        err(500, "Rechnung erstellen fehlgeschlagen")
+    finally:
+        db.close()
+
+
+@app.post("/account/kleinunternehmer")
+def toggle_kleinunternehmer(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Toggle Kleinunternehmerregelung §19 UStG."""
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user["sub"]).first()
+        if not u:
+            err(404, "User not found")
+        val = body.get("enabled", False)
+        # Store in full_name field as prefix (backward compatible — no schema change needed)
+        if val and not (u.full_name or "").startswith("[KU]"):
+            u.full_name = f"[KU] {u.full_name or ''}"
+        elif not val and (u.full_name or "").startswith("[KU]"):
+            u.full_name = (u.full_name or "").replace("[KU] ", "").strip()
+        db.commit()
+        return {"success": True, "kleinunternehmer": val}
+    finally:
+        db.close()
+
+
+@app.get("/account/kleinunternehmer")
+def get_kleinunternehmer(user: dict = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user["sub"]).first()
+        is_ku = (u.full_name or "").startswith("[KU]") if u else False
+        return {"kleinunternehmer": is_ku}
+    finally:
+        db.close()
+
+
 @app.post("/invoices/create")
 def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_current_user)):
     """Create invoice from JSON (for cross-page transfer). Skips duplicates."""

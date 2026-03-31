@@ -507,6 +507,8 @@ function InvoicesView({refreshKey,showToast}){
   const[selected,setSelected]=useState(new Set());
   const[deleting,setDeleting]=useState(false);
   const[detailInv,setDetailInv]=useState(null);
+  const[showCreateInv,setShowCreateInv]=useState(false);
+  const[newInv,setNewInv]=useState({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});
   const load=(vendorQ,catQ,dfQ,dtQ)=>{
     const params=new URLSearchParams({limit:"500"});
     if(vendorQ)params.set("vendor",vendorQ);
@@ -550,6 +552,23 @@ function InvoicesView({refreshKey,showToast}){
       {selected.size>0&&<button style={css.btn(theme.danger)} onClick={deleteSelected} disabled={deleting}><Icon d={I.trash} size={16} color="#fff"/>{deleting?"...":selected.size+" löschen"}</button>}
       {selected.size>0&&<button style={{...css.btnOutline,borderColor:"rgba(59,130,246,0.4)",color:theme.blue}} onClick={async()=>{if(!confirm(selected.size+" Rechnungen zum Kassenbuch kopieren?"))return;let ok=0;for(const id of selected){const inv=invoices.find(i=>i.id===id);if(!inv)continue;try{await api("/bookkeeping",{method:"POST",body:JSON.stringify({description:inv.vendor||"Rechnung",vendor:inv.vendor,gross_amount:inv.total_amount,vat_rate:inv.vat_rate||"19%",entry_type:inv.invoice_type||"expense",category:inv.category||"other",date:inv.date||"",notes:"Aus Rechnungen ID:"+inv.id})});ok++;}catch(ex){}}alert(ok+" → Kassenbuch kopiert");setSelected(new Set());doSearch();}}>→ Kassenbuch ({selected.size})</button>}
     </div>
+    {showCreateInv&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowCreateInv(false)}>
+      <div style={{background:theme.surface,borderRadius:16,padding:32,width:480,maxWidth:"90vw"}} onClick={e=>e.stopPropagation()}>
+        <h3 style={{color:theme.text,margin:"0 0 16px",fontSize:18}}>Rechnung erstellen (Einnahme)</h3>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{gridColumn:"1/-1"}}><label style={{fontSize:11,color:theme.textMuted}}>Kunde *</label><input style={{...css.input,width:"100%"}} value={newInv.kunde} onChange={e=>setNewInv({...newInv,kunde:e.target.value})} placeholder="Kundenname"/></div>
+          <div><label style={{fontSize:11,color:theme.textMuted}}>Betrag (brutto) *</label><input style={{...css.input,width:"100%"}} type="number" step="0.01" value={newInv.betrag} onChange={e=>setNewInv({...newInv,betrag:e.target.value})} placeholder="0.00"/></div>
+          <div><label style={{fontSize:11,color:theme.textMuted}}>MwSt-Satz</label><select style={{...css.input,width:"100%"}} value={newInv.mwst_satz} onChange={e=>setNewInv({...newInv,mwst_satz:e.target.value})}><option value="19%">19%</option><option value="7%">7%</option><option value="0%">0% (§19 KU)</option></select></div>
+          <div><label style={{fontSize:11,color:theme.textMuted}}>Datum</label><input style={{...css.input,width:"100%"}} type="date" value={newInv.datum} onChange={e=>setNewInv({...newInv,datum:e.target.value})}/></div>
+          <div><label style={{fontSize:11,color:theme.textMuted}}>Rechnungs-Nr.</label><input style={{...css.input,width:"100%"}} value={newInv.rechnung_nr} onChange={e=>setNewInv({...newInv,rechnung_nr:e.target.value})} placeholder="RE-2026-001"/></div>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:16}}>
+          <button style={{...css.btn(),flex:1}} onClick={async()=>{if(!newInv.kunde||!newInv.betrag){alert("Kunde und Betrag erforderlich");return;}try{const r=await api("/invoices/create-rechnung",{method:"POST",body:JSON.stringify(newInv)});if(r.success){if(showToast)showToast("Rechnung erstellt","success");setShowCreateInv(false);setNewInv({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});doSearch();}}catch(e){alert(e.message);}}}>Speichern</button>
+          <button style={{...css.btnOutline,flex:1}} onClick={()=>setShowCreateInv(false)}>Abbrechen</button>
+        </div>
+        <div style={{fontSize:11,color:"#f59e0b",marginTop:8}}>Wird als Einnahme gespeichert. MwSt wird automatisch berechnet.</div>
+      </div>
+    </div>}
     {invoices.filter(i=>!i.total_amount||i.total_amount===0).length>0&&
       <div style={{background:theme.warnSoft,border:"1px solid rgba(245,158,11,0.3)",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
         <span style={{fontSize:18}}>⚠️</span>
@@ -565,6 +584,7 @@ function InvoicesView({refreshKey,showToast}){
       <select style={{...css.input,width:130}} value={filterCat} onChange={e=>setFilterCat(e.target.value)}><option value="">Alle Kategorien</option><option value="food">Lebensmittel</option><option value="restaurant">Bewirtung</option><option value="fuel">Kraftstoff</option><option value="clothing">Kleidung</option><option value="electronics">Elektronik</option><option value="office">Büro</option><option value="telecom">Telefon</option><option value="transport">Transport</option><option value="drugstore">Drogerie</option><option value="other">Sonstiges</option>{cats.map(c=><option key={c} value={c}>{c}</option>)}</select>
       <select style={{...css.input,width:120}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option value="">Alle Belege</option><option value="read">Erkannt</option><option value="unread">Nicht erkannt</option></select>
       <button style={{...css.btn(),padding:"10px 16px",fontSize:12}} onClick={doSearch}>Suche</button>
+      <button style={{...css.btnOutline,padding:"8px 14px",fontSize:12}} onClick={()=>setShowCreateInv(true)}>+ Rechnung erstellen</button>
       <button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={syncAll} disabled={syncing}>{syncing?"...":"Kassenbuch sync"}</button>
       {(filter||filterCat||filterStatus)&&<button style={{...css.btnOutline,padding:"8px 12px",fontSize:11}} onClick={()=>{setFilter("");setDateFrom(_jan1);setDateTo(_today);setFilterCat("");setFilterStatus("");load("","",_jan1,_today);}}>Reset</button>}
     </div>
