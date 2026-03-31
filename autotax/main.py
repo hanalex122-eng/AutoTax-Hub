@@ -349,20 +349,27 @@ def register(request: Request, body: RegisterRequest):
     try:
         if db.query(User).filter(User.email == body.email).first():
             err(400, "Email already registered")
-        user = User(email=body.email, hashed_password=hash_password(body.password), full_name=body.full_name, plan="early")
+        try:
+            user = User(email=body.email, hashed_password=hash_password(body.password), full_name=body.full_name, plan="early")
+        except Exception:
+            user = User(email=body.email, hashed_password=hash_password(body.password), full_name=body.full_name)
         db.add(user)
         db.commit()
         db.refresh(user)
-        # Auto-create company
-        comp_name = (body.company_name or "").strip()
-        if not comp_name:
-            comp_name = (body.full_name or "").strip()
-        if not comp_name:
-            comp_name = body.email.split("@")[0].strip()
-        if comp_name:
-            company = UserCompany(user_id=user.id, company_name=comp_name)
-            db.add(company)
-            db.commit()
+        # Auto-create company (optional — don't fail registration if this fails)
+        comp_name = ""
+        try:
+            comp_name = (body.company_name or "").strip()
+            if not comp_name:
+                comp_name = (body.full_name or "").strip()
+            if not comp_name:
+                comp_name = body.email.split("@")[0].strip()
+            if comp_name:
+                company = UserCompany(user_id=user.id, company_name=comp_name)
+                db.add(company)
+                db.commit()
+        except Exception:
+            logger.warning("Could not create company for %s — table may not exist yet", body.email)
         logger.info("User registered: %s (company: %s)", body.email, comp_name)
         token = create_token(user.id, user.email)
         return {"success": True, "token": token, "email": user.email}
