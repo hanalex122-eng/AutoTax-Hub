@@ -178,6 +178,7 @@ def invoice_to_dict(i):
         "processed": i.processed or False,
         "created_at": i.created_at.strftime("%Y-%m-%dT%H:%M:%S") if i.created_at else "",
         "ocr_snippet": (i.raw_text or "")[:200],
+        "konto": _DATEV_KONTO_MAP.get(safe_category(i.category), "6800") if safe_invoice_type(i.invoice_type) == "expense" else _DATEV_KONTO_MAP_INCOME.get(safe_category(i.category), "8400"),
     }
 
 
@@ -297,6 +298,23 @@ def admin_reparse(user: dict = Depends(get_current_user)):
     finally:
         db.close()
 
+
+# DATEV Konto mapping (Ausgaben)
+_DATEV_KONTO_MAP = {
+    "food": "6800", "groceries": "6800", "restaurant": "6640",
+    "fuel": "6670", "transport": "6673",
+    "office": "6815", "software": "6815", "subscription": "6815",
+    "telecom": "6805", "shipping": "6810",
+    "electronics": "6800", "shopping": "6800",
+    "insurance": "6400", "health": "6800", "medical": "6800",
+    "home": "6800", "clothing": "6800",
+    "other": "6800",
+}
+# DATEV Konto mapping (Einnahmen)
+_DATEV_KONTO_MAP_INCOME = {
+    "other": "8400", "food": "8400", "electronics": "8400",
+    "software": "8400", "shopping": "8400",
+}
 
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff", "image/webp"}
 MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -2366,7 +2384,9 @@ def export_datev(year: int = Query(None), user: dict = Depends(get_current_user)
             amt = f"{safe_float(i.total_amount):.2f}".replace(".", ",")
             vendor = (i.vendor or "").replace(";", " ")
             vat = (i.vat_rate or "0%").replace("%", "")
-            buf.write(f"{amt};{sh};4400;1200;{vat};{date_str};{vendor};{vat}\n")
+            cat = safe_category(i.category)
+            konto = _DATEV_KONTO_MAP.get(cat, "6800") if sh == "S" else _DATEV_KONTO_MAP_INCOME.get(cat, "8400")
+            buf.write(f"{amt};{sh};{konto};1200;{vat};{date_str};{vendor};{vat}\n")
         buf.seek(0)
         return StreamingResponse(buf, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=autotax_datev_{year or 'all'}.csv"})
     except Exception:
