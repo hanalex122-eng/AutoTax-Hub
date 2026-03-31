@@ -473,6 +473,121 @@ def reset_password(request: Request, body: dict = Body(...)):
 # ============================================================
 
 
+@app.post("/invoices/upload-erechnung")
+async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Import XRechnung / ZUGFeRD / Factur-X XML e-invoice."""
+    import xml.etree.ElementTree as ET
+    content = await file.read()
+    text = content.decode("utf-8", errors="ignore")
+
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        # Maybe PDF with embedded XML — try extracting XML from PDF
+        try:
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages:
+                    t = page.extract_text() or ""
+                    if "<Invoice" in t or "<rsm:" in t:
+                        root = ET.fromstring(t)
+                        break
+                else:
+                    err(400, "Keine gültige E-Rechnung gefunden")
+        except Exception:
+            err(400, "Keine gültige XML/E-Rechnung")
+
+    # Parse with namespace-agnostic approach
+    def _find(el, tags):
+        for tag in tags:
+            for child in el.iter():
+                if tag.lower() in child.tag.lower():
+                    if child.text and child.text.strip():
+                        return child.text.strip()
+        return ""
+
+    vendor = _find(root, ["PartyName", "Name", "SellerTradeParty"])
+    invoice_number = _find(root, ["InvoiceNumber", "<ID>", "DocumentNumber"]) or _find(root, ["ID"])
+    date_str = _find(root, ["IssueDate", "DateTimeString", "InvoiceDate"])
+    total_str = _find(root, ["PayableAmount", "TaxInclusiveAmount", "GrandTotalAmount", "DuePayableAmount"])
+    tax_str = _find(root, ["TaxAmount", "TaxTotalAmount"])
+    vat_rate_str = _find(root, ["Percent", "RateApplicablePercent", "CategoryCode"])
+
+    total = 0.0
+    try:
+        total = float(total_str.replace(",", "."))
+    except (ValueError, AttributeError):
+        pass
+
+    tax = 0.0
+    try:
+        tax = float(tax_str.replace(",", "."))
+    except (ValueError, AttributeError):
+        pass
+
+    vat_rate = "19%"
+    try:
+        r = float(vat_rate_str.replace(",", "."))
+        if 0 < r <= 30:
+            vat_rate = f"{r}%"
+    except (ValueError, AttributeError):
+        pass
+
+    if not vendor:
+        vendor = "E-Rechnung"
+
+    # Use existing category detection
+    from autotax.parser import detect_category
+    category = detect_category(vendor, text)
+
+    # Save invoice
+    db = SessionLocal()
+    try:
+        inv = Invoice(
+            user_id=user["sub"],
+            filename=file.filename or "e-rechnung.xml",
+            vendor=vendor,
+            total_amount=total,
+            vat_amount=tax if tax > 0 else round(total * 19 / 119, 2),
+            vat_rate=vat_rate,
+            date=date_str,
+            raw_text=text[:2000],
+            invoice_type="expense",
+            invoice_number=invoice_number,
+            payment_method="",
+            category=category,
+            processed=True,
+        )
+        db.add(inv)
+        db.commit()
+        db.refresh(inv)
+        auto_create_cash_entry(inv.id, user["sub"], {
+            "vendor": vendor, "total_amount": total,
+            "vat_amount": tax, "vat_rate": vat_rate,
+            "date": date_str, "category": category,
+        })
+        konto = _DATEV_KONTO_MAP.get(category, "6800")
+        return {
+            "success": True,
+            "id": inv.id,
+            "vendor": vendor,
+            "total_amount": total,
+            "vat_amount": tax,
+            "vat_rate": vat_rate,
+            "date": date_str,
+            "invoice_number": invoice_number,
+            "category": category,
+            "konto": konto,
+            "message": "E-Rechnung erfolgreich importiert — Automatisch kategorisiert ✔",
+        }
+    except Exception:
+        db.rollback()
+        logger.exception("E-Rechnung import failed")
+        err(500, "E-Rechnung Import fehlgeschlagen")
+    finally:
+        db.close()
+
+
 @app.post("/invoices/create")
 def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_current_user)):
     """Create invoice from JSON (for cross-page transfer). Skips duplicates."""
