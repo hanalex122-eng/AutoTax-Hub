@@ -694,10 +694,10 @@ function UploadView({triggerRefresh,onNav,showToast}){
       <div style={{color:theme.text,fontSize:16,fontWeight:600,marginBottom:4}}>Dateien hierher ziehen</div>
       <div style={{color:theme.textDim,fontSize:13}}>oder klicken (Strg für mehrere)</div>
     </div>
-    <div style={{display:"flex",gap:12,alignItems:"center"}}>
+    <div style={{display:"flex",gap:12,alignItems:"center",background:"rgba(168,85,247,0.08)",border:"2px solid #a855f7",borderRadius:12,padding:"12px 16px"}}>
       <input id="erechnungInput" type="file" accept=".xml,.XML" style={{display:"none"}} onChange={async(e)=>{const f=e.target.files?.[0];if(!f)return;const tk=localStorage.getItem("atx_token");const fd=new FormData();fd.append("file",f);try{const r=await fetch(API+"/invoices/upload-erechnung",{method:"POST",headers:{"Authorization":"Bearer "+tk},body:fd});const d=await r.json();if(d.success)alert("E-Rechnung importiert: "+d.vendor+" — €"+d.total_amount?.toFixed(2)+"\nKategorie: "+d.category+"\nKonto: "+d.konto);else alert("Fehler: "+(d.detail||"unbekannt"));}catch(ex){alert("E-Rechnung Import fehlgeschlagen");}e.target.value="";}}/>
-      <button style={css.btnOutline} onClick={()=>document.getElementById("erechnungInput")?.click()}>E-Rechnung (XML) importieren</button>
-      <span style={{fontSize:11,color:theme.textDim}}>XRechnung, ZUGFeRD, Factur-X</span>
+      <button style={{...css.btnOutline,background:"#a855f7",border:"none",color:"#fff",fontSize:14,padding:"10px 22px",fontWeight:600}} onClick={()=>document.getElementById("erechnungInput")?.click()}>E-Rechnung (XML) importieren</button>
+      <span style={{fontSize:11,color:"#c4b5fd"}}>XRechnung, ZUGFeRD, Factur-X</span>
     </div>
     {files.length>0&&<div style={css.card}>
       <h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 12px"}}>{files.length} Datei(en)</h3>
