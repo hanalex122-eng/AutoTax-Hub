@@ -331,7 +331,7 @@ def register(request: Request, body: RegisterRequest):
     try:
         if db.query(User).filter(User.email == body.email).first():
             err(400, "Email already registered")
-        user = User(email=body.email, hashed_password=hash_password(body.password), full_name=body.full_name)
+        user = User(email=body.email, hashed_password=hash_password(body.password), full_name=body.full_name, plan="early")
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -1943,6 +1943,62 @@ def submit_feedback(body: dict = Body(...), user: dict = Depends(get_current_use
 
 # ============================================================
 # COMPANIES (max 2 per user)
+# ============================================================
+# PRICING & PLAN
+# ============================================================
+
+PRICING = {
+    "free": {"name": "Free", "price": 0, "max_invoices": 50, "max_companies": 2},
+    "early": {"name": "Early Adopter", "price": 10, "max_invoices": 500, "max_companies": 5},
+    "pro": {"name": "Pro", "price": 20, "max_invoices": -1, "max_companies": -1},
+}
+
+
+@app.get("/pricing")
+def get_pricing():
+    return {"plans": PRICING}
+
+
+@app.get("/account/plan")
+def get_user_plan(user: dict = Depends(get_current_user)):
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user["sub"]).first()
+        if not u:
+            err(404, "User not found")
+        plan = u.plan or "free"
+        inv_count = db.query(Invoice).filter(Invoice.user_id == user["sub"]).count()
+        plan_info = PRICING.get(plan, PRICING["free"])
+        return {
+            "plan": plan,
+            "plan_name": plan_info["name"],
+            "price": plan_info["price"],
+            "max_invoices": plan_info["max_invoices"],
+            "invoice_count": inv_count,
+            "is_early": plan == "early",
+            "message": "Frühe Nutzer behalten ihren Preis" if plan == "early" else None,
+        }
+    finally:
+        db.close()
+
+
+@app.post("/account/upgrade")
+def upgrade_plan(body: dict = Body(...), user: dict = Depends(get_current_user)):
+    plan = body.get("plan", "pro")
+    if plan not in ("early", "pro"):
+        err(400, "Invalid plan")
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user["sub"]).first()
+        if not u:
+            err(404, "User not found")
+        u.plan = plan
+        db.commit()
+        return {"success": True, "plan": plan}
+    finally:
+        db.close()
+
+
 # ============================================================
 
 @app.get("/companies")

@@ -12,6 +12,9 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=True)
+    plan = Column(String, default="free")  # free, early, pro
+    stripe_customer_id = Column(String, nullable=True)
+    registered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Invoice(Base):
