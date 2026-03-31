@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, Float, Text, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Float, Text, String, Boolean, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -34,6 +34,8 @@ class Invoice(Base):
     raw_text = Column(Text, nullable=False)
     category = Column(String, nullable=True)
     processed = Column(Boolean, default=False, nullable=False)
+    file_data = Column(LargeBinary, nullable=True)
+    file_content_type = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

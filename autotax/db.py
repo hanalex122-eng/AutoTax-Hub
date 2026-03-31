@@ -42,6 +42,15 @@ def init_db():
             if "registered_at" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN registered_at TIMESTAMP"))
                 logger.info("Added 'registered_at' column to users")
+        # Invoice table — file storage columns
+        inv_cols = [c["name"] for c in insp.get_columns("invoices")]
+        with engine.begin() as conn:
+            if "file_data" not in inv_cols:
+                conn.execute(text("ALTER TABLE invoices ADD COLUMN file_data BYTEA"))
+                logger.info("Added 'file_data' column to invoices")
+            if "file_content_type" not in inv_cols:
+                conn.execute(text("ALTER TABLE invoices ADD COLUMN file_content_type VARCHAR"))
+                logger.info("Added 'file_content_type' column to invoices")
     except Exception as e:
         logger.warning("Column migration skipped: %s", e)
 
@@ -54,7 +63,7 @@ def get_db():
         db.close()
 
 
-def save_invoice(data: dict, user_id: int, filename: str = None) -> int:
+def save_invoice(data: dict, user_id: int, filename: str = None, file_data: bytes = None, file_content_type: str = None) -> int:
     db = SessionLocal()
     try:
         invoice = Invoice(
@@ -71,6 +80,8 @@ def save_invoice(data: dict, user_id: int, filename: str = None) -> int:
             payment_method=data.get("payment_method") or "",
             category=data.get("category") or "other",
             processed=True if data.get("total_amount") else False,
+            file_data=file_data,
+            file_content_type=file_content_type,
         )
         db.add(invoice)
         db.commit()

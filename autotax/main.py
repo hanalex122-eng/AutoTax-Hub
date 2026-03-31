@@ -737,18 +737,9 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     await file.seek(0)
 
-    # Save original file to vault
-    try:
-        vault_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vault", str(user["sub"]))
-        os.makedirs(vault_dir, exist_ok=True)
-        import hashlib
-        file_hash = hashlib.md5(content).hexdigest()[:8]
-        vault_name = f"{file_hash}_{file.filename or 'upload'}"
-        vault_path = os.path.join(vault_dir, vault_name)
-        with open(vault_path, "wb") as vf:
-            vf.write(content)
-    except Exception:
-        pass  # Vault save is optional, don't break upload
+    # Save original file to DB (persists across deploys)
+    _file_data = content
+    _file_ct = file.content_type or ""
 
     logger.info("Upload by user %s: %s (%s, %d bytes)", user["sub"], file.filename, file.content_type, len(content))
 
@@ -800,7 +791,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
         result["invoice_type"] = invoice_type
 
     try:
-        invoice_id = save_invoice(result, user_id=user["sub"], filename=file.filename)
+        invoice_id = save_invoice(result, user_id=user["sub"], filename=file.filename, file_data=_file_data, file_content_type=_file_ct)
     except Exception:
         logger.exception("DB save failed")
         err(500, "Failed to save invoice")
@@ -2190,7 +2181,7 @@ def submit_feedback(body: dict = Body(...), user: dict = Depends(get_current_use
 
 @app.get("/vault")
 def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
-    """List all receipts with metadata from invoices + vault files."""
+    """List all receipts with metadata — checks DB for original file."""
     db = SessionLocal()
     try:
         q = db.query(Invoice).filter(Invoice.user_id == user["sub"])
@@ -2198,17 +2189,8 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
             from sqlalchemy import or_
             q = q.filter(or_(Invoice.vendor.ilike(f"%{search}%"), Invoice.date.ilike(f"%{search}%")))
         invoices = q.order_by(Invoice.created_at.desc()).all()
-        vault_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vault", str(user["sub"]))
-        vault_files = set()
-        if os.path.isdir(vault_dir):
-            vault_files = set(os.listdir(vault_dir))
         items = []
         for inv in invoices:
-            has_file = False
-            for vf in vault_files:
-                if inv.filename and inv.filename in vf:
-                    has_file = True
-                    break
             items.append({
                 "id": inv.id,
                 "vendor": safe_vendor(inv.vendor),
@@ -2217,7 +2199,7 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
                 "vat_amount": safe_float(inv.vat_amount),
                 "category": safe_category(inv.category),
                 "filename": inv.filename or "",
-                "has_original": has_file,
+                "has_original": inv.file_data is not None and len(inv.file_data) > 0 if inv.file_data else False,
                 "invoice_type": safe_invoice_type(inv.invoice_type),
             })
         return {"items": items, "total": len(items)}
@@ -2227,21 +2209,17 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
 
 @app.get("/vault/{invoice_id}/download")
 def download_vault_file(invoice_id: int, user: dict = Depends(get_current_user)):
-    """Download original receipt file."""
+    """Download original receipt file from DB."""
     db = SessionLocal()
     try:
         inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
         if not inv:
             err(404, "Not found")
-        vault_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vault", str(user["sub"]))
-        if not os.path.isdir(vault_dir):
-            err(404, "No files")
-        for fname in os.listdir(vault_dir):
-            if inv.filename and inv.filename in fname:
-                filepath = os.path.join(vault_dir, fname)
-                content_type = "application/pdf" if fname.endswith(".pdf") else "image/jpeg"
-                return StreamingResponse(open(filepath, "rb"), media_type=content_type, headers={"Content-Disposition": f"attachment; filename={fname}"})
-        err(404, "Original file not found")
+        if not inv.file_data:
+            err(404, "Kein Original gespeichert")
+        ct = inv.file_content_type or "application/octet-stream"
+        fname = inv.filename or "beleg"
+        return StreamingResponse(io.BytesIO(inv.file_data), media_type=ct, headers={"Content-Disposition": f"inline; filename={fname}"})
     finally:
         db.close()
 
