@@ -360,7 +360,8 @@ function AuthScreen({onLogin}){
 function Sidebar({active,onNav,onLogout,collapsed}){
   const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"_sep"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
   const[hovered,setHovered]=useState(null);
-  return(<div style={{width:collapsed?72:248,background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"width 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden"}}>
+  const isMobile=window.innerWidth<768;
+  return(<div style={{width:isMobile?(collapsed?0:248):(collapsed?72:248),background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"all 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden",...(isMobile?{position:"fixed",top:0,left:0,bottom:0,zIndex:1000}:{})}}>
     <div style={{padding:collapsed?"20px 16px":"20px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${theme.border}`,minHeight:77}}>
       <div style={{flexShrink:0}}><ATLogo size={36}/></div>
       {!collapsed&&<div style={{display:"flex",flexDirection:"column",lineHeight:1}}><span style={{fontSize:15,fontWeight:700,color:theme.text,whiteSpace:"nowrap"}}>AutoTax <span style={{background:"#f59e0b",color:"#000",fontSize:8,fontWeight:700,padding:"1px 4px",borderRadius:3,verticalAlign:"middle"}}>BETA</span></span><span style={{fontSize:10,fontWeight:800,color:"#00a8cc",letterSpacing:2}}>HUB</span></div>}
@@ -1326,7 +1327,7 @@ function ToastItem({message,type="success",onClose}){
 
 function App(){
   const[authed,setAuthed]=useState(!!localStorage.getItem("atx_token"));
-  const[page,setPage]=useState("dashboard");const[collapsed,setCollapsed]=useState(false);
+  const[page,setPage]=useState("dashboard");const[collapsed,setCollapsed]=useState(window.innerWidth<768);
   const[profileOpen,setProfileOpen]=useState(false);
   const[refreshKey,setRefreshKey]=useState(0);
   const[toasts,setToasts]=useState([]);
@@ -1377,7 +1378,8 @@ function App(){
     {toasts.length>0&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,display:"flex",flexDirection:"column",gap:8,pointerEvents:"none"}}>
       {toasts.map(t=>(<div key={t.id} style={{pointerEvents:"auto"}}><ToastItem message={t.message} type={t.type} onClose={()=>removeToast(t.id)}/></div>))}
     </div>}
-    <Sidebar active={page} onNav={(p)=>{setPage(p);if(["dashboard","invoices","bookkeeping"].includes(p))triggerRefresh();}} onLogout={logout} collapsed={collapsed}/>
+    {!collapsed&&window.innerWidth<768&&<div className="mobile-overlay" onClick={()=>setCollapsed(true)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:999}}/>}
+    <Sidebar active={page} onNav={(p)=>{setPage(p);if(["dashboard","invoices","bookkeeping"].includes(p))triggerRefresh();if(window.innerWidth<768)setCollapsed(true);}} onLogout={()=>{logout();if(window.innerWidth<768)setCollapsed(true);}} collapsed={collapsed}/>
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{padding:"14px 28px",borderBottom:"1px solid "+theme.border,display:"flex",alignItems:"center",justifyContent:"space-between",background:theme.surface}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
