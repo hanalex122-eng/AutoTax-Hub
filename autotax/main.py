@@ -212,6 +212,30 @@ def health():
     return {"status": "ok", "version": "5.5.0"}
 
 
+@app.get("/manifest.json")
+def pwa_manifest():
+    return {
+        "name": "AutoTax-HUB",
+        "short_name": "AutoTax",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#050a12",
+        "theme_color": "#10b981",
+        "description": "Automatische Rechnungserkennung & Buchhaltung",
+        "icons": [
+            {"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23050a12' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='%2310b981' font-family='sans-serif' font-weight='bold'>AT</text></svg>", "sizes": "192x192", "type": "image/svg+xml"},
+        ],
+    }
+
+
+from fastapi.responses import Response as RawResponse
+
+
+@app.get("/sw.js")
+def service_worker():
+    return RawResponse(content="self.addEventListener('fetch',e=>{});", media_type="application/javascript")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
     index_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
