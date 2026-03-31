@@ -378,7 +378,7 @@ function Sidebar({active,onNav,onLogout,collapsed}){
         {collapsed&&hovered===it.id&&<div style={{position:"absolute",left:64,top:"50%",transform:"translateY(-50%)",background:theme.card,border:"1px solid "+theme.border,borderRadius:8,padding:"8px 14px",whiteSpace:"nowrap",zIndex:100,boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
           <div style={{fontSize:13,fontWeight:600,color:theme.text}}>{it.label}</div>
         </div>}
-      </div>)))}
+      </div>))}
     </div>
     <div style={{padding:"12px 10px",borderTop:`1px solid ${theme.border}`}}>
       <div onClick={onLogout} onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
