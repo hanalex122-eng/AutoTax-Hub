@@ -537,6 +537,8 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
             result["date"] = qr_data["date"]
         if qr_data.get("invoice_number") and not result.get("invoice_number"):
             result["invoice_number"] = qr_data["invoice_number"]
+        if qr_data.get("tax") and (not result.get("vat_amount") or result.get("vat_amount") == 0):
+            result["vat_amount"] = qr_data["tax"]
         if qr_data.get("qr_raw"):
             result["raw_text"] = result.get("raw_text", "") + "\n\n[QR] " + qr_data["qr_raw"]
 

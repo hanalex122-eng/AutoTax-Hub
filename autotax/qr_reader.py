@@ -247,21 +247,42 @@ def extract_qr_data(content: bytes, content_type: str = "") -> dict:
         if result:
             result["qr_raw"] = qr_text
             result["qr_type"] = "EPC/SEPA"
-            return result
+            return ensure_vat_fields(result)
 
         # Try Swiss QR
         result = parse_swiss_qr(qr_text)
         if result:
             result["qr_raw"] = qr_text
             result["qr_type"] = "Swiss QR"
-            return result
+            return ensure_vat_fields(result)
 
         # Try generic parsing
         result = parse_generic_qr(qr_text)
         if result:
             result["qr_raw"] = qr_text
             result["qr_type"] = "generic"
-            return result
+            return ensure_vat_fields(result)
 
     # Return raw QR text if nothing parsed
     return {"qr_raw": qr_texts[0], "qr_type": "unknown"}
+
+
+def ensure_vat_fields(data: dict, default_rate: float = 19.0) -> dict:
+    """Ensure QR data always contains total, net, and tax fields.
+    If tax is missing, calculate from total using default VAT rate.
+    """
+    total = data.get("amount") or data.get("total") or 0
+    if not total:
+        return data
+    total = float(total)
+    tax = data.get("tax") or data.get("vat_amount") or 0
+    tax = float(tax) if tax else 0
+    if tax <= 0 and total > 0:
+        net = round(total / (1 + default_rate / 100), 2)
+        tax = round(total - net, 2)
+    else:
+        net = round(total - tax, 2)
+    data["total"] = round(total, 2)
+    data["net"] = net
+    data["tax"] = tax
+    return data
