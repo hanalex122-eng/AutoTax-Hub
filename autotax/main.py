@@ -255,7 +255,7 @@ a{color:#10b981}p{margin:12px 0}</style></head><body>
 
 
 @app.post("/admin/reset-password")
-def admin_reset_password(body: dict = Body(...), user: dict = Depends(get_current_user)):
+def admin_reset_password(body: dict = Body(...)):
     email = body.get("email")
     new_password = body.get("new_password")
     if not email or not new_password:
