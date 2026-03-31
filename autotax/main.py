@@ -2461,21 +2461,80 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
         top_vendors = ", ".join(f"{k}: €{v:.2f}" for k, v in sorted(vendors.items(), key=lambda x: -x[1])[:5]) if vendors else "keine"
 
         msg = message.lower().strip()
+        reply = None
+
+        # ── TIER 1: Multi-word / very specific phrases (must match BEFORE single words) ──
+
+        # Rechnung erstellen (before generic "rechnung")
+        if any(w in msg for w in ["rechnung erstellen", "rechnung schreiben", "rechnung anlegen", "neue rechnung", "fatura oluştur", "fatura yaz"]):
+            reply = "🧾 Rechnung erstellen:\n• Rechnungen → '+ Rechnung erstellen' Button\n• Felder: Kunde, Betrag, MwSt-Satz, Datum, Rechnungs-Nr\n• Wird als Einnahme gespeichert\n• Nach dem Speichern: PDF herunterladen möglich\n• Tipp: Kleinunternehmerregelung aktivieren für §19-Rechnungen"
+
+        # E-Rechnung (before generic "rechnung")
+        elif any(w in msg for w in ["e-rechnung", "erechnung", "xrechnung", "zugferd", "xml rechnung", "elektronische rechnung", "factur-x"]):
+            reply = "📄 E-Rechnung (XRechnung / ZUGFeRD):\n• Upload → 'E-Rechnung hochladen' Button\n• XRechnung (XML) und ZUGFeRD (PDF) werden unterstützt\n• Automatische Erkennung: Lieferant, Betrag, MwSt, Datum, Rechnungs-Nr\n• Seit 2025 Pflicht für B2B in Deutschland\n• Kleinunternehmer müssen E-Rechnungen empfangen können"
+
+        # Kleinunternehmer (before generic "steuer")
+        elif any(w in msg for w in ["kleinunternehmer", "§19", "paragraph 19", "keine mwst", "keine umsatzsteuer", "küçük işletme", "klein unternehmer"]):
+            reply = "📋 Kleinunternehmerregelung (§19 UStG):\n• Profil → Kleinunternehmer Toggle aktivieren\n• Keine MwSt auf Rechnungen\n• Hinweis 'Gemäß §19 UStG' erscheint automatisch auf PDF\n• Grenze: 25.000€ Vorjahr / 100.000€ laufendes Jahr\n• E-Rechnungen empfangen ist trotzdem Pflicht"
+
+        # EÜR (before generic "steuer")
+        elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung", "steuerformular", "steuererklärung"]):
+            reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\n• Gehe zu 'Steuer (EÜR)'\n• Wähle das Steuerjahr\n• Klicke 'Generieren'\n• Automatische Berechnung aus Rechnungen + Kassenbuch\n• Enthält: Betriebseinnahmen, Betriebsausgaben, Gewinn/Verlust, MwSt\n• Für Freiberufler und Kleinunternehmer\n\nHinweis: Für die offizielle Steuererklärung immer Steuerberater konsultieren."
+
+        # DATEV (before generic "export")
+        elif any(w in msg for w in ["datev", "steuerberater export", "buchungskonto", "skr03", "skr04", "skr 03", "skr 04"]):
+            reply = "📊 DATEV Export:\n• Export → DATEV Button\n• Automatische Kontenzuordnung:\n  - Lebensmittel → 6800\n  - Restaurant → 6640\n  - Kraftstoff → 6670\n  - Büro/Software → 6815\n  - Einnahmen → 8400\n• Dein Steuerberater kann die Datei direkt importieren"
+
+        # CSV Import (before generic "csv" / "import")
+        elif any(w in msg for w in ["csv import", "foto import", "importieren", "içe aktar", "einlesen"]):
+            reply = "📥 Import-Optionen:\n\n1. CSV Import:\n• Kassenbuch → 'CSV Import' Button\n• Komma oder Semikolon — automatisch erkannt\n• Spalten: Datum, Lieferant, Typ, Betrag, MwSt, Kategorie, Zahlungsart\n• Deutsch oder Englisch\n• Gleiche Format wie CSV Export!\n\n2. Foto Import:\n• Kassenbuch → 'Foto Import' Button\n• OCR erkennt handgeschriebene Tabellen\n• Format: Datum | Beschreibung | Betrag\n\n3. Beleg Upload:\n• Upload-Seite → PDF/Foto hochladen"
+
+        # PDF / Drucken (before generic "download")
+        elif any(w in msg for w in ["drucken", "pdf", "ausdrucken", "yazdır", "print"]):
+            reply = "🖨️ PDF Drucken:\n• Rechnungen → 🖨️ PDF Button neben jeder Rechnung\n• Kassenbuch → 🖨️ PDF Button (wenn Rechnung verknüpft)\n• Belege → 🖨️ PDF Button\n• Rechnung erstellen → Nach Speichern 'PDF herunterladen?'\n• PDF enthält: Firma, Kunde, Betrag, MwSt, Netto/Brutto"
+
+        # Preise / Pricing (before generic "kosten" catches it)
+        elif any(w in msg for w in ["pricing", "abo", "plan ", "upgrade", "tarif", "paket", "ücret"]) or (any(w in msg for w in ["preis", "fiyat", "kosten"]) and any(w in msg for w in ["monat", "plan", "abo", "wie viel kostet", "was kostet autotax"])):
+            reply = "💰 Preise:\n• Free: €0/Monat — 50 Rechnungen, 2 Firmen, CSV Export\n• Early Adopter: €10/Monat — 500 Rechnungen, 5 Firmen, DATEV\n• Pro: €20/Monat — Unbegrenzt, API, Priority Support\n• Frühe Nutzer behalten ihren Preis dauerhaft!\n• Stripe-Zahlung kommt bald"
+
+        # Firmen verwalten (before "lieferant" catches "firma")
+        elif any(w in msg for w in ["firmen verwalten", "meine firma", "firma ändern", "firma registrier", "firma hinzufügen"]):
+            reply = "🏢 Firmen verwalten:\n• Sidebar → 'Firmen' Seite\n• Max. 2 Firmen registrieren\n• Firmenname wird für Einnahme-Erkennung verwendet\n• Upload: Vendor = deine Firma → automatisch Einnahme\n• Firma kann nicht geändert werden (Kontakt Support)"
+
+        # Wie viele / Anzahl (before "wie viel" catches it)
+        elif any(w in msg for w in ["wie viele", "anzahl", "count", "kaç tane", "adet"]):
+            reply = f"📊 Anzahl:\n• Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}"
+
+        # ── TIER 2: Greetings & meta (catch early to avoid false matches) ──
+
+        # Hallo / Greeting
+        elif any(w in msg for w in ["hallo", "hey", "merhaba", "hello", "guten tag", "guten morgen", "guten abend", "selam", "servus", "grüß"]) or msg in ["hi", "na"]:
+            reply = f"👋 Hallo! Du hast {inv_count} Rechnungen. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
+
+        # Danke
+        elif any(w in msg for w in ["danke", "thanks", "thx", "merci", "teşekkür", "sağol", "gracias", "super", "perfekt", "top"]):
+            reply = "Gerne! Wenn du weitere Fragen hast, frag einfach. 😊"
+
+        # Hilfe / Help
+        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "yardim", "nasıl", "nasil", "nedir", "ne yapabilir", "fonksiyon", "what can"]):
+            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' / 'DATEV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'E-Rechnung' — XRechnung / ZUGFeRD\n• 'Rechnung erstellen' — Eigene Rechnungen\n• 'PDF' / 'Drucken' — PDF herunterladen\n• 'Kleinunternehmer' — §19 UStG\n• 'Firmen' — Firmenverwaltung\n• 'Preise' — Pläne & Abo\n• 'App' / 'PWA' — Mobile Nutzung\n• 'Belege' — Belegverwaltung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nOder frag einfach frei — z.B. einen Lieferanten-Namen!"
+
+        # ── TIER 3: Data queries (user's actual financial data) ──
 
         # Summe / Gesamt / wie viel
-        if any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt", "ne kadar", "kaç", "özet", "zusammenfassung", "overview", "toplam", "was kostet", "kosten", "preis", "fiyat", "wieviel kostet"]):
+        elif any(w in msg for w in ["wie viel", "wieviel", "summe", "total", "gesamt", "how much", "insgesamt", "ne kadar", "özet", "zusammenfassung", "overview", "toplam"]):
             reply = f"📊 Übersicht:\n• Rechnungen: {inv_count} (€{inv_sum:.2f})\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}"
 
         # Kategorie
-        elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category", "grup", "sınıf", "kategori"]):
+        elif any(w in msg for w in ["kategorie", "categories", "aufteilung", "verteilung", "category", "kategori"]):
             reply = f"📂 Kategorien:\n{cat_str}"
 
-        # MwSt / VAT / Steuer
-        elif any(w in msg for w in ["mwst", "vat", "umsatzsteuer", "mehrwertsteuer", "vorsteuer", "kdv", "vergi", "tva"]):
+        # MwSt / VAT (before generic "steuer")
+        elif any(w in msg for w in ["mwst", "vat", "umsatzsteuer", "mehrwertsteuer", "vorsteuer", "kdv", "tva"]):
             reply = f"🧾 MwSt-Übersicht:\n• Gezahlte Vorsteuer: €{vat_paid:.2f}\n• Vereinnahmte USt: €{vat_collected:.2f}\n• Saldo: €{vat_balance:.2f}\n{'→ Du bekommst €'+str(abs(round(vat_balance,2)))+' zurück' if vat_balance < 0 else '→ Du schuldest €'+str(round(vat_balance,2)) if vat_balance > 0 else '→ Ausgeglichen'}"
 
         # Steuer / Einkommensteuer
-        elif any(w in msg for w in ["steuer", "tax", "einkommensteuer", "steuerlast", "vergi", "gelir vergisi"]):
+        elif any(w in msg for w in ["steuer", "tax", "einkommensteuer", "steuerlast", "gelir vergisi"]):
             if net_profit > 277826:
                 rate = 45
             elif net_profit > 61356:
@@ -2498,45 +2557,57 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = f"📉 Ausgaben: €{total_expenses:.2f} ({len(inv_exp)} Positionen)"
 
         # Gewinn / Profit
-        elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "netto", "ergebnis", "kâr", "kar", "zarar"]):
+        elif any(w in msg for w in ["gewinn", "profit", "verlust", "loss", "ergebnis", "kâr", "kar", "zarar"]):
             emoji = "📈" if net_profit >= 0 else "📉"
             reply = f"{emoji} Netto-Ergebnis: €{net_profit:.2f}\n• Einnahmen: €{total_income:.2f}\n• Ausgaben: €{total_expenses:.2f}"
 
-        # Vendor / Lieferant
-        elif any(w in msg for w in ["lieferant", "vendor", "händler", "wer", "anbieter", "firma", "tedarikçi", "şirket", "mağaza"]):
+        # Lieferant / Vendor (removed "firma"/"şirket" — those go to Firmen now)
+        elif any(w in msg for w in ["lieferant", "vendor", "händler", "anbieter", "tedarikçi", "top lieferant"]):
             reply = f"🏢 Top Lieferanten:\n{top_vendors}"
 
+        # ── TIER 4: Page/feature navigation ──
+
         # Kassenbuch
-        elif any(w in msg for w in ["kassenbuch", "bookkeeping", "cash", "kasse"]):
+        elif any(w in msg for w in ["kassenbuch", "bookkeeping", "kasse"]):
             reply = f"📒 Kassenbuch: Deine Rechnungen werden automatisch ins Kassenbuch synchronisiert.\n• Gesamt Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)} | Ausgaben: {len(inv_exp)}\n\nTipp: Im Kassenbuch kannst du auch manuelle Einträge hinzufügen."
 
-        # Rechnung / Invoice
-        elif any(w in msg for w in ["rechnung", "invoice", "beleg", "faktur", "fatura", "bon", "quittung"]):
-            reply = f"🧾 Rechnungen: {inv_count} gesamt (€{inv_sum:.2f})\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}\n\nTipp: Über 'Upload' kannst du neue Belege hochladen."
+        # Belege (before generic "rechnung" — "beleg" is more specific)
+        elif any(w in msg for w in ["belege", "beleg", "original", "dokument"]):
+            reply = "📎 Belege:\n• Sidebar → 'Belege' Seite\n• Alle hochgeladenen Belege auf einen Blick\n• 🖨️ PDF Button zum Herunterladen\n• Belege werden in der Datenbank gespeichert\n• Tipp: Exportiere regelmäßig als Backup"
+
+        # Rechnung / Invoice (generic — after all specific rechnung-related topics)
+        elif any(w in msg for w in ["rechnung", "invoice", "faktur", "fatura", "bon", "quittung"]):
+            reply = f"🧾 Rechnungen: {inv_count} gesamt (€{inv_sum:.2f})\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}\n\nTipp: 'Rechnung erstellen' für neue Rechnungen, 'E-Rechnung' für XML-Import, 'PDF' zum Drucken."
 
         # Upload
-        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr", "yükle", "bild", "datei"]):
-            reply = "📤 Upload & OCR:\n• Unterstützte Formate: PDF, PNG, JPEG, TIFF, WEBP (max. 5 MB)\n• Einzel- oder Batch-Upload (bis zu 20 Dateien)\n• OCR erkennt: Lieferant, Betrag, MwSt, Datum, Kategorie\n• Handschrift-Modus für handgeschriebene Belege\n• Einnahme/Ausgabe vor Upload wählbar\n• Belege erscheinen in Rechnungen UND Kassenbuch\n• Über 350 Firmen werden automatisch erkannt\n• QR-Codes auf Rechnungen werden gelesen"
+        elif any(w in msg for w in ["upload", "hochladen", "scan", "ocr", "yükle"]):
+            reply = "📤 Upload & OCR:\n• Unterstützte Formate: PDF, PNG, JPEG, TIFF, WEBP (max. 5 MB)\n• Einzel- oder Batch-Upload (bis zu 20 Dateien)\n• OCR erkennt: Lieferant, Betrag, MwSt, Datum, Kategorie\n• Handschrift-Modus für handgeschriebene Belege\n• Einnahme/Ausgabe vor Upload wählbar\n• E-Rechnung (XML) Upload auch möglich\n• QR-Codes auf Rechnungen werden gelesen"
 
-        # Export
-        elif any(w in msg for w in ["export", "excel", "datev", "download", "herunterladen", "exportieren"]):
-            reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel (Komma-getrennt)\n• DATEV — Standard für deutsche Steuerberater\n• Excel — .xlsx mit formatierten Spalten\n• JSON — für Entwickler & Backup\n• Kassenbuch CSV — eigener Export im Kassenbuch\n\nGehe zu 'Export', wähle das Jahr und klicke den Button.\nKassenbuch Export: Kassenbuch → 'CSV Export'\n\nTipp: Exportierte CSV kann direkt wieder importiert werden!"
+        # Export (removed "datev"/"download"/"herunterladen" — those have own topics now)
+        elif any(w in msg for w in ["export", "excel", "exportieren"]):
+            reply = "💾 Export-Optionen:\n• CSV — Excel-kompatibel (Komma-getrennt)\n• DATEV — Standard für deutsche Steuerberater\n• Excel — .xlsx mit formatierten Spalten\n• JSON — für Entwickler & Backup\n• Kassenbuch CSV — eigener Export im Kassenbuch\n\nGehe zu 'Export', wähle das Jahr und klicke den Button."
 
-        # CSV (specific)
+        # CSV
         elif any(w in msg for w in ["csv"]):
-            reply = "📄 CSV Funktionen:\n\n• CSV Export (Rechnungen): Export-Seite → 'CSV'\n• CSV Export (Kassenbuch): Kassenbuch → 'CSV Export'\n• CSV Import: Kassenbuch → 'CSV Import'\n\nCSV Format: Datum, Lieferant, Rechnungs-Nr., Typ, Betrag, MwSt, MwSt-Satz, Kategorie, Zahlungsart\nTrennzeichen: Komma oder Semikolon (automatisch erkannt)\nSpalten: Deutsch oder Englisch"
-
-        # Import
-        elif any(w in msg for w in ["import", "importieren", "csv import", "foto import", "defter", "içe aktar", "einlesen"]):
-            reply = "📥 Import-Optionen:\n\n1. CSV Import:\n• Kassenbuch → 'CSV Import' Button\n• Komma oder Semikolon — automatisch erkannt\n• Spalten: Datum, Lieferant, Typ, Betrag, MwSt, Kategorie, Zahlungsart\n• Deutsch oder Englisch\n• Gleiche Format wie CSV Export!\n\n2. Foto Import:\n• Kassenbuch → 'Foto Import' Button\n• OCR erkennt handgeschriebene Tabellen\n• Format: Datum | Beschreibung | Betrag\n\n3. Beleg Upload:\n• Upload-Seite → PDF/Foto hochladen"
-
-        # EÜR / Steuerformular
-        elif any(w in msg for w in ["eür", "einnahmen-überschuss", "überschussrechnung", "steuerformular", "steuererklärung"]):
-            reply = "🧾 EÜR (Einnahmen-Überschuss-Rechnung):\n• Gehe zu 'Steuer (EÜR)'\n• Wähle das Steuerjahr\n• Klicke 'Generieren'\n• Automatische Berechnung aus Rechnungen + Kassenbuch\n• Enthält: Betriebseinnahmen, Betriebsausgaben, Gewinn/Verlust, MwSt\n• Für Freiberufler und Kleinunternehmer\n\nHinweis: Für die offizielle Steuererklärung immer Steuerberater konsultieren."
+            reply = "📄 CSV Funktionen:\n\n• CSV Export (Rechnungen): Export-Seite → 'CSV'\n• CSV Export (Kassenbuch): Kassenbuch → 'CSV Export'\n• CSV Import: Kassenbuch → 'CSV Import'\n\nCSV Format: Datum, Lieferant, Rechnungs-Nr., Typ, Betrag, MwSt, MwSt-Satz, Kategorie, Zahlungsart\nTrennzeichen: Komma oder Semikolon (automatisch erkannt)"
 
         # Dashboard
         elif any(w in msg for w in ["dashboard", "übersicht", "überblick", "grafik", "chart", "diagramm"]):
-            reply = f"📊 Dashboard:\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n• Rechnungen: {inv_count}\n\nFeatures:\n• Steuerschätzung nach deutschem Recht\n• Monatliche Auswertung als Diagramm\n• Kategorien-Verteilung\n• CSV Export Button"
+            reply = f"📊 Dashboard:\n• Einnahmen: €{total_income:.2f} | Ausgaben: €{total_expenses:.2f}\n• Gewinn: €{net_profit:.2f}\n• MwSt-Saldo: €{vat_balance:.2f}\n• Rechnungen: {inv_count}\n\nFeatures:\n• Steuerschätzung nach deutschem Recht\n• Monatliche Auswertung als Diagramm\n• Kategorien-Verteilung"
+
+        # Firmen (generic — after "firmen verwalten" specific match)
+        elif any(w in msg for w in ["firma", "firmen", "unternehmen", "company", "şirket"]):
+            reply = "🏢 Firmen verwalten:\n• Sidebar → 'Firmen' Seite\n• Max. 2 Firmen registrieren\n• Firmenname wird für Einnahme-Erkennung verwendet\n• Upload: Vendor = deine Firma → automatisch Einnahme\n• Firma kann nicht geändert werden (Kontakt Support)"
+
+        # Preise (generic fallback)
+        elif any(w in msg for w in ["preis", "fiyat", "was kostet"]):
+            reply = "💰 Preise:\n• Free: €0/Monat — 50 Rechnungen, 2 Firmen, CSV Export\n• Early Adopter: €10/Monat — 500 Rechnungen, 5 Firmen, DATEV\n• Pro: €20/Monat — Unbegrenzt, API, Priority Support\n• Frühe Nutzer behalten ihren Preis dauerhaft!"
+
+        # PWA / Mobil
+        elif any(w in msg for w in ["app", "mobil", "handy", "telefon", "pwa", "installieren", "uygulama"]):
+            reply = "📱 Mobile App (PWA):\n• Öffne AutoTax-HUB im Browser auf deinem Handy\n• iPhone: Safari → Teilen → 'Zum Home-Bildschirm'\n• Android: Chrome → Menü → 'App installieren'\n• Funktioniert wie eine native App\n• Belege direkt mit der Kamera hochladen"
+
+        # ── TIER 5: Action helpers ──
 
         # Löschen / Delete
         elif any(w in msg for w in ["lösch", "delete", "entfern", "zurücksetz", "sil", "kaldır", "temizle"]):
@@ -2547,91 +2618,44 @@ def chat_endpoint(body: dict = Body(...), user: dict = Depends(get_current_user)
             reply = "🔐 Konto & Sicherheit:\n• Passwort: Min. 8 Zeichen, 1 Großbuchstabe, 1 Zahl\n• Login: E-Mail + Passwort\n• Token: Automatische Erneuerung (1h Access, 7 Tage Refresh)\n• Registrierung: Auf der Login-Seite 'Registrieren' klicken"
 
         # Sync / Synchronisieren
-        elif any(w in msg for w in ["sync", "synchron", "senkron", "abgleich"]):
+        elif any(w in msg for w in ["sync", "synchron", "senkron"]):
             reply = "🔄 Synchronisation:\n• Upload → Beleg erscheint automatisch in Rechnungen + Kassenbuch\n• Kassenbuch → 'Rechnungen sync' synchronisiert fehlende Einträge\n• Rechnungen → 'Kassenbuch sync' synchronisiert in beide Richtungen\n• Duplikate werden automatisch erkannt und übersprungen"
 
         # Reconcile / Abstimmen
-        elif any(w in msg for w in ["reconcil", "abstimm", "abgleich", "häkchen", "checkbox"]):
+        elif any(w in msg for w in ["reconcil", "abstimm", "häkchen", "checkbox"]):
             reply = "✅ Abstimmung (Reconcile):\n• Kassenbuch → Klicke ⬜ neben einem Eintrag → wird ✅\n• Markiert den Eintrag als 'abgestimmt'\n• Hilft beim Abgleich mit Kontoauszügen\n• Kann jederzeit rückgängig gemacht werden"
 
         # QR Code
-        elif any(w in msg for w in ["qr", "qr code", "barcode"]):
+        elif any(w in msg for w in ["qr", "barcode"]):
             reply = "📱 QR-Code Erkennung:\n• QR-Codes auf Rechnungen werden automatisch gelesen\n• Unterstützt: EPC/SEPA (GiroCode), Swiss QR, ZUGFeRD\n• Extrahiert: Firma, IBAN, Betrag, Referenz\n• QR-Daten überschreiben OCR wenn verfügbar (genauer)"
 
         # Foto / Bild Qualität
-        elif any(w in msg for w in ["foto", "qualität", "unscharf", "dunkel", "yamuk", "blurry"]):
+        elif any(w in msg for w in ["foto", "qualität", "unscharf", "dunkel", "yamuk", "blurry", "bild"]):
             reply = "📸 Foto-Tipps für bessere Erkennung:\n• Gute Beleuchtung — kein Schatten auf dem Beleg\n• Gerade fotografieren — nicht schief\n• Gesamten Beleg im Bild\n• Original-Foto verwenden (nicht WhatsApp-komprimiert)\n• PDF ist besser als Foto (wenn verfügbar)\n• Handschrift-Modus für handgeschriebene Belege aktivieren"
 
-        # Hilfe / Help
-        elif any(w in msg for w in ["hilfe", "help", "was kannst", "anleitung", "wie funktioniert", "feature", "yardım", "yardim", "nasıl", "nasil", "nedir", "ne yapabilir", "fonksiyon", "how", "what can", "warum", "wieso", "neden", "weshalb"]):
-            reply = "🤖 Ich kann dir helfen mit:\n• 'Wie viel?' — Gesamtbeträge\n• 'Kategorien' — Ausgaben nach Kategorie\n• 'MwSt' / 'KDV' — Vorsteuer & USt\n• 'Steuer' — Steuerschätzung\n• 'Gewinn' — Einnahmen vs. Ausgaben\n• 'Lieferanten' — Top Anbieter\n• 'Dashboard' — Finanzübersicht\n• 'Kassenbuch' — Kassenbuch-Status\n• 'Rechnungen' — Rechnungsübersicht\n• 'Upload' — Belege hochladen\n• 'Import' — CSV oder Foto importieren\n• 'Export' / 'CSV' / 'DATEV' — Exportieren\n• 'EÜR' — Steuererklärung\n• 'E-Rechnung' — XRechnung / ZUGFeRD\n• 'Rechnung erstellen' — Eigene Rechnungen\n• 'PDF' / 'Drucken' — PDF herunterladen\n• 'Kleinunternehmer' — §19 UStG\n• 'Firmen' — Firmenverwaltung\n• 'Preise' — Pläne & Abo\n• 'App' / 'PWA' — Mobile Nutzung\n• 'Belege' — Belegverwaltung\n• 'Sync' — Synchronisation\n• 'QR' — QR-Code Erkennung\n• 'Foto' — Tipps für bessere Fotos\n• 'Passwort' — Konto & Login\n• 'Löschen' — Einträge entfernen\n\nAlle Details: Gehe zur 'Hilfe' Seite!"
-
-        # Hallo / Greeting
-        elif any(w in msg for w in ["hallo", "hi", "hey", "merhaba", "hello", "guten", "selam", "nabız", "servus", "grüß"]):
-            reply = f"👋 Hallo! Du hast {inv_count} Rechnungen. Wie kann ich dir helfen? Tippe 'Hilfe' für eine Übersicht."
-
-        # Danke
-        elif any(w in msg for w in ["danke", "thanks", "thx", "merci", "teşekkür", "sağol", "gracias"]):
-            reply = "Gerne! Wenn du weitere Fragen hast, frag einfach. 😊"
-
         # Eintragen / Hinzufügen
-        elif any(w in msg for w in ["eintragen", "hinzufügen", "eingeben", "neue", "neuer", "ekle", "gir", "yaz", "kaydet", "add", "create", "erfassen"]):
-            reply = "✏️ Eintrag erstellen:\n• Kassenbuch → '+ Eintrag' Button → Formular ausfüllen\n• Upload → Beleg hochladen (OCR erkennt automatisch)\n• Rechnungen → 'Kassenbuch sync' für Synchronisierung\n\nBeide Wege erstellen automatisch Einträge in Rechnungen UND Kassenbuch."
+        elif any(w in msg for w in ["eintragen", "hinzufügen", "eingeben", "ekle", "kaydet", "erfassen"]):
+            reply = "✏️ Eintrag erstellen:\n• Kassenbuch → '+ Eintrag' Button → Formular ausfüllen\n• Upload → Beleg hochladen (OCR erkennt automatisch)\n• Rechnungen → '+ Rechnung erstellen' für Einnahmen\n• Rechnungen → 'Kassenbuch sync' für Synchronisierung"
 
         # Suche / Finden
         elif any(w in msg for w in ["such", "find", "wo ist", "wo sind", "finden", "ara", "bul", "nerede", "search", "where"]):
             reply = "🔍 Suche:\n• Rechnungen → Suchfeld oben (sucht in Vendor, OCR-Text, Kategorie)\n• Mehrere Wörter möglich: z.B. 'Lidl Dezember'\n• Filter: Vendor, Kategorie, Datum (Von/Bis), Status\n• AI Chat: Frag mich z.B. 'Lieferanten' oder 'Kategorien'"
 
         # Bearbeiten / Ändern
-        elif any(w in msg for w in ["bearbeit", "änder", "korrigier", "edit", "update", "düzenle", "değiştir"]):
+        elif any(w in msg for w in ["bearbeit", "änder", "korrigier", "edit", "düzenle", "değiştir"]):
             reply = "✏️ Bearbeiten:\n• Rechnungen → 'Bearbeiten' neben dem Eintrag\n• Kassenbuch → 'Bearbeiten' neben dem Eintrag\n• Du kannst ändern: Vendor, Betrag, Kategorie, Datum, MwSt-Satz"
 
-        # Wie viele / Anzahl
-        elif any(w in msg for w in ["wie viele", "anzahl", "count", "kaç tane", "adet"]):
-            reply = f"📊 Anzahl:\n• Rechnungen: {inv_count}\n• Einnahmen: {len(inv_inc)}\n• Ausgaben: {len(inv_exp)}"
-
         # Datum / Date
-        elif any(w in msg for w in ["datum", "date", "tarih", "wann", "zeitraum", "monat", "jahr"]):
+        elif any(w in msg for w in ["datum", "tarih", "zeitraum", "monat", "jahr"]):
             reply = "📅 Datum-Filter:\n• Rechnungen → Von/Bis Felder nutzen\n• Unterstützte Formate: DD.MM.YYYY, YYYY-MM-DD\n• Monatsansicht: Dashboard zeigt monatliche Auswertung\n• Export: Nach Jahr filterbar"
 
-        # E-Rechnung
-        elif any(w in msg for w in ["e-rechnung", "erechnung", "xrechnung", "zugferd", "xml rechnung", "elektronische rechnung"]):
-            reply = "📄 E-Rechnung (XRechnung / ZUGFeRD):\n• Upload → 'E-Rechnung hochladen' Button\n• XRechnung (XML) und ZUGFeRD (PDF) werden unterstützt\n• Automatische Erkennung: Lieferant, Betrag, MwSt, Datum, Rechnungs-Nr\n• Seit 2025 Pflicht für B2B in Deutschland\n• Kleinunternehmer müssen E-Rechnungen empfangen können"
+        # Download / Herunterladen (generic fallback — after PDF and Export)
+        elif any(w in msg for w in ["download", "herunterladen"]):
+            reply = "📥 Download-Optionen:\n• Rechnung als PDF: 🖨️ PDF Button neben jeder Rechnung\n• Daten exportieren: Export-Seite → CSV, DATEV, Excel, JSON\n• Belege: Download Button in der Belege-Seite"
 
-        # Rechnung erstellen
-        elif any(w in msg for w in ["rechnung erstellen", "rechnung schreiben", "fatura oluştur", "neue rechnung", "rechnung anlegen"]):
-            reply = "🧾 Rechnung erstellen:\n• Rechnungen → '+ Rechnung erstellen' Button\n• Felder: Kunde, Betrag, MwSt-Satz, Datum, Rechnungs-Nr\n• Wird als Einnahme gespeichert\n• Nach dem Speichern: PDF herunterladen möglich\n• Tipp: Kleinunternehmerregelung aktivieren für §19-Rechnungen"
-
-        # PDF Drucken
-        elif any(w in msg for w in ["drucken", "pdf", "herunterladen", "download rechnung", "ausdrucken", "yazdır"]):
-            reply = "🖨️ PDF Drucken:\n• Rechnungen → 🖨️ PDF Button neben jeder Rechnung\n• Kassenbuch → 🖨️ PDF Button (wenn Rechnung verknüpft)\n• Belege → 🖨️ PDF Button\n• Rechnung erstellen → Nach Speichern 'PDF herunterladen?'\n• PDF enthält: Firma, Kunde, Betrag, MwSt, Netto/Brutto"
-
-        # Kleinunternehmer
-        elif any(w in msg for w in ["kleinunternehmer", "§19", "paragraph 19", "keine mwst", "keine umsatzsteuer", "küçük işletme"]):
-            reply = "📋 Kleinunternehmerregelung (§19 UStG):\n• Profil → Kleinunternehmer Toggle aktivieren\n• Keine MwSt auf Rechnungen\n• Hinweis 'Gemäß §19 UStG' erscheint automatisch auf PDF\n• Grenze: 25.000€ Vorjahr / 100.000€ laufendes Jahr\n• E-Rechnungen empfangen ist trotzdem Pflicht"
-
-        # Firmen
-        elif any(w in msg for w in ["firma", "firmen", "unternehmen", "company", "şirket"]):
-            reply = "🏢 Firmen verwalten:\n• Sidebar → 'Firmen' Seite\n• Max. 2 Firmen registrieren\n• Firmenname wird für Einnahme-Erkennung verwendet\n• Upload: Vendor = deine Firma → automatisch Einnahme\n• Firma kann nicht geändert werden (Kontakt Support)"
-
-        # Preise / Pricing
-        elif any(w in msg for w in ["preis", "pricing", "abo", "plan", "upgrade", "fiyat", "ücret"]):
-            reply = "💰 Preise:\n• Free: €0/Monat — 50 Rechnungen, 2 Firmen, CSV Export\n• Early Adopter: €10/Monat — 500 Rechnungen, 5 Firmen, DATEV\n• Pro: €20/Monat — Unbegrenzt, API, Priority Support\n• Frühe Nutzer behalten ihren Preis dauerhaft!\n• Stripe-Zahlung kommt bald"
-
-        # DATEV
-        elif any(w in msg for w in ["datev", "steuerberater export", "konto", "buchungskonto", "skr"]):
-            reply = "📊 DATEV Export:\n• Export → DATEV Button\n• Automatische Kontenzuordnung:\n  - Lebensmittel → 6800\n  - Restaurant → 6640\n  - Kraftstoff → 6670\n  - Büro/Software → 6815\n  - Einnahmen → 8400\n• Dein Steuerberater kann die Datei direkt importieren"
-
-        # PWA / Mobil
-        elif any(w in msg for w in ["app", "mobil", "handy", "telefon", "pwa", "installieren", "uygulama"]):
-            reply = "📱 Mobile App (PWA):\n• Öffne AutoTax-HUB im Browser auf deinem Handy\n• iPhone: Safari → Teilen → 'Zum Home-Bildschirm'\n• Android: Chrome → Menü → 'App installieren'\n• Funktioniert wie eine native App\n• Belege direkt mit der Kamera hochladen"
-
-        # Belege
-        elif any(w in msg for w in ["beleg", "belege", "original", "dokument"]):
-            reply = "📎 Belege:\n• Sidebar → 'Belege' Seite\n• Alle hochgeladenen Belege auf einen Blick\n• 🖨️ PDF Button zum Herunterladen\n• Belege werden als Text gespeichert (Originalbild nicht dauerhaft)\n• Tipp: Exportiere regelmäßig als Backup"
-
+        # ── TIER 6: Vendor search fallback ──
         # Vendor search — if no keyword matched, try searching vendor names
-        else:
+        if reply is None:
             vendor_results = [i for i in invoices if msg in (i.vendor or "").lower()]
             if not vendor_results:
                 vendor_results = db.query(Invoice).filter(Invoice.user_id == user["sub"], Invoice.vendor.ilike(f"%{msg}%")).all()
