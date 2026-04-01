@@ -2250,6 +2250,54 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                     ausgaben = _parse_amount(nums[0])
             rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
 
+    # Strategy 2.5: Split text by date boundaries (when OCR merges lines)
+    if not rows:
+        # Count all dates in text (both DD.MM.YYYY and YYYY-MM-DD)
+        all_dates = _re.findall(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", text)
+        logger.info("Table import: found %d dates in text, trying date-split", len(all_dates))
+
+        if len(all_dates) > 1:
+            # Split text at each date occurrence (use newline or start-of-string before date)
+            blocks = _re.split(r"(?:^|\n)\s*(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?:^|\n)\s*(?=\d{4}-\d{2}-\d{2})", text)
+            for block in blocks:
+                block = block.strip()
+                if not block or len(block) < 5:
+                    continue
+                block_lower = block.lower()
+                if any(w in block_lower for w in ["kassenbuch", "übertrag", "seitensumme"]):
+                    continue
+
+                # Extract date from start of block
+                dm = _re.match(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(.*)", block, _re.DOTALL)
+                if not dm:
+                    continue
+                date_raw = dm.group(1)
+                rest = dm.group(2).strip().replace("\n", " ")
+
+                # Extract amounts from rest
+                amounts = _re.findall(r"(\d+[.,]\d{2})", rest)
+                # Remove amounts from rest to get description
+                desc = _re.sub(r"\d+[.,]\d{2}", "", rest).strip()
+                desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
+
+                if not desc or len(desc) < 2:
+                    desc = "Eintrag"
+
+                if amounts:
+                    if len(amounts) >= 2:
+                        v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
+                        if v1 > 0 and v2 == 0:
+                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
+                        elif v1 == 0 and v2 > 0:
+                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": round(v2, 2), "expense": 0})
+                        else:
+                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
+                    else:
+                        rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
+
+            if rows:
+                logger.info("Table import date-split: %d rows extracted", len(rows))
+
     # Strategy 3: If still no rows, treat as single receipt — extract vendor + amount using invoice parser
     if not rows:
         try:
