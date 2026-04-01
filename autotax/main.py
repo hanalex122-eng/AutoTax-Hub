@@ -2456,6 +2456,60 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except Exception:
             pass
 
+    # Strategy 5: Column-based parsing (OCR reads columns separately: dates, descriptions, amounts)
+    # Detects when OCR returns all dates first, then all descriptions, then all amounts
+    valid_amounts_in_rows = sum(1 for r in rows if r.get("expense", 0) > 0 or r.get("income", 0) > 0)
+    if is_table_mode and valid_amounts_in_rows < expected_count // 2:
+        try:
+            _skip = {"einnahmen", "ausgaben", "beschreibung", "datum", "nr.", "mwst", "brutto", "netto", "summe", "kassenbuch", "saldo", "ubersicht"}
+            col_dates, col_descs, col_amounts = [], [], []
+            for line in raw_lines:
+                ll = line.lower().strip()
+                if any(w in ll for w in _skip):
+                    continue
+                if _re.match(r"^(" + _DATE_PAT + r")", line.strip()):
+                    col_dates.append(line.strip())
+                elif _re.match(r"^" + _AMT_PAT + r"$", line.strip()):
+                    col_amounts.append(line.strip())
+                elif _re.match(r"^\d{1,3}$", line.strip()):
+                    continue  # row numbers
+                elif len(line.strip()) > 2 and not _re.match(r"^[\d.,€$₺/ \-]+$", line.strip()):
+                    col_descs.append(line.strip())
+
+            # Filter amounts: skip negative (saldo), keep positive (expense)
+            expenses_only = [a for a in col_amounts if not a.startswith("-")]
+
+            logger.info("Strategy 5 columns: %d dates, %d descs, %d amounts (%d positive)",
+                        len(col_dates), len(col_descs), len(col_amounts), len(expenses_only))
+
+            n = min(len(col_dates), len(col_descs), len(expenses_only))
+            if n > len(rows) // 2:  # only use if significantly better
+                s5_rows = []
+                for i in range(n):
+                    # Extract date from date line (might have extra text)
+                    dm = _re.search(r"(" + _DATE_PAT + r")", col_dates[i])
+                    if not dm:
+                        continue
+                    date_val = _parse_date(dm.group(1))
+                    desc = _re.sub(_DATE_PAT, "", col_dates[i]).strip()
+                    if not desc or len(desc) < 2:
+                        desc = col_descs[i] if i < len(col_descs) else "Eintrag"
+                    else:
+                        desc = desc + " " + (col_descs[i] if i < len(col_descs) else "")
+                    desc = desc.strip()[:80]
+                    amt = _parse_amount(expenses_only[i]) if i < len(expenses_only) else 0
+                    s5_rows.append({"date": date_val, "description": desc, "income": 0, "expense": round(amt, 2), "is_uncertain": amt == 0})
+
+                if len(s5_rows) > valid_amounts_in_rows:
+                    s5_valid = sum(1 for r in s5_rows if r["expense"] > 0)
+                    logger.info("Strategy 5 result: %d rows (%d with amounts) vs current %d (%d with amounts)",
+                                len(s5_rows), s5_valid, len(rows), valid_amounts_in_rows)
+                    if s5_valid > valid_amounts_in_rows:
+                        rows = s5_rows
+                        logger.info("Strategy 5 accepted: %d rows", len(rows))
+        except Exception as e:
+            logger.warning("Strategy 5 column-based failed: %s", e)
+
     # Ensure all rows have is_uncertain flag
     for r in rows:
         if "is_uncertain" not in r:
