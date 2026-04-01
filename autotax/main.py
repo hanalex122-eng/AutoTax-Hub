@@ -2329,12 +2329,14 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
 
     # If multiple dates but Strategy 1 found fewer rows → discard and retry
-    if is_table_mode and len(rows) < len(all_dates_in_text) // 2:
-        logger.info("Strategy 1 insufficient (%d rows for %d dates), clearing for Strategy 2", len(rows), len(all_dates_in_text))
-        rows = []
+    s1_rows = list(rows)
+
+    # If Strategy 1 got less than expected, try additional strategies
+    if is_table_mode and len(rows) < expected_count:
+        logger.info("Strategy 1 incomplete: %d/%d — running Strategy 2", len(rows), expected_count)
 
     # Strategy 2: Try merging split lines (OCR puts dates and amounts on separate lines)
-    if not rows and is_table_mode:
+    if is_table_mode and len(rows) < expected_count:
         date_lines = []
         amount_lines = []
         for line in lines:
@@ -2374,7 +2376,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
 
     # Strategy 2.5: Split text by date boundaries (when OCR merges lines)
-    if not rows and is_table_mode:
+    if is_table_mode and len(rows) < expected_count:
         logger.info("Strategy 2.5: date-split with %d dates", len(all_dates_in_text))
         # Split text at each date occurrence
         blocks = _re.split(r"(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?=\d{4}-\d{2}-\d{2})", text)
@@ -2444,7 +2446,19 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except Exception:
             pass
 
-    logger.info("Table import result: %d rows from %d lines", len(rows), len(lines))
+    # Deduplicate: same date + same description = duplicate
+    seen = set()
+    unique_rows = []
+    for r in rows:
+        key = (r["date"], r["description"][:30])
+        if key not in seen:
+            seen.add(key)
+            unique_rows.append(r)
+    if len(unique_rows) < len(rows):
+        logger.info("Dedup: %d → %d rows", len(rows), len(unique_rows))
+    rows = unique_rows
+
+    logger.info("Table import result: %d rows (expected %d)", len(rows), expected_count)
 
     # Generate CSV
     csv_lines = ["Datum,Beschreibung,Einnahmen,Ausgaben"]
