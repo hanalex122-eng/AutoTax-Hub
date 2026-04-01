@@ -2139,11 +2139,15 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
 
     # Pre-split: force newline before every date pattern so each entry gets its own line
-    text = _re.sub(r"(?<!\n)(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})", "\n", text)
-    text = _re.sub(r"(?<!\n)(?=\d{4}-\d{2}-\d{2})", "\n", text)
+    # This is the CRITICAL step — OCR often merges multiple entries on one line
+    text = _re.sub(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})", r"\n\1", text)
+    text = _re.sub(r"(\d{4}-\d{2}-\d{2})", r"\n\1", text)
 
-    lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 3]
-    logger.info("Table import: %d lines after pre-split", len(lines))
+    # Count dates to decide strategy
+    all_dates_in_text = _re.findall(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", text)
+
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 4]
+    logger.info("Table import: %d lines after pre-split, %d dates found", len(lines), len(all_dates_in_text))
     rows = []
 
     def _parse_date(raw):
@@ -2303,8 +2307,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             if rows:
                 logger.info("Table import date-split: %d rows extracted", len(rows))
 
-    # Strategy 3: If still no rows, treat as single receipt — extract vendor + amount using invoice parser
-    if not rows:
+    # Strategy 3: ONLY if 0-1 dates found — treat as single receipt
+    if not rows and len(all_dates_in_text) <= 1:
         try:
             from autotax.parser import parse_invoice
             parsed = parse_invoice(text)
