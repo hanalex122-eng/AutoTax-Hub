@@ -2147,7 +2147,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     all_dates_in_text = _re.findall(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", text)
 
     lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 4]
-    logger.info("Table import: %d lines after pre-split, %d dates found", len(lines), len(all_dates_in_text))
+    is_table_mode = len(all_dates_in_text) > 1
+    logger.info("Table import: %d lines, %d dates, table_mode=%s", len(lines), len(all_dates_in_text), is_table_mode)
     rows = []
 
     def _parse_date(raw):
@@ -2184,7 +2185,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         if not line or len(line) < 5:
             continue
         line_lower = line.lower()
-        if any(w in line_lower for w in ["total", "summe", "gesamt", "saldo", "nr.", "datum", "beschreibung", "einnahmen", "ausgaben", "übertrag", "kassenbuch"]):
+        # Skip header-only lines (no date on line = probably header)
+        has_date = bool(_re.search(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", line))
+        if not has_date and any(w in line_lower for w in ["datum", "beschreibung", "einnahmen", "ausgaben", "kassenbuch", "übertrag", "seitensumme"]):
             continue
 
         # Pattern: Date + Description + two amounts
@@ -2231,6 +2234,24 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             if beschreibung and len(beschreibung) >= 2:
                 rows.append({"date": date_iso, "description": beschreibung, "income": 0, "expense": round(_parse_amount(m4.group(3)), 2)})
             continue
+
+        # Universal fallback: any date + any text + any amount anywhere in line
+        if is_table_mode and has_date:
+            date_m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})", line)
+            amounts_in_line = _re.findall(r"(\d+[.,]\d{2})", line)
+            if date_m and amounts_in_line:
+                d = date_m.group(1)
+                desc = _re.sub(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", "", line)
+                desc = _re.sub(r"\d+[.,]\d{2}", "", desc).strip()
+                desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
+                if len(desc) < 2:
+                    desc = "Eintrag"
+                amt = _parse_amount(amounts_in_line[-1])  # last amount = most likely total
+                if amt > 0:
+                    rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
+                    logger.info("Table universal match: %s | %s | %.2f", d, desc[:30], amt)
+
+    logger.info("Strategy 1 result: %d rows from %d lines", len(rows), len(lines))
 
     # Strategy 2: If no rows found, try merging split lines (OCR puts dates and amounts on separate lines)
     if not rows:
