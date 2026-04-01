@@ -2141,58 +2141,93 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     lines = text.strip().split("\n")
     rows = []
 
+    def _parse_date(raw):
+        parts = raw.replace("/", ".").split(".")
+        if len(parts) == 3:
+            dd, mm, yy = parts[0].strip(), parts[1].strip(), parts[2].strip()
+            if len(yy) == 2:
+                yy = "20" + yy
+            return f"{yy}-{mm.zfill(2)}-{dd.zfill(2)}"
+        return raw
+
+    def _parse_amount(s):
+        try:
+            return float(s.replace(",", ".").replace("%", "").strip())
+        except (ValueError, AttributeError):
+            return 0.0
+
+    # Strategy 1: Try line-by-line (date + desc + amounts on same line)
     for line in lines:
         line = line.strip()
         if not line or len(line) < 5:
             continue
-        # Skip header/total rows
         line_lower = line.lower()
-        if any(w in line_lower for w in ["total", "summe", "gesamt", "saldo", "nr.", "datum", "beschreibung", "einnahmen", "ausgaben", "übertrag"]):
+        if any(w in line_lower for w in ["total", "summe", "gesamt", "saldo", "nr.", "datum", "beschreibung", "einnahmen", "ausgaben", "übertrag", "kassenbuch"]):
             continue
 
-        # Pattern: optional Nr + Date + Description + numbers
-        # Try: Nr Date Description Amount1 Amount2
+        # Pattern: Date + Description + two amounts
         m = _re.search(
             r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$",
             line
         )
         if m:
-            datum_raw, beschreibung, num1, num2 = m.group(1), m.group(2).strip(), m.group(3), m.group(4)
-            val1 = float(num1.replace(",", ".")) if num1 else 0
-            val2 = float(num2.replace(",", ".")) if num2 else 0
-            # Heuristic: if first number is 0 or empty-like, it's Einnahmen=0, Ausgaben=val2
+            datum_raw, beschreibung = m.group(1), m.group(2).strip()
+            val1, val2 = _parse_amount(m.group(3)), _parse_amount(m.group(4))
             einnahmen = val1 if val1 > 0 and val2 > 0 else 0
             ausgaben = val2 if val1 == 0 or (val1 > 0 and val2 > 0) else val1
             if einnahmen == 0 and ausgaben == 0:
                 ausgaben = max(val1, val2)
-        else:
-            # Simpler: Date + Description + single amount
-            m2 = _re.search(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*$", line)
-            if not m2:
-                continue
-            datum_raw, beschreibung, betrag_raw = m2.group(1), m2.group(2).strip(), m2.group(3)
-            ausgaben = float(betrag_raw.replace(",", "."))
-            einnahmen = 0
-
-        if not beschreibung or len(beschreibung) < 2:
+            if beschreibung and len(beschreibung) >= 2:
+                rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
             continue
 
-        # Parse date: DD.MM.YY or DD.MM.YYYY
-        parts = datum_raw.replace("/", ".").split(".")
-        if len(parts) == 3:
-            d, mo, y = parts[0].strip(), parts[1].strip(), parts[2].strip()
-            if len(y) == 2:
-                y = "20" + y
-            date_str = f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
-        else:
-            date_str = datum_raw
+        # Pattern: Date + Description + single amount
+        m2 = _re.search(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*$", line)
+        if m2:
+            datum_raw, beschreibung = m2.group(1), m2.group(2).strip()
+            if beschreibung and len(beschreibung) >= 2:
+                rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": 0, "expense": round(_parse_amount(m2.group(3)), 2)})
+            continue
 
-        rows.append({
-            "date": date_str,
-            "description": beschreibung,
-            "income": round(einnahmen, 2),
-            "expense": round(ausgaben, 2),
-        })
+    # Strategy 2: If no rows found, try merging split lines (OCR puts dates and amounts on separate lines)
+    if not rows:
+        date_lines = []
+        amount_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if _re.match(r"^\d{1,2}[./]\d{1,2}[./]\d{2,4}\s+\S", line):
+                date_lines.append(line)
+            elif _re.match(r"^[\d.,]+\s+[\d.,]+\s*$", line):
+                amount_lines.append(line)
+            elif _re.match(r"^[\d.,]+\s*$", line):
+                amount_lines.append(line + " 0")
+
+        logger.info("Table split-line parse: %d date_lines, %d amount_lines", len(date_lines), len(amount_lines))
+
+        for i, dline in enumerate(date_lines):
+            m = _re.match(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+)", dline)
+            if not m:
+                continue
+            datum_raw, beschreibung = m.group(1), m.group(2).strip()
+            beschreibung = _re.sub(r"[\d.,]+\s*$", "", beschreibung).strip()
+            if not beschreibung or len(beschreibung) < 2:
+                continue
+            einnahmen, ausgaben = 0.0, 0.0
+            if i < len(amount_lines):
+                nums = _re.findall(r"[\d.,]+", amount_lines[i])
+                if len(nums) >= 2:
+                    v1, v2 = _parse_amount(nums[0]), _parse_amount(nums[1])
+                    if v1 > 0 and v2 == 0:
+                        ausgaben = v1
+                    elif v1 == 0 and v2 > 0:
+                        einnahmen = v2
+                    elif v1 > 0 and v2 > 0:
+                        ausgaben, einnahmen = v1, v2
+                elif len(nums) == 1:
+                    ausgaben = _parse_amount(nums[0])
+            rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
 
     # Generate CSV
     csv_lines = ["Datum,Beschreibung,Einnahmen,Ausgaben"]
