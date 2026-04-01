@@ -434,7 +434,7 @@ _DATEV_KONTO_MAP_INCOME = {
     "software": "8400", "shopping": "8400",
 }
 
-ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff", "image/webp"}
+ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png", "image/tiff", "image/webp", "image/heic", "image/heif"}
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
 

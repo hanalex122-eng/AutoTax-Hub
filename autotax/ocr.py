@@ -167,6 +167,19 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False, file_
     except Exception:
         pass  # QR reading is optional, don't break upload if it fails
 
+    # Convert HEIC/HEIF to JPEG (iPhone camera format — not supported by OCR API)
+    if "heic" in content_type or "heif" in content_type or filename.endswith((".heic", ".heif")):
+        try:
+            from PIL import Image
+            img = Image.open(io.BytesIO(content))
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="JPEG", quality=90)
+            content = buf.getvalue()
+            content_type = "image/jpeg"
+            logger.info("Converted HEIC→JPEG: %d bytes", len(content))
+        except Exception as e:
+            logger.warning("HEIC conversion failed: %s", e)
+
     # OCR text extraction (uses preprocessed image internally)
     if handwriting:
         ocr_text = await extract_handwriting_text(content, file.filename or "upload.png")
@@ -176,7 +189,7 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False, file_
             img_bytes = extract_pdf_page_as_image(content)
             if img_bytes:
                 ocr_text = await extract_image_text(img_bytes, "scanned.png")
-    elif content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".tiff")):
+    elif content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif")):
         ocr_text = await extract_image_text(content, file.filename or "upload.png")
     else:
         ocr_text = content.decode("utf-8", errors="ignore")

@@ -699,7 +699,7 @@ function UploadView({triggerRefresh,onNav,showToast}){
       <button style={{padding:"10px 20px",borderRadius:8,border:"2px solid "+(invoiceType==="income"?"#22c55e":"transparent"),background:invoiceType==="income"?"rgba(34,197,94,0.15)":theme.card,color:invoiceType==="income"?"#22c55e":theme.textDim,fontWeight:invoiceType==="income"?700:400,fontSize:14,cursor:"pointer"}} onClick={()=>setInvoiceType("income")}>Einnahme (Gelir)</button>
     </div>
     <div style={{...css.card,textAlign:"center",padding:48,border:"2px dashed "+(dragOver?theme.accent:theme.border),cursor:"pointer",background:dragOver?theme.accentSoft:theme.card}} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);addFiles(e.dataTransfer.files);}}>
-      <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff" style={{display:"none"}} onChange={e=>{addFiles(e.target.files);e.target.value="";}}/>
+      <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.heic,.heif" style={{display:"none"}} onChange={e=>{addFiles(e.target.files);e.target.value="";}}/>
       <div style={{width:56,height:56,borderRadius:14,background:theme.accentSoft,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:16}}><Icon d={I.upload} size={24} color={theme.accent}/></div>
       <div style={{color:theme.text,fontSize:16,fontWeight:600,marginBottom:4}}>Dateien hierher ziehen</div>
       <div style={{color:theme.textDim,fontSize:13}}>oder klicken (Strg für mehrere)</div>
