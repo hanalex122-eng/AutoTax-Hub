@@ -961,12 +961,13 @@ def _validate_date(year: str, month: str, day: str) -> str | None:
 # ════════════════════════════════════════════════════════════════
 
 _TOTAL_KEYWORDS_HIGH = [
-    # Deutsch
+    # Deutsch — highest priority (final totals on receipts)
     r"zu\s*zahlen", r"zahlbetrag", r"gesamtbetrag", r"endbetrag",
     r"rechnungsbetrag", r"rechnungssumme", r"gesamtsumme", r"endsumme",
     r"summe\s*brutto", r"brutto\s*gesamt", r"bruttobetrag", r"gesamtpreis",
     r"fälliger\s*betrag", r"gesamtbetrag\s*brutto",
-    r"gesamtbetrag\s*inkl", r"summe\s*inkl", r"zwischensumme",
+    r"gesamtbetrag\s*inkl", r"summe\s*inkl",
+    r"summe\s*eur", r"summe", r"s[uü]mme",  # "SUMME" alone = receipt total
     # English
     r"grand\s*total", r"total\s*amount", r"amount\s*due", r"balance\s*due",
     r"total\s*due", r"invoice\s*total", r"total\s*payable", r"amount\s*payable",
@@ -1015,7 +1016,7 @@ _TOTAL_KEYWORDS_HIGH = [
 
 _TOTAL_KEYWORDS_MED = [
     # Generic / multi-language
-    r"total", r"summe", r"s[uü]mme", r"gesamt", r"betrag", r"brutto", r"netto",
+    r"zwischensumme", r"total", r"gesamt", r"betrag", r"brutto", r"netto",
     r"5umme", r"surnme", r"sumrne", r"ge5amt", r"t0tal", r"tota1",  # OCR misreads
     r"subtotal", r"sub\s*total", r"amount", r"sum", r"due", r"price",
     # Deutsch
@@ -1050,9 +1051,9 @@ def extract_total(raw_text: str) -> float:
     text = normalize(raw_text)
     text = normalize_amount_text(text)
 
-    # Try high-priority keywords first
+    # Try high-priority keywords first (word boundary to avoid partial matches)
     for kw in _TOTAL_KEYWORDS_HIGH:
-        match = re.search(rf"{kw}\s*:?\s*(\d+\.\d{{2}})", text, re.IGNORECASE)
+        match = re.search(rf"(?<!\w){kw}\s*:?\s*(\d+\.\d{{2}})", text, re.IGNORECASE)
         if match:
             val = float(match.group(1))
             if 0.01 <= val < 100000:
@@ -1060,7 +1061,7 @@ def extract_total(raw_text: str) -> float:
 
     # Try medium-priority keywords
     for kw in _TOTAL_KEYWORDS_MED:
-        match = re.search(rf"{kw}\s*:?\s*(\d+\.\d{{2}})", text, re.IGNORECASE)
+        match = re.search(rf"(?<!\w){kw}\s*:?\s*(\d+\.\d{{2}})", text, re.IGNORECASE)
         if match:
             val = float(match.group(1))
             if 0.01 <= val < 100000:
