@@ -2315,18 +2315,16 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         # Universal fallback: any date + any text + any amount anywhere in line
         if is_table_mode and has_date:
             date_m = _re.search(r"(" + _DATE_PAT + r")", line)
-            amounts_in_line = _re.findall(r"(\d+[.,]\d{2})", line)
-            if date_m and amounts_in_line:
+            if date_m:
                 d = date_m.group(1)
-                desc = _re.sub(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", "", line)
+                desc = _re.sub(_DATE_PAT, "", line)
+                amounts_in_line = [a for a in _re.findall(r"(\d+[.,]\d{2})", desc) if not _is_date_fragment(a)]
                 desc = _re.sub(r"\d+[.,]\d{2}", "", desc).strip()
                 desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
                 if len(desc) < 2:
                     desc = "Eintrag"
-                amt = _parse_amount(amounts_in_line[-1])  # last amount = most likely total
-                if amt > 0:
-                    rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
-                    logger.info("Table universal match: %s | %s | %.2f", d, desc[:30], amt)
+                amt = _parse_amount(amounts_in_line[-1]) if amounts_in_line else 0
+                rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
 
     logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
 
@@ -2401,27 +2399,28 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             date_raw = dm.group(1)
             rest = dm.group(2).strip()
 
-            # Extract amounts from rest
-            amounts = _re.findall(r"(\d+[.,]\d{2})", rest)
-            # Remove amounts from rest to get description
+            # Extract amounts from rest (filter out date fragments)
+            amounts = [a for a in _re.findall(r"(\d+[.,]\d{2})", rest) if not _is_date_fragment(a)]
             desc = _re.sub(r"\d+[.,]\d{2}", "", rest).strip()
             desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
 
             if not desc or len(desc) < 2:
                 desc = "Eintrag"
 
-            if amounts:
-                parsed_date = _parse_date(date_raw) if ("." in date_raw or "/" in date_raw) else date_raw
-                if len(amounts) >= 2:
-                    v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
-                    if v1 > 0 and v2 == 0:
-                        rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
-                    elif v1 == 0 and v2 > 0:
-                        rows.append({"date": parsed_date, "description": desc[:80], "income": round(v2, 2), "expense": 0})
-                    else:
-                        rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
+            parsed_date = _parse_date(date_raw) if ("." in date_raw or "/" in date_raw) else date_raw
+            if amounts and len(amounts) >= 2:
+                v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
+                if v1 > 0 and v2 == 0:
+                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
+                elif v1 == 0 and v2 > 0:
+                    rows.append({"date": parsed_date, "description": desc[:80], "income": round(v2, 2), "expense": 0})
                 else:
-                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
+                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
+            elif amounts:
+                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
+            else:
+                # No amount found — still save entry with 0
+                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": 0})
 
         if rows:
             logger.info("Strategy 2.5 date-split: %d rows extracted", len(rows))
@@ -2434,7 +2433,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             vendor = parsed.get("vendor", "")
             amount = parsed.get("total_amount", 0)
             date_str = parsed.get("date", "")
-            if amount and amount > 0:
+            if amount is not None:
                 rows.append({
                     "date": date_str or datetime.now().strftime("%Y-%m-%d"),
                     "description": vendor or "Beleg",
