@@ -11,13 +11,26 @@ OCR_API_URL = "https://api.ocr.space/parse/image"
 
 
 def preprocess_image(content: bytes) -> bytes:
-    """Light preprocessing for OCR — no binarization (destroys scanned docs)."""
+    """Light preprocessing for OCR — resize large images to fit API limit (<1MB)."""
     try:
         from PIL import Image, ImageEnhance, ImageOps
         img = Image.open(io.BytesIO(content))
 
+        # Fix EXIF rotation (iPhone photos are often rotated)
+        try:
+            from PIL import ImageOps as _io
+            img = _io.exif_transpose(img)
+        except Exception:
+            pass
+
         # Convert to grayscale
         img = img.convert("L")
+
+        # Resize large images (iPhone photos are 3024x4032 = 1.7MB+)
+        # OCR.space free plan max 1MB — aim for <800KB
+        max_dim = 1600
+        if img.width > max_dim or img.height > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
 
         # Auto-contrast
         img = ImageOps.autocontrast(img, cutoff=1)
@@ -30,9 +43,17 @@ def preprocess_image(content: bytes) -> bytes:
 
         # Save as JPEG (smaller, faster upload to OCR API)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=90)
+        img.save(buf, format="JPEG", quality=80)
         processed = buf.getvalue()
-        logger.info("Image preprocessed: %d bytes → %d bytes", len(content), len(processed))
+
+        # If still too large, reduce more
+        if len(processed) > 900000:
+            img.thumbnail((1200, 1200), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=70)
+            processed = buf.getvalue()
+
+        logger.info("Image preprocessed: %d bytes → %d bytes (%dx%d)", len(content), len(processed), img.width, img.height)
         return processed
     except Exception as e:
         logger.warning("Image preprocessing failed, using original: %s", e)

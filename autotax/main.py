@@ -210,7 +210,7 @@ def startup():
 @app.get("/health")
 def health():
     ocr_key = os.getenv("OCR_API_KEY", "")
-    return {"status": "ok", "version": "5.5.2", "ocr_configured": bool(ocr_key), "ocr_key_len": len(ocr_key)}
+    return {"status": "ok", "version": "5.5.3", "ocr_configured": bool(ocr_key), "ocr_key_len": len(ocr_key)}
 
 
 @app.get("/manifest.json")
