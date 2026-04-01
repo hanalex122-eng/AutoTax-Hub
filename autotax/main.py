@@ -2141,6 +2141,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     import time as _time
     _t0 = _time.time()
 
+    # Preserve raw table before any modification
+    raw_lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+
     # Pre-split: force newline before every date pattern
     _DATE_PAT = (
         r"\d{4}-\d{2}-\d{2}"            # 2026-03-05 (ISO)
@@ -2540,7 +2543,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         "saved": saved,
         "csv": csv_text,
         "currency": detected_currency,
-        "ocr_text": text[:500],
+        "raw_rows": raw_lines,
+        "raw_row_count": len(raw_lines),
+        "ocr_text": text[:2000],
     }
 
 
