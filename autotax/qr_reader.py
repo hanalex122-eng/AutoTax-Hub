@@ -21,7 +21,7 @@ logger = logging.getLogger("autotax")
 
 
 def decode_qr_from_image(content: bytes) -> list[str]:
-    """Decode all QR codes from an image. Returns list of decoded strings."""
+    """Decode all QR/barcodes from an image. Returns list of decoded strings."""
     results = []
 
     # Try pyzbar first
@@ -29,17 +29,39 @@ def decode_qr_from_image(content: bytes) -> list[str]:
         from pyzbar.pyzbar import decode as pyzbar_decode
         from PIL import Image
         img = Image.open(BytesIO(content))
+
+        # Resize large images for better barcode detection
+        max_dim = 1600
+        if img.width > max_dim or img.height > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+
+        # Try original
         decoded = pyzbar_decode(img)
         for obj in decoded:
             text = obj.data.decode("utf-8", errors="ignore").strip()
             if text:
+                logger.info("QR/Barcode found (%s): %s", obj.type, text[:100])
                 results.append(text)
+
+        # If nothing found, try grayscale + higher contrast
+        if not decoded:
+            img_gray = img.convert("L")
+            from PIL import ImageOps
+            img_gray = ImageOps.autocontrast(img_gray, cutoff=5)
+            decoded = pyzbar_decode(img_gray)
+            for obj in decoded:
+                text = obj.data.decode("utf-8", errors="ignore").strip()
+                if text:
+                    logger.info("QR/Barcode found after enhance (%s): %s", obj.type, text[:100])
+                    results.append(text)
+
         if results:
             return results
+        logger.info("No QR/barcode found in image (%dx%d)", img.width, img.height)
     except ImportError:
-        logger.debug("pyzbar not available, trying qreader")
+        logger.warning("pyzbar not available")
     except Exception as e:
-        logger.debug("pyzbar failed: %s", e)
+        logger.warning("pyzbar failed: %s", e)
 
     # Try qreader as fallback
     try:
@@ -71,17 +93,18 @@ def decode_qr_from_pdf(content: bytes) -> list[str]:
         from pyzbar.pyzbar import decode as pyzbar_decode
 
         with pdfplumber.open(BytesIO(content)) as pdf:
-            for page in pdf.pages[:3]:  # First 3 pages only
-                img = page.to_image(resolution=200).original
+            for page in pdf.pages[:2]:  # First 2 pages only
+                img = page.to_image(resolution=150).original
                 decoded = pyzbar_decode(img)
                 for obj in decoded:
                     text = obj.data.decode("utf-8", errors="ignore").strip()
                     if text:
+                        logger.info("PDF QR/Barcode (%s): %s", obj.type, text[:100])
                         results.append(text)
     except ImportError:
-        pass
+        logger.warning("pyzbar not available for PDF QR")
     except Exception as e:
-        logger.debug("PDF QR extraction failed: %s", e)
+        logger.warning("PDF QR extraction failed: %s", e)
 
     return results
 
