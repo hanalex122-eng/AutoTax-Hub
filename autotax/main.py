@@ -2160,8 +2160,21 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         return raw
 
     def _parse_amount(s):
+        """Parse German number format: 1.234,56 → 1234.56"""
         try:
-            return float(s.replace(",", ".").replace("%", "").strip())
+            if "%" in s:
+                return 0.0  # percentage, not amount
+            s = s.replace("€", "").replace(" ", "").strip()
+            if not s:
+                return 0.0
+            # German format: 1.234,56 — dot is thousands, comma is decimal
+            if "," in s and "." in s:
+                s = s.replace(".", "").replace(",", ".")
+            elif "," in s:
+                s = s.replace(",", ".")
+            # else: already dot-decimal (English) or integer
+            val = float(s)
+            return val if not _re.match(r"^(19|20)\d{2}$", s) else 0.0  # skip year-like numbers
         except (ValueError, AttributeError):
             return 0.0
 
