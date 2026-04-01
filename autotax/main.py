@@ -2251,10 +2251,15 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                     rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
                     logger.info("Table universal match: %s | %s | %.2f", d, desc[:30], amt)
 
-    logger.info("Strategy 1 result: %d rows from %d lines", len(rows), len(lines))
+    logger.info("Strategy 1 result: %d rows from %d lines (dates=%d)", len(rows), len(lines), len(all_dates_in_text))
 
-    # Strategy 2: If no rows found, try merging split lines (OCR puts dates and amounts on separate lines)
-    if not rows:
+    # If multiple dates but Strategy 1 found fewer rows → discard and retry
+    if is_table_mode and len(rows) < len(all_dates_in_text) // 2:
+        logger.info("Strategy 1 insufficient (%d rows for %d dates), clearing for Strategy 2", len(rows), len(all_dates_in_text))
+        rows = []
+
+    # Strategy 2: Try merging split lines (OCR puts dates and amounts on separate lines)
+    if not rows and is_table_mode:
         date_lines = []
         amount_lines = []
         for line in lines:
@@ -2294,52 +2299,49 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
 
     # Strategy 2.5: Split text by date boundaries (when OCR merges lines)
-    if not rows:
-        # Count all dates in text (both DD.MM.YYYY and YYYY-MM-DD)
-        all_dates = _re.findall(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", text)
-        logger.info("Table import: found %d dates in text, trying date-split", len(all_dates))
+    if not rows and is_table_mode:
+        logger.info("Strategy 2.5: date-split with %d dates", len(all_dates_in_text))
+        # Split text at each date occurrence
+        blocks = _re.split(r"(?:^|\n)\s*(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?:^|\n)\s*(?=\d{4}-\d{2}-\d{2})", text)
+        for block in blocks:
+            block = block.strip()
+            if not block or len(block) < 5:
+                continue
+            block_lower = block.lower()
+            if any(w in block_lower for w in ["kassenbuch", "übertrag", "seitensumme"]):
+                continue
 
-        if len(all_dates) > 1:
-            # Split text at each date occurrence (use newline or start-of-string before date)
-            blocks = _re.split(r"(?:^|\n)\s*(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?:^|\n)\s*(?=\d{4}-\d{2}-\d{2})", text)
-            for block in blocks:
-                block = block.strip()
-                if not block or len(block) < 5:
-                    continue
-                block_lower = block.lower()
-                if any(w in block_lower for w in ["kassenbuch", "übertrag", "seitensumme"]):
-                    continue
+            # Extract date from start of block
+            dm = _re.match(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(.*)", block, _re.DOTALL)
+            if not dm:
+                continue
+            date_raw = dm.group(1)
+            rest = dm.group(2).strip().replace("\n", " ")
 
-                # Extract date from start of block
-                dm = _re.match(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(.*)", block, _re.DOTALL)
-                if not dm:
-                    continue
-                date_raw = dm.group(1)
-                rest = dm.group(2).strip().replace("\n", " ")
+            # Extract amounts from rest
+            amounts = _re.findall(r"(\d+[.,]\d{2})", rest)
+            # Remove amounts from rest to get description
+            desc = _re.sub(r"\d+[.,]\d{2}", "", rest).strip()
+            desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
 
-                # Extract amounts from rest
-                amounts = _re.findall(r"(\d+[.,]\d{2})", rest)
-                # Remove amounts from rest to get description
-                desc = _re.sub(r"\d+[.,]\d{2}", "", rest).strip()
-                desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
+            if not desc or len(desc) < 2:
+                desc = "Eintrag"
 
-                if not desc or len(desc) < 2:
-                    desc = "Eintrag"
-
-                if amounts:
-                    if len(amounts) >= 2:
-                        v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
-                        if v1 > 0 and v2 == 0:
-                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
-                        elif v1 == 0 and v2 > 0:
-                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": round(v2, 2), "expense": 0})
-                        else:
-                            rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
+            if amounts:
+                parsed_date = _parse_date(date_raw) if ("." in date_raw or "/" in date_raw) else date_raw
+                if len(amounts) >= 2:
+                    v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
+                    if v1 > 0 and v2 == 0:
+                        rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
+                    elif v1 == 0 and v2 > 0:
+                        rows.append({"date": parsed_date, "description": desc[:80], "income": round(v2, 2), "expense": 0})
                     else:
-                        rows.append({"date": _parse_date(date_raw) if "." in date_raw else date_raw, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
+                        rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
+                else:
+                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
 
-            if rows:
-                logger.info("Table import date-split: %d rows extracted", len(rows))
+        if rows:
+            logger.info("Strategy 2.5 date-split: %d rows extracted", len(rows))
 
     # Strategy 3: ONLY if 0-1 dates found — treat as single receipt
     if not rows and len(all_dates_in_text) <= 1:
