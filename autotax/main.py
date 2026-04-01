@@ -2144,6 +2144,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     # Preserve raw table before any modification
     raw_lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
 
+    # Amount pattern: matches 42,50 | 1.234,56 | 800,00 | 42.50 | 800 | -16,60
+    _AMT_PAT = r"-?\d[\d.]*[.,]\d{1,2}"
+
     # Pre-split: force newline before every date pattern
     _DATE_PAT = (
         r"\d{4}-\d{2}-\d{2}"            # 2026-03-05 (ISO)
@@ -2210,12 +2213,14 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         return False
 
     def _parse_amount(s):
-        """Parse German/Turkish number format: 1.234,56 → 1234.56"""
+        """Parse German/Turkish number format: 1.234,56 → 1234.56, -16,60 → 16.60"""
         try:
             if "%" in s:
                 return 0.0
             raw = s
             s = s.replace("€", "").replace("₺", "").replace(" ", "").strip()
+            negative = s.startswith("-")
+            s = s.lstrip("-")
             if s.upper().endswith("TL"):
                 s = s[:-2].strip()
             if s.upper().endswith("EUR"):
@@ -2230,8 +2235,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 s = s.replace(".", "").replace(",", ".")
             elif "," in s:
                 s = s.replace(",", ".")
-            val = float(s)
-            # Skip year-like numbers and very small values
+            val = abs(float(s))  # always positive — sign indicates direction not value
+            # Skip year-like numbers
             if _re.match(r"^(19|20)\d{2}$", str(int(val))) and "," not in raw and "." not in raw:
                 return 0.0
             return val
@@ -2321,8 +2326,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             if date_m:
                 d = date_m.group(1)
                 desc = _re.sub(_DATE_PAT, "", line)
-                numbers = [a for a in _re.findall(r"(\d+[.,]\d{2})", desc) if not _is_date_fragment(a)]
-                desc = _re.sub(r"\d+[.,]\d{2}", "", desc).strip()
+                numbers = [a for a in _re.findall(r"(" + _AMT_PAT + r")", desc) if not _is_date_fragment(a)]
+                desc = _re.sub(_AMT_PAT, "", desc).strip()
                 desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
                 if len(desc) < 2:
                     desc = "Eintrag"
@@ -2412,8 +2417,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             rest = dm.group(2).strip()
 
             # Extract amounts from rest (filter out date fragments)
-            amounts = [a for a in _re.findall(r"(\d+[.,]\d{2})", rest) if not _is_date_fragment(a)]
-            desc = _re.sub(r"\d+[.,]\d{2}", "", rest).strip()
+            amounts = [a for a in _re.findall(r"(" + _AMT_PAT + r")", rest) if not _is_date_fragment(a)]
+            desc = _re.sub(_AMT_PAT, "", rest).strip()
             desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
 
             if not desc or len(desc) < 2:
