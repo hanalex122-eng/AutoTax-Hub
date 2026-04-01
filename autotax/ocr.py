@@ -92,6 +92,25 @@ def extract_pdf_page_as_image(content: bytes) -> bytes:
     return b""
 
 
+async def _ocr_api_call(client, filename: str, content: bytes, engine: str = "1") -> str:
+    """Single OCR API call with given engine."""
+    resp = await client.post(
+        OCR_API_URL,
+        data={"apikey": OCR_API_KEY, "OCREngine": engine},
+        files={"file": (filename, content)},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    text_len = len(data.get("ParsedResults", [{}])[0].get("ParsedText", "")) if data.get("ParsedResults") else 0
+    logger.info("OCR Engine %s: exit=%s, error=%s, text_len=%d", engine, data.get("OCRExitCode"), data.get("IsErroredOnProcessing"), text_len)
+    if data.get("IsErroredOnProcessing"):
+        return ""
+    results = data.get("ParsedResults", [])
+    if results:
+        return results[0].get("ParsedText", "").strip()
+    return ""
+
+
 async def extract_image_text(content: bytes, filename: str) -> str:
     if not OCR_API_KEY:
         logger.warning("OCR skipped — no API key configured")
@@ -100,22 +119,17 @@ async def extract_image_text(content: bytes, filename: str) -> str:
     processed = preprocess_image(content)
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                OCR_API_URL,
-                data={"apikey": OCR_API_KEY, "OCREngine": "1"},
-                files={"file": (filename, processed)},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            logger.info("OCR response: exit=%s, error=%s, text_len=%d",
-                data.get("OCRExitCode"), data.get("IsErroredOnProcessing"),
-                len(data.get("ParsedResults", [{}])[0].get("ParsedText", "")) if data.get("ParsedResults") else 0)
-            if data.get("IsErroredOnProcessing"):
-                return ""
-            results = data.get("ParsedResults", [])
-            if results:
-                return results[0].get("ParsedText", "").strip()
-            return ""
+            # Engine 1: fast
+            text = await _ocr_api_call(client, filename, processed, "1")
+
+            # If Engine 1 failed or returned very little text, retry with Engine 2
+            if len(text) < 10:
+                logger.info("OCR Engine 1 insufficient (%d chars), retrying with Engine 2...", len(text))
+                text2 = await _ocr_api_call(client, filename, processed, "2")
+                if len(text2) > len(text):
+                    text = text2
+
+            return text
     except Exception as e:
         logger.warning("OCR API failed for %s: %s", filename, e)
         return ""
