@@ -1108,7 +1108,7 @@ function CompaniesView(){
   </div>);
 }
 
-function TableImportView({triggerRefresh,showToast}){
+function TableImportView({triggerRefresh,showToast,onNav}){
   const[file,setFile]=useState(null);const[rows,setRows]=useState([]);const[csv,setCsv]=useState("");const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[saved,setSaved]=useState(0);
   const[step,setStep]=useState("");const[errorMsg,setErrorMsg]=useState("");
   const fileRef=useRef(null);const tableRef=useRef(null);
@@ -1146,15 +1146,23 @@ function TableImportView({triggerRefresh,showToast}){
   };
 
   const saveRows=async()=>{
-    if(!file||!rows.length)return;setSaving(true);setStep("Einträge werden gespeichert...");
+    if(!rows.length)return;setSaving(true);setStep("Einträge werden gespeichert...");setErrorMsg("");
     const tk=localStorage.getItem("atx_token");
-    const fd=new FormData();fd.append("file",file);
+    let ok=0;
     try{
-      const r=await fetch(API+"/api/import-image?save=true",{method:"POST",headers:{Authorization:"Bearer "+tk},body:fd});
-      const d=await r.json();
-      if(d.success){setSaved(d.saved||0);setRows([]);setShowTable(false);if(showToast)showToast((d.saved||0)+" Einträge ins Kassenbuch übernommen","success");if(triggerRefresh)triggerRefresh();}
-      else{setErrorMsg("Speichern fehlgeschlagen — bitte erneut versuchen.");}
-    }catch(e){setErrorMsg("Verbindungsfehler.");}
+      for(const r of rows){
+        const amount=r.income>0?r.income:r.expense;
+        const entryType=r.income>0?"income":"expense";
+        const vatAmount=Math.round(amount*19/119*100)/100;
+        const body={description:r.description||"Import",vendor:(r.description||"Import").substring(0,50),gross_amount:amount,entry_type:entryType,vat_rate:"19%",category:"other",payment_method:"",reference:"",notes:"Tabelle Import",date:r.date||""};
+        const res=await fetch(API+"/bookkeeping",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk},body:JSON.stringify(body)});
+        if(res.ok)ok++;
+      }
+      setSaved(ok);setRows([]);setShowTable(false);
+      if(showToast)showToast(ok+" Einträge ins Kassenbuch übernommen","success");
+      if(triggerRefresh)triggerRefresh();
+      setTimeout(()=>{if(onNav)onNav("bookkeeping");},2500);
+    }catch(e){setErrorMsg("Verbindungsfehler — "+ok+" von "+rows.length+" gespeichert.");}
     setSaving(false);setStep("");
   };
 
