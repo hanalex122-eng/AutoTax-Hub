@@ -1146,6 +1146,8 @@ function TableImportView({triggerRefresh,showToast,onNav}){
   };
 
   const saveRows=async()=>{
+    console.log("IMPORT CLICKED");
+    console.log("Rows to send:",rows);
     if(!rows.length)return;setSaving(true);setStep("Einträge werden gespeichert...");setErrorMsg("");
     const tk=localStorage.getItem("atx_token");
     let ok=0;
@@ -1155,14 +1157,16 @@ function TableImportView({triggerRefresh,showToast,onNav}){
         const entryType=r.income>0?"income":"expense";
         const vatAmount=Math.round(amount*19/119*100)/100;
         const body={description:r.description||"Import",vendor:(r.description||"Import").substring(0,50),gross_amount:amount,entry_type:entryType,vat_rate:"19%",category:"other",payment_method:"",reference:"",notes:"Tabelle Import",date:r.date||""};
+        console.log("Sending row:",body);
         const res=await fetch(API+"/bookkeeping",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tk},body:JSON.stringify(body)});
-        if(res.ok)ok++;
+        console.log("Response status:",res.status);
+        if(res.ok)ok++;else{const err=await res.text();console.error("Row failed:",res.status,err);}
       }
       setSaved(ok);setRows([]);setShowTable(false);
       if(showToast)showToast(ok+" Einträge ins Kassenbuch übernommen","success");
       if(triggerRefresh)triggerRefresh();
       setTimeout(()=>{if(onNav)onNav("bookkeeping");},2500);
-    }catch(e){setErrorMsg("Verbindungsfehler — "+ok+" von "+rows.length+" gespeichert.");}
+    }catch(e){console.error("IMPORT ERROR:",e);setErrorMsg("Verbindungsfehler — "+ok+" von "+rows.length+" gespeichert.");}
     setSaving(false);setStep("");
   };
 
