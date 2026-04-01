@@ -2306,7 +2306,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         blocks = [b.strip() for b in blocks if b.strip() and len(b.strip()) > 5]
         logger.info("Strategy 2.5 blocks: %d (first: %s)", len(blocks), blocks[0][:60] if blocks else "none")
         for block in blocks:
-            block = block.strip()
+            # Normalize: merge multi-line block into single line
+            block = " ".join(block.splitlines()).strip()
             if not block or len(block) < 5:
                 continue
             block_lower = block.lower()
@@ -2314,11 +2315,12 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 continue
 
             # Extract date from start of block
-            dm = _re.match(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(.*)", block, _re.DOTALL)
+            dm = _re.match(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})\s*(.*)", block)
             if not dm:
+                logger.debug("Strategy 2.5 skip (no date): %s", block[:60])
                 continue
             date_raw = dm.group(1)
-            rest = dm.group(2).strip().replace("\n", " ")
+            rest = dm.group(2).strip()
 
             # Extract amounts from rest
             amounts = _re.findall(r"(\d+[.,]\d{2})", rest)
