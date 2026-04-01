@@ -435,7 +435,30 @@ _DATEV_KONTO_MAP_INCOME = {
 }
 
 ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png", "image/tiff", "image/webp", "image/heic", "image/heif"}
-MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Magic bytes for file type validation (prevents fake content_type)
+_MAGIC_BYTES = {
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89PNG": "image/png",
+    b"%PDF": "application/pdf",
+    b"II\x2a\x00": "image/tiff",  # little-endian TIFF
+    b"MM\x00\x2a": "image/tiff",  # big-endian TIFF
+    b"RIFF": "image/webp",        # WebP starts with RIFF
+}
+
+
+def _validate_file_magic(content: bytes, claimed_type: str) -> bool:
+    """Check if file content matches claimed MIME type via magic bytes."""
+    if not content or len(content) < 4:
+        return False
+    # HEIC/HEIF have complex headers — trust content_type for those
+    if "heic" in claimed_type or "heif" in claimed_type:
+        return True
+    for magic, mime in _MAGIC_BYTES.items():
+        if content[:len(magic)] == magic:
+            return True
+    return False
 
 
 # ============================================================
@@ -603,11 +626,18 @@ async def upload_erechnung(file: UploadFile = File(...), user: dict = Depends(ge
     """Import XRechnung / ZUGFeRD / Factur-X XML e-invoice."""
     import xml.etree.ElementTree as ET
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        err(400, "Datei zu groß (max 5MB)")
     text = content.decode("utf-8", errors="ignore")
+
+    # XXE protection: strip DOCTYPE declarations before parsing
+    import re as _re
+    text_safe = _re.sub(r'<!DOCTYPE[^>]*>', '', text, flags=_re.IGNORECASE | _re.DOTALL)
+    text_safe = _re.sub(r'<!ENTITY[^>]*>', '', text_safe, flags=_re.IGNORECASE | _re.DOTALL)
 
     root = None
     try:
-        root = ET.fromstring(text)
+        root = ET.fromstring(text_safe)
     except ET.ParseError:
         pass
 
@@ -823,13 +853,16 @@ def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_curre
 @limiter.limit("20/minute")
 async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
     if file.content_type not in ALLOWED_TYPES:
-        err(400, f"Invalid file type: {file.content_type}. Allowed: PDF, JPG, PNG, TIFF, WEBP")
+        err(400, "Ungültige Datei. Erlaubt: PDF, JPG, PNG, TIFF, WEBP")
 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
-        err(400, "File too large (max 5MB)")
+        err(400, "Datei zu groß (max 10MB)")
     if len(content) == 0:
-        err(400, "Empty file")
+        err(400, "Leere Datei")
+
+    if not _validate_file_magic(content, file.content_type or ""):
+        err(400, "Ungültige Datei — Dateityp stimmt nicht mit Inhalt überein")
 
     await file.seek(0)
 
@@ -925,14 +958,17 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
     for file in files:
         try:
             if file.content_type not in ALLOWED_TYPES:
-                results.append({"filename": file.filename, "status": "error", "message": "Invalid file type"})
+                results.append({"filename": file.filename, "status": "error", "message": "Ungültige Datei"})
                 continue
             content = await file.read()
             if len(content) > MAX_FILE_SIZE:
-                results.append({"filename": file.filename, "status": "error", "message": "File too large"})
+                results.append({"filename": file.filename, "status": "error", "message": "Datei zu groß"})
                 continue
             if len(content) == 0:
-                results.append({"filename": file.filename, "status": "error", "message": "Empty file"})
+                results.append({"filename": file.filename, "status": "error", "message": "Leere Datei"})
+                continue
+            if not _validate_file_magic(content, file.content_type or ""):
+                results.append({"filename": file.filename, "status": "error", "message": "Ungültige Datei"})
                 continue
             await file.seek(0)
             raw_text = ""
