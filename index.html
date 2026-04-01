@@ -848,7 +848,7 @@ function BookkeepingView({refreshKey,onNav}){
   const csvRef=useRef(null);const photoRef=useRef(null);
   const[importing,setImporting]=useState(false);
   const importCSV=async(e)=>{const f=e.target.files?.[0];if(!f)return;setImporting(true);const fd=new FormData();fd.append("file",f);const tk=localStorage.getItem("atx_token");if(!tk){alert("Bitte zuerst einloggen");setImporting(false);return;}try{const res=await fetch(API+"/bookkeeping/import-csv",{method:"POST",headers:{"Authorization":"Bearer "+tk},body:fd});const d=await res.json();if(d.success)alert(d.imported+" Einträge importiert"+(d.errors?.length?" ("+d.errors.length+" Fehler)":""));else alert("Fehler: "+(d.detail||JSON.stringify(d)));load();}catch(ex){alert("Import fehlgeschlagen: "+ex.message);}setImporting(false);e.target.value="";};
-  const load=()=>{api("/bookkeeping?limit=100").then(d=>{setEntries(Array.isArray(d)?d:(d.items||[]));if(d.summary)setSummary(d.summary);setSelected(new Set());}).catch(()=>{}).finally(()=>setLoading(false));
+  const load=()=>{api("/bookkeeping?limit=200").then(d=>{console.log("KASSENBUCH API:",d);const items=Array.isArray(d)?d:(d.items||[]);console.log("KASSENBUCH ITEMS:",items.length);setEntries(items);if(d.summary)setSummary(d.summary);setSelected(new Set());}).catch(e=>{console.error("KASSENBUCH LOAD ERROR:",e);}).finally(()=>setLoading(false));
     api("/bookkeeping/summary/overview").then(s=>{if(s)setSummary(prev=>({...prev,...s}));}).catch(()=>{});};
   useEffect(load,[refreshKey]);
   const add=async()=>{if(!form.description||!form.gross_amount){alert("Beschreibung und Betrag erforderlich");return;}
