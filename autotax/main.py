@@ -2195,27 +2195,43 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     detected_currency = _detect_currency(text)
     logger.info("Table import currency: %s", detected_currency)
 
+    def _is_date_fragment(s):
+        """Check if string looks like a date fragment (DD.MM or MM.YY), not an amount."""
+        s = s.strip()
+        # DD.MM pattern: 01.01 - 31.12
+        m = _re.match(r"^(\d{1,2})[.](\d{1,2})$", s)
+        if m:
+            d, mo = int(m.group(1)), int(m.group(2))
+            if 1 <= d <= 31 and 1 <= mo <= 12:
+                return True
+        return False
+
     def _parse_amount(s):
         """Parse German/Turkish number format: 1.234,56 → 1234.56"""
         try:
             if "%" in s:
                 return 0.0
+            raw = s
             s = s.replace("€", "").replace("₺", "").replace(" ", "").strip()
-            # Remove TL suffix
             if s.upper().endswith("TL"):
                 s = s[:-2].strip()
             if s.upper().endswith("EUR"):
                 s = s[:-3].strip()
             if not s:
                 return 0.0
+            # Reject date-like values: 22.06, 01.12 etc
+            if _is_date_fragment(s):
+                return 0.0
             # German format: 1.234,56 — dot is thousands, comma is decimal
             if "," in s and "." in s:
                 s = s.replace(".", "").replace(",", ".")
             elif "," in s:
                 s = s.replace(",", ".")
-            # else: already dot-decimal (English) or integer
             val = float(s)
-            return val if not _re.match(r"^(19|20)\d{2}$", s) else 0.0  # skip year-like numbers
+            # Skip year-like numbers and very small values
+            if _re.match(r"^(19|20)\d{2}$", str(int(val))) and "," not in raw and "." not in raw:
+                return 0.0
+            return val
         except (ValueError, AttributeError):
             return 0.0
 
