@@ -77,53 +77,51 @@ async def extract_image_text(content: bytes, filename: str) -> str:
         return ""
     logger.info("OCR: processing %s (%d bytes), key=%s...", filename, len(content), OCR_API_KEY[:4])
     processed = preprocess_image(content)
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.post(
-                    OCR_API_URL,
-                    data={"apikey": OCR_API_KEY, "OCREngine": "1"},
-                    files={"file": (filename, processed)},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                logger.info("OCR response: exit=%s, error=%s, text_len=%d",
-                    data.get("OCRExitCode"), data.get("IsErroredOnProcessing"),
-                    len(data.get("ParsedResults", [{}])[0].get("ParsedText", "")) if data.get("ParsedResults") else 0)
-                if data.get("IsErroredOnProcessing"):
-                    return ""
-                results = data.get("ParsedResults", [])
-                if results:
-                    return results[0].get("ParsedText", "").strip()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                OCR_API_URL,
+                data={"apikey": OCR_API_KEY, "OCREngine": "1"},
+                files={"file": (filename, processed)},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info("OCR response: exit=%s, error=%s, text_len=%d",
+                data.get("OCRExitCode"), data.get("IsErroredOnProcessing"),
+                len(data.get("ParsedResults", [{}])[0].get("ParsedText", "")) if data.get("ParsedResults") else 0)
+            if data.get("IsErroredOnProcessing"):
                 return ""
-        except (httpx.HTTPError, httpx.TimeoutException):
-            if attempt == 1:
-                return ""
+            results = data.get("ParsedResults", [])
+            if results:
+                return results[0].get("ParsedText", "").strip()
+            return ""
+    except Exception as e:
+        logger.warning("OCR API failed for %s: %s", filename, e)
+        return ""
 
 
 async def extract_handwriting_text(content: bytes, filename: str) -> str:
     if not OCR_API_KEY:
         return ""
     processed = preprocess_image(content)
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    OCR_API_URL,
-                    data={"apikey": OCR_API_KEY, "OCREngine": "2"},
-                    files={"file": (filename, processed)},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                if data.get("IsErroredOnProcessing"):
-                    return ""
-                results = data.get("ParsedResults", [])
-                if results:
-                    return results[0].get("ParsedText", "").strip()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                OCR_API_URL,
+                data={"apikey": OCR_API_KEY, "OCREngine": "2"},
+                files={"file": (filename, processed)},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("IsErroredOnProcessing"):
                 return ""
-        except (httpx.HTTPError, httpx.TimeoutException):
-            if attempt == 1:
-                return ""
+            results = data.get("ParsedResults", [])
+            if results:
+                return results[0].get("ParsedText", "").strip()
+            return ""
+    except Exception as e:
+        logger.warning("OCR handwriting API failed: %s", e)
+        return ""
 
 
 async def extract_text(file: UploadFile, handwriting: bool = False, file_bytes: bytes = None) -> str:

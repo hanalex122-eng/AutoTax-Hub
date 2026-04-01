@@ -210,7 +210,7 @@ def startup():
 @app.get("/health")
 def health():
     ocr_key = os.getenv("OCR_API_KEY", "")
-    return {"status": "ok", "version": "5.5.1", "ocr_configured": bool(ocr_key), "ocr_key_len": len(ocr_key)}
+    return {"status": "ok", "version": "5.5.2", "ocr_configured": bool(ocr_key), "ocr_key_len": len(ocr_key)}
 
 
 @app.get("/manifest.json")
@@ -839,14 +839,14 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     logger.info("Upload by user %s: %s (%s, %d bytes)", user["sub"], file.filename, file.content_type, len(content))
 
+    raw_text = ""
+    qr_data = {}
     try:
-        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=30)
+        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=45)
     except asyncio.TimeoutError:
-        logger.error("OCR timeout for %s", file.filename)
-        err(500, "OCR timeout")
+        logger.warning("OCR timeout for %s — saving with empty text", file.filename)
     except Exception:
-        logger.exception("OCR failed for %s", file.filename)
-        err(500, "OCR processing failed")
+        logger.warning("OCR failed for %s — saving with empty text", file.filename)
 
     try:
         result = parse_invoice(raw_text)
@@ -935,11 +935,11 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
                 results.append({"filename": file.filename, "status": "error", "message": "Empty file"})
                 continue
             await file.seek(0)
+            raw_text = ""
             try:
-                raw_text = await asyncio.wait_for(extract_text(file, handwriting=False, file_bytes=content), timeout=30)
+                raw_text = await asyncio.wait_for(extract_text(file, handwriting=False, file_bytes=content), timeout=45)
             except Exception:
-                results.append({"filename": file.filename, "status": "error", "message": "OCR failed"})
-                continue
+                logger.warning("OCR failed/timeout for batch file %s", file.filename)
             try:
                 parsed = parse_invoice(raw_text)
             except Exception:
