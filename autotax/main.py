@@ -2219,18 +2219,37 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except (ValueError, AttributeError):
             return 0.0
 
-    # Strategy 1: Try line-by-line (date + desc + amounts on same line)
-    for line in lines:
+    # Strategy 1: Window-based — group date line + next 2 lines into one entry
+    i = 0
+    while i < len(lines):
         if len(rows) >= expected_count and expected_count > 0:
             break
-        line = line.strip()
-        if not line or len(line) < 5:
+        line = lines[i].strip()
+        if not line or len(line) < 4:
+            i += 1
             continue
         line_lower = line.lower()
-        # Skip header-only lines (no date on line = probably header)
         has_date = bool(_re.search(_DATE_PAT, line))
         if not has_date and any(w in line_lower for w in ["datum", "beschreibung", "einnahmen", "ausgaben", "kassenbuch", "übertrag", "seitensumme"]):
+            i += 1
             continue
+
+        # If line has date, combine with next 1-2 lines for context
+        if has_date:
+            combined = line
+            lines_consumed = 1
+            for j in range(1, 3):
+                if i + j < len(lines):
+                    next_line = lines[i + j].strip()
+                    # Stop if next line starts with a new date
+                    if _re.search(r"^(" + _DATE_PAT + r")", next_line):
+                        break
+                    combined += " " + next_line
+                    lines_consumed += 1
+            line = combined
+            i += lines_consumed
+        else:
+            i += 1
 
         # Pattern: Date + Description + two amounts
         m = _re.search(
