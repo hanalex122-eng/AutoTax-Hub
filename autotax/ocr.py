@@ -11,41 +11,26 @@ OCR_API_URL = "https://api.ocr.space/parse/image"
 
 
 def preprocess_image(content: bytes) -> bytes:
-    """Preprocess image for better OCR accuracy.
-    Grayscale → contrast boost → sharpen → binarize.
-    Works well on dark, wrinkled, or low-quality receipts.
-    """
+    """Light preprocessing for OCR — no binarization (destroys scanned docs)."""
     try:
-        from PIL import Image, ImageEnhance, ImageFilter
+        from PIL import Image, ImageEnhance, ImageOps
         img = Image.open(io.BytesIO(content))
 
         # Convert to grayscale
         img = img.convert("L")
 
-        # Auto-contrast: stretch histogram
-        from PIL import ImageOps
-        img = ImageOps.autocontrast(img, cutoff=2)
+        # Auto-contrast
+        img = ImageOps.autocontrast(img, cutoff=1)
 
-        # Increase contrast
-        img = ImageEnhance.Contrast(img).enhance(1.8)
+        # Mild contrast boost
+        img = ImageEnhance.Contrast(img).enhance(1.3)
 
-        # Increase brightness slightly (helps dark receipts)
-        img = ImageEnhance.Brightness(img).enhance(1.2)
+        # Mild sharpen
+        img = ImageEnhance.Sharpness(img).enhance(1.5)
 
-        # Sharpen
-        img = ImageEnhance.Sharpness(img).enhance(2.0)
-
-        # Binarize (adaptive threshold simulation)
-        # Convert to pure black & white with threshold
-        threshold = 140
-        img = img.point(lambda x: 255 if x > threshold else 0, "1")
-
-        # Convert back to grayscale for OCR API
-        img = img.convert("L")
-
-        # Save to bytes
+        # Save as JPEG (smaller, faster upload to OCR API)
         buf = io.BytesIO()
-        img.save(buf, format="PNG", optimize=True)
+        img.save(buf, format="JPEG", quality=90)
         processed = buf.getvalue()
         logger.info("Image preprocessed: %d bytes → %d bytes", len(content), len(processed))
         return processed
