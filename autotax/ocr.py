@@ -69,14 +69,20 @@ def extract_pdf_page_as_image(content: bytes) -> bytes:
     """Convert first page of scanned PDF to PNG image bytes."""
     try:
         import pdfplumber
+        from PIL import Image
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             if pdf.pages:
-                img = pdf.pages[0].to_image(resolution=200).original
+                img = pdf.pages[0].to_image(resolution=150).original
+                # Resize if too large for OCR API (max ~1MB, aim for <500KB)
+                max_dim = 2000
+                if img.width > max_dim or img.height > max_dim:
+                    img.thumbnail((max_dim, max_dim), Image.LANCZOS)
                 buf = io.BytesIO()
-                img.save(buf, format="PNG")
+                img.save(buf, format="JPEG", quality=85)
+                logger.info("PDF→image: %d bytes, %dx%d", buf.tell(), img.width, img.height)
                 return buf.getvalue()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("PDF→image failed: %s", e)
     return b""
 
 
@@ -88,7 +94,7 @@ async def extract_image_text(content: bytes, filename: str) -> str:
     processed = preprocess_image(content)
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.post(
                     OCR_API_URL,
                     data={"apikey": OCR_API_KEY, "OCREngine": "1"},
