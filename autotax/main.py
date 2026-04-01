@@ -2229,6 +2229,27 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                     ausgaben = _parse_amount(nums[0])
             rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
 
+    # Strategy 3: If still no rows, treat as single receipt — extract vendor + amount using invoice parser
+    if not rows:
+        try:
+            from autotax.parser import parse_invoice
+            parsed = parse_invoice(text)
+            vendor = parsed.get("vendor", "")
+            amount = parsed.get("total_amount", 0)
+            date_str = parsed.get("date", "")
+            if amount and amount > 0:
+                rows.append({
+                    "date": date_str or datetime.now().strftime("%Y-%m-%d"),
+                    "description": vendor or "Beleg",
+                    "income": 0,
+                    "expense": round(float(amount), 2),
+                })
+                logger.info("Table import fallback: single receipt %s €%.2f", vendor, amount)
+        except Exception:
+            pass
+
+    logger.info("Table import result: %d rows from %d lines", len(rows), len(lines))
+
     # Generate CSV
     csv_lines = ["Datum,Beschreibung,Einnahmen,Ausgaben"]
     for r in rows:
