@@ -2324,7 +2324,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 if len(desc) < 2:
                     desc = "Eintrag"
                 amt = _parse_amount(amounts_in_line[-1]) if amounts_in_line else 0
-                rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
+                rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2), "is_uncertain": amt == 0})
 
     logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
 
@@ -2421,8 +2421,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             elif amounts:
                 rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
             else:
-                # No amount found — still save entry with 0
-                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": 0})
+                # No amount found — save but mark uncertain
+                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": 0, "is_uncertain": True})
 
         if rows:
             logger.info("Strategy 2.5 date-split: %d rows extracted", len(rows))
@@ -2446,6 +2446,11 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except Exception:
             pass
 
+    # Ensure all rows have is_uncertain flag
+    for r in rows:
+        if "is_uncertain" not in r:
+            r["is_uncertain"] = False
+
     # Deduplicate: same date + same description = duplicate
     seen = set()
     unique_rows = []
@@ -2464,7 +2469,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     csv_lines = ["Datum,Beschreibung,Einnahmen,Ausgaben"]
     for r in rows:
         desc = r["description"].replace('"', '""')
-        csv_lines.append(f'{r["date"]},"{desc}",{r["income"]:.2f},{r["expense"]:.2f}')
+        inc = f'{r["income"]:.2f}' if not r.get("is_uncertain") or r["income"] > 0 else ""
+        exp = f'{r["expense"]:.2f}' if not r.get("is_uncertain") or r["expense"] > 0 else ""
+        csv_lines.append(f'{r["date"]},"{desc}",{inc},{exp}')
     csv_text = "\n".join(csv_lines)
 
     # Optionally save to DB
