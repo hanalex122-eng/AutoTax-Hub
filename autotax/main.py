@@ -2142,12 +2142,18 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     _t0 = _time.time()
 
     # Pre-split: force newline before every date pattern
-    _DATE_PAT = r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}"
+    _DATE_PAT = (
+        r"\d{4}-\d{2}-\d{2}"            # 2026-03-05 (ISO)
+        r"|\d{1,2}[./]\d{1,2}[./]\d{2,4}"  # 05.03.2026 or 05/03/26
+        r"|\d{1,2}-\d{1,2}-\d{2,4}"      # 05-03-2026
+        r"|\d{1,2}\s\d{1,2}\s\d{2,4}"    # 05 03 2026 (OCR space)
+    )
     text = _re.sub(r"(" + _DATE_PAT + r")", r"\n\1", text)
 
     # Count dates to decide strategy
     all_dates_in_text = _re.findall(_DATE_PAT, text)
     expected_count = len(all_dates_in_text)
+    logger.info("Date detection: found %d dates in text (first 3: %s)", expected_count, all_dates_in_text[:3])
 
     lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 4]
     if len(lines) > 200:
@@ -2157,12 +2163,19 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     rows = []
 
     def _parse_date(raw):
-        parts = raw.replace("/", ".").split(".")
+        raw = raw.strip()
+        # Already ISO: 2026-03-05
+        if _re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+            return raw
+        # Normalize separators: space, dash, slash → dot
+        normalized = raw.replace("/", ".").replace("-", ".").replace(" ", ".")
+        parts = normalized.split(".")
         if len(parts) == 3:
             dd, mm, yy = parts[0].strip(), parts[1].strip(), parts[2].strip()
             if len(yy) == 2:
                 yy = "20" + yy
-            return f"{yy}-{mm.zfill(2)}-{dd.zfill(2)}"
+            if len(dd) <= 2 and len(mm) <= 2 and len(yy) == 4:
+                return f"{yy}-{mm.zfill(2)}-{dd.zfill(2)}"
         return raw
 
     def _detect_currency(t):
@@ -2215,7 +2228,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             continue
         line_lower = line.lower()
         # Skip header-only lines (no date on line = probably header)
-        has_date = bool(_re.search(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", line))
+        has_date = bool(_re.search(_DATE_PAT, line))
         if not has_date and any(w in line_lower for w in ["datum", "beschreibung", "einnahmen", "ausgaben", "kassenbuch", "übertrag", "seitensumme"]):
             continue
 
@@ -2266,7 +2279,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
 
         # Universal fallback: any date + any text + any amount anywhere in line
         if is_table_mode and has_date:
-            date_m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2})", line)
+            date_m = _re.search(r"(" + _DATE_PAT + r")", line)
             amounts_in_line = _re.findall(r"(\d+[.,]\d{2})", line)
             if date_m and amounts_in_line:
                 d = date_m.group(1)
