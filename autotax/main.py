@@ -2160,12 +2160,34 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             return f"{yy}-{mm.zfill(2)}-{dd.zfill(2)}"
         return raw
 
+    def _detect_currency(t):
+        tu = t.upper()
+        if "₺" in t or " TL" in tu or tu.endswith("TL"):
+            return "TRY"
+        if "€" in t or "EUR" in tu:
+            return "EUR"
+        if "$" in t or "USD" in tu:
+            return "USD"
+        if "£" in t or "GBP" in tu:
+            return "GBP"
+        if "CHF" in tu:
+            return "CHF"
+        return "EUR"  # default for German tax tool
+
+    detected_currency = _detect_currency(text)
+    logger.info("Table import currency: %s", detected_currency)
+
     def _parse_amount(s):
-        """Parse German number format: 1.234,56 → 1234.56"""
+        """Parse German/Turkish number format: 1.234,56 → 1234.56"""
         try:
             if "%" in s:
-                return 0.0  # percentage, not amount
-            s = s.replace("€", "").replace(" ", "").strip()
+                return 0.0
+            s = s.replace("€", "").replace("₺", "").replace(" ", "").strip()
+            # Remove TL suffix
+            if s.upper().endswith("TL"):
+                s = s[:-2].strip()
+            if s.upper().endswith("EUR"):
+                s = s[:-3].strip()
             if not s:
                 return 0.0
             # German format: 1.234,56 — dot is thousands, comma is decimal
@@ -2426,12 +2448,17 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         finally:
             db.close()
 
+    # Add currency to all rows
+    for r in rows:
+        r["currency"] = detected_currency
+
     return {
         "success": True,
         "rows": rows,
         "row_count": len(rows),
         "saved": saved,
         "csv": csv_text,
+        "currency": detected_currency,
         "ocr_text": text[:500],
     }
 
