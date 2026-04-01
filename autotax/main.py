@@ -2152,6 +2152,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         r"\d{4}-\d{2}-\d{2}"            # 2026-03-05 (ISO)
         r"|\d{1,2}[./]\d{1,2}[./]\d{2,4}"  # 05.03.2026 or 05/03/26
         r"|\d{1,2}-\d{1,2}-\d{2,4}"      # 05-03-2026
+        r"|\d{1,2}[.]\d{1,2}\s\d{2,4}"   # 31.8 21 (OCR broken dot+space)
         r"|\d{1,2}\s\d{1,2}\s\d{2,4}"    # 05 03 2026 (OCR space)
     )
     text = _re.sub(r"(" + _DATE_PAT + r")", r"\n\1", text)
@@ -2467,12 +2468,19 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 ll = line.lower().strip()
                 if any(w in ll for w in _skip):
                     continue
-                if _re.match(r"^(" + _DATE_PAT + r")", line.strip()):
-                    col_dates.append(line.strip())
-                elif _re.match(r"^" + _AMT_PAT + r"$", line.strip()):
-                    col_amounts.append(line.strip())
-                elif _re.match(r"^\d{1,3}$", line.strip()):
-                    continue  # row numbers
+                l = line.strip()
+                # "21 26.8.21" → row number + date merged
+                merged = _re.match(r"^\d{1,3}\s+(" + _DATE_PAT + r")", l)
+                if merged:
+                    col_dates.append(merged.group(1))
+                elif _re.match(r"^(" + _DATE_PAT + r")", l):
+                    col_dates.append(l)
+                elif _re.match(r"^" + _AMT_PAT + r"\s*[€$₺]?$", l):
+                    col_amounts.append(l)
+                elif _re.match(r"^-\s+\d", l):
+                    col_amounts.append(l.replace(" ", ""))  # "- 29,28" → "-29,28"
+                elif _re.match(r"^\d{1,3}$", l):
+                    continue
                 elif len(line.strip()) > 2 and not _re.match(r"^[\d.,€$₺/ \-]+$", line.strip()):
                     col_descs.append(line.strip())
 
