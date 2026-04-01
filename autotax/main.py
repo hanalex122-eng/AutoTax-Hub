@@ -2181,12 +2181,33 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
             continue
 
-        # Pattern: Date + Description + single amount
+        # Pattern: DD.MM.YYYY + Description + single amount
         m2 = _re.search(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*$", line)
         if m2:
             datum_raw, beschreibung = m2.group(1), m2.group(2).strip()
             if beschreibung and len(beschreibung) >= 2:
                 rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": 0, "expense": round(_parse_amount(m2.group(3)), 2)})
+            continue
+
+        # Pattern: YYYY-MM-DD + Description + two amounts
+        m3 = _re.search(r"(\d{4}-\d{2}-\d{2})\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$", line)
+        if m3:
+            date_iso, beschreibung = m3.group(1), m3.group(2).strip()
+            val1, val2 = _parse_amount(m3.group(3)), _parse_amount(m3.group(4))
+            einnahmen = val1 if val1 > 0 and val2 > 0 else 0
+            ausgaben = val2 if val1 == 0 or (val1 > 0 and val2 > 0) else val1
+            if einnahmen == 0 and ausgaben == 0:
+                ausgaben = max(val1, val2)
+            if beschreibung and len(beschreibung) >= 2:
+                rows.append({"date": date_iso, "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
+            continue
+
+        # Pattern: YYYY-MM-DD + Description + single amount
+        m4 = _re.search(r"(\d{4}-\d{2}-\d{2})\s+(.+?)\s+([\d.,]+)\s*$", line)
+        if m4:
+            date_iso, beschreibung = m4.group(1), m4.group(2).strip()
+            if beschreibung and len(beschreibung) >= 2:
+                rows.append({"date": date_iso, "description": beschreibung, "income": 0, "expense": round(_parse_amount(m4.group(3)), 2)})
             continue
 
     # Strategy 2: If no rows found, try merging split lines (OCR puts dates and amounts on separate lines)
@@ -2197,7 +2218,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             line = line.strip()
             if not line:
                 continue
-            if _re.match(r"^\d{1,2}[./]\d{1,2}[./]\d{2,4}\s+\S", line):
+            if _re.match(r"^\d{1,2}[./]\d{1,2}[./]\d{2,4}\s+\S", line) or _re.match(r"^\d{4}-\d{2}-\d{2}\s+\S", line):
                 date_lines.append(line)
             elif _re.match(r"^[\d.,]+\s+[\d.,]+\s*$", line):
                 amount_lines.append(line)
