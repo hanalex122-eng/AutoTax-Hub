@@ -1145,8 +1145,10 @@ function TableImportView({triggerRefresh,showToast,onNav}){
     clearInterval(iv);setStep("");setLoading(false);
   };
 
+  const isTable=rows.length>1; // true=Kassenbuch table, false=single invoice
   const saveRows=async()=>{
     if(!rows.length)return;
+    if(!isTable){setErrorMsg("Einzelbeleg — bitte über Upload hochladen. Tabelle Import ist nur für Kassenbuch-Tabellen (mehrere Einträge).");return;}
     const validRows=rows.filter(r=>!r.is_uncertain);
     const uncertainCount=rows.length-validRows.length;
     if(!validRows.length){setErrorMsg("Keine gültigen Einträge — bitte Beträge prüfen (⚠ markierte Zeilen).");return;}
@@ -1256,7 +1258,8 @@ function TableImportView({triggerRefresh,showToast,onNav}){
       </div>}
       <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end",flexWrap:"wrap"}}>
         {csv&&<button style={css.btnOutline} onClick={()=>{const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="tabelle_import.csv";a.click();URL.revokeObjectURL(u);}}>📥 Als CSV speichern</button>}
-        <button style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s",opacity:saving?0.6:1}} onClick={saveRows} disabled={saving} onMouseOver={e=>{if(!saving)e.currentTarget.style.transform="scale(1.05)";}} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{saving?"⏳ Wird gespeichert...":"📒 Jetzt ins Kassenbuch übernehmen"}</button>
+        {isTable?<button style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s",opacity:saving?0.6:1}} onClick={saveRows} disabled={saving} onMouseOver={e=>{if(!saving)e.currentTarget.style.transform="scale(1.05)";}} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{saving?"⏳ Wird gespeichert...":"📒 Jetzt ins Kassenbuch übernehmen"}</button>
+        :<div style={{fontSize:12,color:"#f59e0b",background:"rgba(245,158,11,0.08)",padding:"10px 16px",borderRadius:8,border:"1px solid rgba(245,158,11,0.2)"}}>Einzelbeleg erkannt — bitte über <strong>Upload</strong> hochladen. Tabelle Import ist nur für Kassenbuch-Tabellen.</div>}
       </div>
     </div>}
 
