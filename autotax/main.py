@@ -2302,7 +2302,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     if not rows and is_table_mode:
         logger.info("Strategy 2.5: date-split with %d dates", len(all_dates_in_text))
         # Split text at each date occurrence
-        blocks = _re.split(r"(?:^|\n)\s*(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?:^|\n)\s*(?=\d{4}-\d{2}-\d{2})", text)
+        blocks = _re.split(r"(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?=\d{4}-\d{2}-\d{2})", text)
+        blocks = [b.strip() for b in blocks if b.strip() and len(b.strip()) > 5]
+        logger.info("Strategy 2.5 blocks: %d (first: %s)", len(blocks), blocks[0][:60] if blocks else "none")
         for block in blocks:
             block = block.strip()
             if not block or len(block) < 5:
