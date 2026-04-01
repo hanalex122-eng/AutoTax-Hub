@@ -2138,17 +2138,22 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     if not text or len(text.strip()) < 10:
         err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
 
-    # Pre-split: force newline before every date pattern so each entry gets its own line
-    # This is the CRITICAL step — OCR often merges multiple entries on one line
-    text = _re.sub(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})", r"\n\1", text)
-    text = _re.sub(r"(\d{4}-\d{2}-\d{2})", r"\n\1", text)
+    import time as _time
+    _t0 = _time.time()
+
+    # Pre-split: force newline before every date pattern
+    _DATE_PAT = r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}"
+    text = _re.sub(r"(" + _DATE_PAT + r")", r"\n\1", text)
 
     # Count dates to decide strategy
-    all_dates_in_text = _re.findall(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}", text)
+    all_dates_in_text = _re.findall(_DATE_PAT, text)
+    expected_count = len(all_dates_in_text)
 
     lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 4]
-    is_table_mode = len(all_dates_in_text) > 1
-    logger.info("Table import: %d lines, %d dates, table_mode=%s", len(lines), len(all_dates_in_text), is_table_mode)
+    if len(lines) > 200:
+        lines = lines[:200]
+    is_table_mode = expected_count > 1
+    logger.info("Table import: %d lines, %d dates, table_mode=%s", len(lines), expected_count, is_table_mode)
     rows = []
 
     def _parse_date(raw):
@@ -2273,7 +2278,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                     rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2)})
                     logger.info("Table universal match: %s | %s | %.2f", d, desc[:30], amt)
 
-    logger.info("Strategy 1 result: %d rows from %d lines (dates=%d)", len(rows), len(lines), len(all_dates_in_text))
+    logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
 
     # If multiple dates but Strategy 1 found fewer rows → discard and retry
     if is_table_mode and len(rows) < len(all_dates_in_text) // 2:
@@ -2325,7 +2330,7 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         logger.info("Strategy 2.5: date-split with %d dates", len(all_dates_in_text))
         # Split text at each date occurrence
         blocks = _re.split(r"(?=\d{1,2}[./]\d{1,2}[./]\d{2,4})|(?=\d{4}-\d{2}-\d{2})", text)
-        blocks = [b.strip() for b in blocks if b.strip() and len(b.strip()) > 5]
+        blocks = [b.strip() for b in blocks if b.strip() and len(b.strip()) > 5][:100]
         logger.info("Strategy 2.5 blocks: %d (first: %s)", len(blocks), blocks[0][:60] if blocks else "none")
         for block in blocks:
             # Normalize: merge multi-line block into single line
@@ -2451,6 +2456,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     # Add currency to all rows
     for r in rows:
         r["currency"] = detected_currency
+
+    logger.info("Table import complete: %d rows in %.2fs", len(rows), _time.time()-_t0)
 
     return {
         "success": True,
