@@ -2208,6 +2208,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
 
     # Strategy 1: Try line-by-line (date + desc + amounts on same line)
     for line in lines:
+        if len(rows) >= expected_count and expected_count > 0:
+            break
         line = line.strip()
         if not line or len(line) < 5:
             continue
@@ -2333,6 +2335,8 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         blocks = [b.strip() for b in blocks if b.strip() and len(b.strip()) > 5][:100]
         logger.info("Strategy 2.5 blocks: %d (first: %s)", len(blocks), blocks[0][:60] if blocks else "none")
         for block in blocks:
+            if len(rows) >= expected_count and expected_count > 0:
+                break
             # Normalize: merge multi-line block into single line
             block = " ".join(block.splitlines()).strip()
             if not block or len(block) < 5:
