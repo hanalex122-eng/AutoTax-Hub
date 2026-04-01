@@ -2323,7 +2323,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
                 if len(desc) < 2:
                     desc = "Eintrag"
-                amt = _parse_amount(amounts_in_line[-1]) if amounts_in_line else 0
+                parsed_amts = [_parse_amount(a) for a in amounts_in_line]
+                parsed_amts = [v for v in parsed_amts if v > 0]
+                amt = max(parsed_amts) if parsed_amts else 0
                 rows.append({"date": _parse_date(d) if "." in d or "/" in d else d, "description": desc[:80], "income": 0, "expense": round(amt, 2), "is_uncertain": amt == 0})
 
     logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
@@ -2410,18 +2412,12 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
                 desc = "Eintrag"
 
             parsed_date = _parse_date(date_raw) if ("." in date_raw or "/" in date_raw) else date_raw
-            if amounts and len(amounts) >= 2:
-                v1, v2 = _parse_amount(amounts[-2]), _parse_amount(amounts[-1])
-                if v1 > 0 and v2 == 0:
-                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(v1, 2)})
-                elif v1 == 0 and v2 > 0:
-                    rows.append({"date": parsed_date, "description": desc[:80], "income": round(v2, 2), "expense": 0})
-                else:
-                    rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(max(v1, v2), 2)})
-            elif amounts:
-                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(_parse_amount(amounts[0]), 2)})
+            if amounts:
+                parsed_vals = [_parse_amount(a) for a in amounts]
+                parsed_vals = [v for v in parsed_vals if v > 0]
+                amt = max(parsed_vals) if parsed_vals else 0
+                rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": round(amt, 2), "is_uncertain": amt == 0})
             else:
-                # No amount found — save but mark uncertain
                 rows.append({"date": parsed_date, "description": desc[:80], "income": 0, "expense": 0, "is_uncertain": True})
 
         if rows:
