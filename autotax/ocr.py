@@ -27,30 +27,30 @@ def preprocess_image(content: bytes) -> bytes:
         img = img.convert("L")
 
         # Resize large images (iPhone photos are 3024x4032 = 1.7MB+)
-        # OCR.space free plan max 1MB — aim for <800KB
-        max_dim = 1600
+        # OCR.space free plan max 1MB
+        max_dim = 2000
         if img.width > max_dim or img.height > max_dim:
             img.thumbnail((max_dim, max_dim), Image.LANCZOS)
 
         # Auto-contrast
         img = ImageOps.autocontrast(img, cutoff=1)
 
-        # Mild contrast boost
-        img = ImageEnhance.Contrast(img).enhance(1.3)
+        # Contrast boost
+        img = ImageEnhance.Contrast(img).enhance(1.5)
 
-        # Mild sharpen
-        img = ImageEnhance.Sharpness(img).enhance(1.5)
+        # Sharpen
+        img = ImageEnhance.Sharpness(img).enhance(1.8)
 
-        # Save as JPEG (smaller, faster upload to OCR API)
+        # Save as PNG for best OCR quality (small images) or JPEG for large
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=80)
+        img.save(buf, format="PNG")
         processed = buf.getvalue()
 
-        # If still too large, reduce more
-        if len(processed) > 900000:
-            img.thumbnail((1200, 1200), Image.LANCZOS)
+        # If PNG too large for OCR API, fall back to JPEG
+        if len(processed) > 950000:
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=70)
+            img.thumbnail((1600, 1600), Image.LANCZOS)
+            img.save(buf, format="JPEG", quality=85)
             processed = buf.getvalue()
 
         logger.info("Image preprocessed: %d bytes → %d bytes (%dx%d)", len(content), len(processed), img.width, img.height)
