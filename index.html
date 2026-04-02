@@ -616,9 +616,9 @@ function InvoicesView({refreshKey,showToast}){
       </div>
       <div style={{display:"flex",gap:10,marginTop:12}}><button style={css.btn()} onClick={saveEdit}>Speichern</button><button style={css.btnOutline} onClick={()=>setEditId(null)}>Abbrechen</button></div>
     </div>}
-    <div style={{...css.card,padding:0,overflow:"hidden"}}>
+    <div style={{...css.card,padding:0,overflowX:"auto"}}>
       {loading?<div style={{padding:48,textAlign:"center",color:theme.textMuted,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.accent} strokeWidth="2" style={{animation:"spin 1s linear infinite"}}><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg><span>Rechnungen laden...</span></div>:filtered.length===0?<div style={{padding:48,textAlign:"center",color:theme.textDim,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}><Icon d={I.invoice} size={28} color={theme.textDim}/><span style={{fontSize:14,fontWeight:500}}>Keine Rechnungen gefunden</span><span style={{fontSize:12}}>Passe die Filter an oder lade Belege hoch</span></div>:
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
         <thead><tr style={{borderBottom:"2px solid "+theme.border,background:theme.surfaceAlt}}>
           <th style={{padding:"14px 10px",width:36}} className="cb-cell"><input type="checkbox" checked={selected.size===filtered.length&&filtered.length>0} onChange={toggleAll}/></th>
           {["Typ","Lieferant","Rg-Nr.","Datum","Betrag","MwSt","Kategorie","",""].map(h=><th key={h} className={["Rg-Nr.","MwSt","Kategorie"].includes(h)?"hide-mobile":""} style={{padding:"14px 16px",textAlign:"left",color:theme.textDim,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:0.5}}>{h}</th>)}
@@ -979,7 +979,7 @@ function BookkeepingView({refreshKey,onNav}){
   </div>);
 }
 
-function VaultView(){
+function VaultView({onNav}){
   const[items,setItems]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);
   const[preview,setPreview]=useState(null);
   const load=(q)=>{setLoading(true);api("/vault"+(q?"?search="+encodeURIComponent(q):"")).then(d=>setItems(d.items||[])).catch(()=>{}).finally(()=>setLoading(false));};
@@ -1031,12 +1031,13 @@ function VaultView(){
           <span style={{fontSize:10,color:theme.accent}}>Original gespeichert ✔</span>
           <span style={{fontSize:9,color:theme.textDim,background:theme.surfaceAlt,padding:"1px 6px",borderRadius:4}}>{(i.file_content_type||"").includes("pdf")?"PDF":(i.file_content_type||"").includes("png")?"PNG":(i.file_content_type||"").includes("xml")?"XML":"JPG"}</span>
         </div>}
-        <div style={{display:"flex",gap:6,marginTop:4}}>
-          {i.has_original?<Fragment>
+        <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+          {i.has_original&&<Fragment>
             <button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>Original anzeigen</button>
-            <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Original herunterladen</button>
-          </Fragment>:<div style={{fontSize:11,color:theme.textDim,padding:"6px 0"}}>Kein Original — nur OCR-Daten vorhanden</div>}
-          <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️ PDF</button>
+            <button style={{...css.btnOutline,flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>Herunterladen</button>
+          </Fragment>}
+          <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️ PDF</button>
+          <button style={{background:"transparent",border:"1px solid rgba(59,130,246,0.3)",color:theme.blue,padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:"inherit"}} onClick={()=>{if(onNav)onNav("invoices");}}>Bearbeiten</button>
         </div>
       </div>)}
     </div>}
