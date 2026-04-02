@@ -1116,8 +1116,33 @@ function TableImportView({triggerRefresh,showToast,onNav}){
   const fileRef=useRef(null);const tableRef=useRef(null);
   const[mode,setMode]=useState("image");
   const[showTable,setShowTable]=useState(false);
+  // Column mapping for CSV/XLSX
+  const[rawTable,setRawTable]=useState([]);// 2D array: [[cell,cell,...],...]
+  const[colMap,setColMap]=useState({date:-1,description:-1,expense:-1,income:-1});
+  const[showMapping,setShowMapping]=useState(false);
 
-  const handleFile=(e)=>{const f=e.target.files?.[0];if(f){setFile(f);setErrorMsg("");setSaved(0);setRows([]);setShowTable(false);}e.target.value="";};
+  const handleFile=(e)=>{const f=e.target.files?.[0];if(f){setFile(f);setErrorMsg("");setSaved(0);setRows([]);setShowTable(false);setShowMapping(false);setRawTable([]);}e.target.value="";};
+
+  const applyMapping=()=>{
+    if(colMap.date===-1&&colMap.description===-1){setErrorMsg("Bitte mindestens Datum oder Beschreibung zuordnen.");return;}
+    const dataRows=rawTable.slice(1);// skip header
+    const mapped=[];
+    for(const row of dataRows){
+      const date=colMap.date>=0?(row[colMap.date]||"").trim():"";
+      const desc=colMap.description>=0?(row[colMap.description]||"").trim():"Eintrag";
+      const expRaw=colMap.expense>=0?(row[colMap.expense]||"").trim():"";
+      const incRaw=colMap.income>=0?(row[colMap.income]||"").trim():"";
+      const parseNum=(s)=>{s=s.replace(/[€$₺\s]/g,"");if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",",".");else if(s.includes(","))s=s.replace(",",".");return parseFloat(s)||0;};
+      const expense=parseNum(expRaw);
+      const income=parseNum(incRaw);
+      if(!date&&!desc)continue;
+      if(expense===0&&income===0&&!expRaw&&!incRaw)continue;
+      mapped.push({date,description:desc||"Eintrag",expense,income,is_uncertain:expense===0&&income===0});
+    }
+    if(!mapped.length){setErrorMsg("Keine gültigen Zeilen gefunden.");return;}
+    setRows(mapped);setShowMapping(false);setShowTable(true);
+    setTimeout(()=>{tableRef.current?.scrollIntoView({behavior:"smooth",block:"start"});},200);
+  };
 
   const steps=["Datei wird gelesen...","Struktur wird erkannt...","Spalten werden zugeordnet...","Einträge werden erstellt..."];
 
@@ -1138,10 +1163,32 @@ function TableImportView({triggerRefresh,showToast,onNav}){
         if(d.success&&d.rows&&d.rows.length>0){setRows(d.rows);setCsv(d.csv||"");setRawRows(d.raw_rows||[]);setTimeout(()=>{setShowTable(true);setTimeout(()=>{tableRef.current?.scrollIntoView({behavior:"smooth",block:"start"});},200);},100);}
         else{setRawRows(d.raw_rows||[]);setErrorMsg("Keine Tabelle erkannt — bitte anderes Format oder bessere Qualität versuchen.");}
       }else{
-        const r=await fetch(API+endpoint,{method:"POST",headers:{Authorization:"Bearer "+tk},body:fd});
-        const d=await r.json();
-        if(d.success){setSaved(d.imported||0);if(showToast)showToast((d.imported||0)+" Einträge importiert","success");if(triggerRefresh)triggerRefresh();}
-        else{setErrorMsg(d.detail?.error||d.detail||"Import fehlgeschlagen — bitte Dateiformat prüfen.");}
+        // CSV/XLSX: parse client-side for column mapping
+        try{
+          const text=await file.text();
+          const sep=text.includes(";")?";":","
+          const lines=text.split(/\r?\n/).filter(l=>l.trim());
+          const table=lines.map(l=>{
+            const cells=[];let cur="";let inQ=false;
+            for(let c=0;c<l.length;c++){if(l[c]==='"'){inQ=!inQ;}else if(l[c]===sep&&!inQ){cells.push(cur.trim());cur="";}else{cur+=l[c];}}
+            cells.push(cur.trim());return cells;
+          });
+          if(table.length<2){setErrorMsg("Datei leer oder ungültig.");clearInterval(iv);setStep("");setLoading(false);return;}
+          setRawTable(table);
+          // Auto-detect columns from header
+          const hdr=table[0].map(h=>h.toLowerCase());
+          const newMap={date:-1,description:-1,expense:-1,income:-1};
+          hdr.forEach((h,i)=>{
+            if(/datum|date|tarih/.test(h))newMap.date=i;
+            else if(/beschreibung|description|vendor|lieferant|text|bezeichnung/.test(h))newMap.description=i;
+            else if(/ausgabe|expense|betrag|amount|kosten/.test(h))newMap.expense=i;
+            else if(/einnahme|income|revenue|umsatz/.test(h))newMap.income=i;
+          });
+          // If no expense found, try amount column
+          if(newMap.expense===-1){hdr.forEach((h,i)=>{if(i!==newMap.date&&i!==newMap.description&&i!==newMap.income&&/\d/.test(table[1]?.[i]||""))newMap.expense=i;});}
+          setColMap(newMap);setShowMapping(true);
+          setTimeout(()=>{tableRef.current?.scrollIntoView({behavior:"smooth",block:"start"});},200);
+        }catch(ex){setErrorMsg("CSV/Excel konnte nicht gelesen werden: "+ex.message);}
       }
     }catch(e){setErrorMsg("Verbindungsfehler — bitte erneut versuchen.");}
     clearInterval(iv);setStep("");setLoading(false);
@@ -1223,6 +1270,35 @@ function TableImportView({triggerRefresh,showToast,onNav}){
       <div style={{fontSize:36,marginBottom:8}}>🎉</div>
       <div style={{fontSize:20,fontWeight:700,color:theme.accent}}>{saved} Einträge erfolgreich importiert</div>
       <div style={{fontSize:13,color:theme.textMuted,marginTop:6}}>Automatisch kategorisiert — im Kassenbuch verfügbar</div>
+    </div>}
+
+    {showMapping&&rawTable.length>1&&<div ref={tableRef} style={{animation:"fadeIn 0.5s ease"}}>
+      <h3 style={{fontSize:16,fontWeight:700,color:theme.text,margin:"0 0 12px"}}>Spalten zuordnen</h3>
+      <div style={{overflowX:"auto",borderRadius:12,border:"1px solid "+theme.border,marginBottom:16}}>
+        <table style={{width:"100%",borderCollapse:"collapse",background:theme.card,fontSize:12}}>
+          <thead>
+            <tr style={{borderBottom:"2px solid "+theme.border,background:theme.surfaceAlt}}>
+              {rawTable[0].map((h,ci)=><th key={ci} style={{padding:"8px 10px",textAlign:"left"}}>
+                <div style={{fontSize:11,color:theme.textDim,marginBottom:4}}>{h||"Spalte "+(ci+1)}</div>
+                <select style={{...css.input,fontSize:11,padding:"4px 6px",width:"100%"}} value={colMap.date===ci?"date":colMap.description===ci?"description":colMap.expense===ci?"expense":colMap.income===ci?"income":"ignore"} onChange={e=>{const role=e.target.value;const nm={...colMap};Object.keys(nm).forEach(k=>{if(nm[k]===ci)nm[k]=-1;});if(role!=="ignore")nm[role]=ci;setColMap(nm);}}>
+                  <option value="ignore">-- Ignorieren --</option>
+                  <option value="date">Datum</option>
+                  <option value="description">Beschreibung</option>
+                  <option value="expense">Ausgabe</option>
+                  <option value="income">Einnahme</option>
+                </select>
+              </th>)}
+            </tr>
+          </thead>
+          <tbody>{rawTable.slice(1,6).map((row,ri)=><tr key={ri} style={{borderBottom:"1px solid "+theme.border}}>
+            {row.map((cell,ci)=><td key={ci} style={{padding:"6px 10px",color:colMap.date===ci?theme.accent:colMap.expense===ci?theme.danger:colMap.income===ci?"#22c55e":theme.textMuted,fontSize:11,fontFamily:colMap.expense===ci||colMap.income===ci?mono:undefined}}>{cell}</td>)}
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <button style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={applyMapping}>Zuordnung anwenden</button>
+        <span style={{fontSize:11,color:theme.textDim}}>Vorschau: erste 5 Zeilen — {rawTable.length-1} gesamt</span>
+      </div>
     </div>}
 
     {showTable&&rows.length>0&&<div ref={tableRef} style={{animation:"fadeIn 0.5s ease"}}>
