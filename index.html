@@ -1167,7 +1167,7 @@ function TableImportView({triggerRefresh,showToast,onNav}){
         try{
           const text=await file.text();
           const sep=text.includes(";")?";":","
-          const lines=text.split(/\r?\n/).filter(l=>l.trim());
+          const lines=text.split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith("#")&&!l.trim().toUpperCase().startsWith("HINWEIS"));
           const table=lines.map(l=>{
             const cells=[];let cur="";let inQ=false;
             for(let c=0;c<l.length;c++){if(l[c]==='"'){inQ=!inQ;}else if(l[c]===sep&&!inQ){cells.push(cur.trim());cur="";}else{cur+=l[c];}}
