@@ -44,8 +44,9 @@ input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: #e2e8f0; }
 }
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }
-  table th, table td { padding: 8px 6px !important; font-size: 11px !important; }
-  div[style*="padding:32"] { padding: 12px !important; }
+  table th, table td { padding: 4px 3px !important; font-size: 10px !important; }
+  table th { font-size: 9px !important; }
+  div[style*="padding:32"] { padding: 8px !important; }
 }
 </style>
 </head>
@@ -618,7 +619,7 @@ function InvoicesView({refreshKey,showToast}){
     </div>}
     <div style={{...css.card,padding:0,overflowX:"auto"}}>
       {loading?<div style={{padding:48,textAlign:"center",color:theme.textMuted,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.accent} strokeWidth="2" style={{animation:"spin 1s linear infinite"}}><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.49-8.49l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg><span>Rechnungen laden...</span></div>:filtered.length===0?<div style={{padding:48,textAlign:"center",color:theme.textDim,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}><Icon d={I.invoice} size={28} color={theme.textDim}/><span style={{fontSize:14,fontWeight:500}}>Keine Rechnungen gefunden</span><span style={{fontSize:12}}>Passe die Filter an oder lade Belege hoch</span></div>:
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
         <thead><tr style={{borderBottom:"2px solid "+theme.border,background:theme.surfaceAlt}}>
           <th style={{padding:"14px 10px",width:36}} className="cb-cell"><input type="checkbox" checked={selected.size===filtered.length&&filtered.length>0} onChange={toggleAll}/></th>
           {["Typ","Lieferant","Rg-Nr.","Datum","Betrag","MwSt","Kategorie","",""].map(h=><th key={h} className={["Rg-Nr.","MwSt","Kategorie"].includes(h)?"hide-mobile":""} style={{padding:"14px 16px",textAlign:"left",color:theme.textDim,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:0.5}}>{h}</th>)}
