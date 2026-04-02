@@ -1074,12 +1074,16 @@ def extract_total(raw_text: str) -> float:
         if 0.01 <= val < 100000:
             return val
 
-    # Try € symbol patterns (€12.34 or 12.34€ or 12,34 €)
+    # Try € symbol patterns (€12.34 or 12.34€ or 12,34 € or 30 EUR)
     euro_patterns = [
         r"€\s*(\d+\.\d{2})",
         r"(\d+\.\d{2})\s*€",
         r"(\d+\.\d{2})\s*eur\b",
         r"(\d+\.\d{2})\s*tl\b",     # Türk Lirası
+        r"€\s*(\d+)\b",             # €30 (integer)
+        r"(\d+)\s*€",               # 30€
+        r"(\d+)\s+eur\b",           # 30 EUR
+        r"(\d+)\s+tl\b",            # 30 TL
     ]
     for pat in euro_patterns:
         m = re.search(pat, text, re.IGNORECASE)
@@ -1097,6 +1101,12 @@ def extract_total(raw_text: str) -> float:
 
     if amounts:
         return max(amounts)
+
+    # Last resort: integer amounts near currency keywords
+    for m in re.findall(r"(?:montant|betrag|summe|total|amount)\s*(?:reel\s*)?(\d+)\s*(?:eur|€|tl|usd|\$)", text, re.IGNORECASE):
+        val = float(m)
+        if 1 <= val < 100000:
+            return val
 
     return 0.0
 
