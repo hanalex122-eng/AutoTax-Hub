@@ -1121,7 +1121,8 @@ function TableImportView({triggerRefresh,showToast,onNav}){
   const[colMap,setColMap]=useState({date:-1,description:-1,expense:-1,income:-1});
   const[showMapping,setShowMapping]=useState(false);
 
-  const handleFile=(e)=>{const f=e.target.files?.[0];if(f){setFile(f);setErrorMsg("");setSaved(0);setRows([]);setShowTable(false);setShowMapping(false);setRawTable([]);}e.target.value="";};
+  const resetAll=()=>{setFile(null);setRows([]);setCsv("");setSaved(0);setErrorMsg("");setShowTable(false);setShowMapping(false);setRawTable([]);setRawRows([]);setShowRaw(false);};
+  const handleFile=(e)=>{const f=e.target.files?.[0];if(f){resetAll();setFile(f);}e.target.value="";};
 
   const applyMapping=()=>{
     if(colMap.date===-1&&colMap.description===-1){setErrorMsg("Bitte mindestens Datum oder Beschreibung zuordnen.");return;}
@@ -1219,7 +1220,7 @@ function TableImportView({triggerRefresh,showToast,onNav}){
       if(showToast)showToast(ok+" Einträge ins Kassenbuch übernommen","success");
       if(uncertainCount>0)setErrorMsg(uncertainCount+" Einträge mit ⚠ wurden nicht gespeichert — bitte Beträge prüfen und erneut speichern.");
       if(triggerRefresh)triggerRefresh();
-      if(!remaining.length)setTimeout(()=>{if(onNav)onNav("bookkeeping");},2500);
+      if(!remaining.length){setFile(null);setTimeout(()=>{if(onNav)onNav("bookkeeping");},2500);}
     }catch(e){setErrorMsg("Verbindungsfehler — "+ok+" von "+validRows.length+" gespeichert.");}
     setSaving(false);setStep("");
   };
