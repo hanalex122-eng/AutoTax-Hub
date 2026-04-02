@@ -292,6 +292,8 @@ KNOWN_VAT_RATES: dict[str, list[float]] = {
 def normalize(text: str) -> str:
     """Normalize OCR text for amount/keyword extraction."""
     t = text.lower()
+    # Replace newlines with spaces (OCR splits keywords across lines)
+    t = re.sub(r"\n+", " ", t)
     # Standardize currency symbols
     t = t.replace("€", " EUR ")
     t = t.replace("chf", " CHF ")
