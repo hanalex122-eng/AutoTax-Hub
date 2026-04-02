@@ -919,8 +919,9 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
     try:
         dup = db_check.query(Invoice).filter(
             Invoice.user_id == user["sub"],
-            Invoice.filename == file.filename,
+            Invoice.vendor == (result.get("vendor") or "Unbekannt"),
             Invoice.total_amount == safe_float(result.get("total_amount")),
+            Invoice.date == (result.get("date") or ""),
         ).first()
         if dup:
             return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "message": "Duplicate invoice detected"}
@@ -997,8 +998,9 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
             try:
                 dup = db_dup.query(Invoice).filter(
                     Invoice.user_id == user["sub"],
-                    Invoice.filename == file.filename,
+                    Invoice.vendor == (parsed.get("vendor") or "Unbekannt"),
                     Invoice.total_amount == safe_float(parsed.get("total_amount")),
+                    Invoice.date == (parsed.get("date") or ""),
                 ).first()
             finally:
                 db_dup.close()
