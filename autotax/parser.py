@@ -772,6 +772,32 @@ def detect_country(raw_text: str) -> str:
     return "DE"
 
 
+def detect_currency(raw_text: str) -> str:
+    """Detect currency from symbols and keywords in text."""
+    t = raw_text
+    # Check symbols first (most reliable)
+    if "$" in t and "€" not in t:
+        return "USD"
+    if "₺" in t:
+        return "TRY"
+    if "£" in t and "€" not in t:
+        return "GBP"
+    # Check keywords
+    tu = t.upper()
+    if " USD" in tu or "US$" in tu:
+        return "USD"
+    if " TL " in tu or " TL\n" in tu or tu.endswith(" TL"):
+        return "TRY"
+    if " GBP" in tu:
+        return "GBP"
+    if " CHF" in tu:
+        return "CHF"
+    # Default
+    if "€" in t or "EUR" in tu:
+        return "EUR"
+    return "EUR"
+
+
 # ════════════════════════════════════════════════════════════════
 # DATE EXTRACTION
 # ════════════════════════════════════════════════════════════════
@@ -1308,6 +1334,7 @@ def parse_invoice(raw_text: str) -> dict:
         if deep_vendor != "Unbekannt":
             vendor = deep_vendor
     country = detect_country(raw_text)
+    currency = detect_currency(raw_text)
     category = detect_category(vendor, raw_text)
     date = extract_date(raw_text)
     total = extract_total(raw_text)
@@ -1326,5 +1353,6 @@ def parse_invoice(raw_text: str) -> dict:
         "invoice_number": invoice_number,
         "payment_method": payment_method,
         "country": country,
+        "currency": currency,
         "raw_text": raw_text,
     }
