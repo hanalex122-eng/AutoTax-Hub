@@ -220,11 +220,14 @@ def extract_pdf_page_as_image(content: bytes) -> bytes:
     return b""
 
 
-async def _ocr_api_call(client, filename: str, content: bytes, engine: str = "1") -> str:
+async def _ocr_api_call(client, filename: str, content: bytes, engine: str = "1", is_table: bool = False) -> str:
     """Single OCR API call with given engine."""
+    api_data = {"apikey": OCR_API_KEY, "OCREngine": engine, "detectOrientation": "true", "scale": "true"}
+    if is_table:
+        api_data["isTable"] = "true"
     resp = await client.post(
         OCR_API_URL,
-        data={"apikey": OCR_API_KEY, "OCREngine": engine, "detectOrientation": "true", "isTable": "true", "scale": "true"},
+        data=api_data,
         files={"file": (filename, content)},
     )
     resp.raise_for_status()
@@ -244,8 +247,8 @@ async def extract_image_text(content: bytes, filename: str) -> str:
         logger.warning("OCR skipped — no API key configured")
         return ""
     logger.info("OCR: processing %d bytes, engine=dual", len(content))
-    # Attempt 1: printed preset + Engine 1
-    processed = preprocess_image(content, preset="printed")
+    # Attempt 1: soft preset (safe for receipts/invoices) + Engine 1
+    processed = preprocess_image(content, preset="printed_soft")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             text = await _ocr_api_call(client, filename, processed, "1")
@@ -257,11 +260,11 @@ async def extract_image_text(content: bytes, filename: str) -> str:
                 if len(text2) > len(text):
                     text = text2
 
-            # If still insufficient, try soft preset (for clean scans)
+            # If still insufficient, try aggressive printed preset (for low quality scans)
             if len(text) < 20:
-                logger.info("OCR printed preset insufficient (%d chars), trying soft preset", len(text))
-                processed_soft = preprocess_image(content, preset="printed_soft")
-                text3 = await _ocr_api_call(client, filename, processed_soft, "1")
+                logger.info("OCR soft preset insufficient (%d chars), trying printed preset", len(text))
+                processed_hard = preprocess_image(content, preset="printed")
+                text3 = await _ocr_api_call(client, filename, processed_hard, "1")
                 if len(text3) > len(text):
                     text = text3
 
@@ -280,7 +283,7 @@ async def extract_handwriting_text(content: bytes, filename: str) -> str:
     best_text = ""
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            best_text = await _ocr_api_call(client, filename, processed, "2")
+            best_text = await _ocr_api_call(client, filename, processed, "2", is_table=True)
             logger.info("Handwriting preset=handwriting: %d chars", len(best_text))
 
             # If good enough, skip retries
@@ -291,7 +294,7 @@ async def extract_handwriting_text(content: bytes, filename: str) -> str:
 
             # Attempt 2: bright preset (for faint handwriting)
             processed2 = preprocess_image(content, preset="handwriting_bright")
-            text2 = await _ocr_api_call(client, filename, processed2, "2")
+            text2 = await _ocr_api_call(client, filename, processed2, "2", is_table=True)
             logger.info("Handwriting preset=handwriting_bright: %d chars", len(text2))
             if len(text2) > len(best_text):
                 best_text = text2
@@ -299,7 +302,7 @@ async def extract_handwriting_text(content: bytes, filename: str) -> str:
             # If still not enough, try dark preset
             if len(best_text) < 30:
                 processed3 = preprocess_image(content, preset="handwriting_dark")
-                text3 = await _ocr_api_call(client, filename, processed3, "2")
+                text3 = await _ocr_api_call(client, filename, processed3, "2", is_table=True)
                 logger.info("Handwriting preset=handwriting_dark: %d chars", len(text3))
                 if len(text3) > len(best_text):
                     best_text = text3
