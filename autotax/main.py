@@ -1040,6 +1040,11 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
         if dup:
             # --- ADDED START: force_upload bypass ---
             if not force_upload:
+                # --- ADDED: check if duplicate is soft-deleted ---
+                if dup.is_deleted:
+                    logger.info("Duplicate is soft-deleted: invoice %d", dup.id)
+                    return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate_deleted", "duplicate_deleted": True, "message": "Bu fatura daha once silinmis. Geri yuklemek ister misiniz?"}
+                # --- END ---
                 logger.info("Duplicate detected: vendor=%s, amount=%s, date=%s", result.get("vendor"), result.get("total_amount"), result.get("date"))
                 return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "duplicate": True, "can_force": True, "message": "Bu fatura zaten yuklu. Tekrar yuklemek ister misiniz?"}
             else:
@@ -1175,6 +1180,9 @@ def list_invoices(
     db = SessionLocal()
     try:
         q = db.query(Invoice).filter(Invoice.user_id == user["sub"])
+        # --- ADDED: exclude soft-deleted ---
+        q = q.filter((Invoice.is_deleted == False) | (Invoice.is_deleted == None))
+        # --- END ---
 
         if search:
             # Smart multi-keyword search: split by space, ALL keywords must match
@@ -1410,13 +1418,26 @@ def put_invoice(invoice_id: int, body: InvoiceUpdate, user: dict = Depends(get_c
 # ============================================================
 
 @app.delete("/invoices/{invoice_id}")
-def delete_invoice(invoice_id: int, user: dict = Depends(get_current_user)):
+def delete_invoice(invoice_id: int, permanent: bool = False, user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
         inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
         if not inv:
             err(404, "Invoice not found")
-        db.delete(inv)
+        # --- ADDED: soft delete ---
+        if permanent:
+            db.delete(inv)
+            logger.info("Permanent delete: invoice %d", invoice_id)
+        else:
+            inv.is_deleted = True
+            inv.deleted_at = datetime.now()
+            logger.info("Soft delete: invoice %d", invoice_id)
+            # Also soft-delete linked cash entry
+            linked = db.query(CashEntry).filter(CashEntry.invoice_id == invoice_id, CashEntry.user_id == user["sub"]).first()
+            if linked:
+                linked.is_deleted = True
+                linked.deleted_at = datetime.now()
+        # --- END ---
         db.commit()
         return {"success": True, "deleted": invoice_id}
     except HTTPException:
@@ -1436,10 +1457,19 @@ class BulkDeleteRequest(BaseModel):
 def bulk_delete_invoices(body: BulkDeleteRequest, user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        deleted = db.query(Invoice).filter(
-            Invoice.id.in_(body.ids),
-            Invoice.user_id == user["sub"],
-        ).delete(synchronize_session="fetch")
+        # --- ADDED: soft delete ---
+        invs = db.query(Invoice).filter(Invoice.id.in_(body.ids), Invoice.user_id == user["sub"]).all()
+        deleted = 0
+        for inv in invs:
+            inv.is_deleted = True
+            inv.deleted_at = datetime.now()
+            deleted += 1
+            linked = db.query(CashEntry).filter(CashEntry.invoice_id == inv.id, CashEntry.user_id == user["sub"]).first()
+            if linked:
+                linked.is_deleted = True
+                linked.deleted_at = datetime.now()
+        logger.info("Soft bulk delete: %d invoices", deleted)
+        # --- END ---
         db.commit()
         return {"success": True, "deleted": deleted}
     except HTTPException:
@@ -1489,6 +1519,9 @@ def _list_bookkeeping(skip, limit, user):
     db = SessionLocal()
     try:
         q = db.query(CashEntry).filter(CashEntry.user_id == user["sub"])
+        # --- ADDED: exclude soft-deleted ---
+        q = q.filter((CashEntry.is_deleted == False) | (CashEntry.is_deleted == None))
+        # --- END ---
         total_count = q.count()
         all_entries = q.all()
         entries = q.order_by(CashEntry.date.desc()).offset(skip).limit(limit).all()
@@ -1678,7 +1711,11 @@ def _delete_bookkeeping(entry_id: int, user: dict):
         entry = db.query(CashEntry).filter(CashEntry.id == entry_id, CashEntry.user_id == user["sub"]).first()
         if not entry:
             err(404, "Entry not found")
-        db.delete(entry)
+        # --- ADDED: soft delete ---
+        entry.is_deleted = True
+        entry.deleted_at = datetime.now()
+        logger.info("Soft delete: cash entry %d", entry_id)
+        # --- END ---
         db.commit()
         return {"success": True, "deleted": entry_id}
     except HTTPException:
@@ -3566,6 +3603,71 @@ def export_json(year: int = Query(None), user: dict = Depends(get_current_user))
         db.close()
 
 
+
+# --- ADDED START: Soft delete restore + trash endpoints ---
+
+@app.get("/invoices/deleted")
+def list_deleted_invoices(user: dict = Depends(get_current_user)):
+    """List all soft-deleted invoices (trash)."""
+    db = SessionLocal()
+    try:
+        invs = db.query(Invoice).filter(Invoice.user_id == user["sub"], Invoice.is_deleted == True).order_by(Invoice.deleted_at.desc()).all()
+        return {"success": True, "items": [invoice_to_dict(i) | {"deleted_at": i.deleted_at.strftime("%Y-%m-%dT%H:%M:%S") if i.deleted_at else ""} for i in invs], "total": len(invs)}
+    finally:
+        db.close()
+
+
+@app.post("/invoices/{invoice_id}/restore")
+def restore_invoice(invoice_id: int, user: dict = Depends(get_current_user)):
+    """Restore a soft-deleted invoice."""
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            err(404, "Invoice not found")
+        inv.is_deleted = False
+        inv.deleted_at = None
+        logger.info("Restored invoice %d", invoice_id)
+        # Also restore linked cash entry
+        linked = db.query(CashEntry).filter(CashEntry.invoice_id == invoice_id, CashEntry.user_id == user["sub"]).first()
+        if linked:
+            linked.is_deleted = False
+            linked.deleted_at = None
+            logger.info("Restored linked cash entry for invoice %d", invoice_id)
+        db.commit()
+        return {"success": True, "restored": invoice_id}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Restore invoice failed")
+        err(500, "Restore failed")
+    finally:
+        db.close()
+
+
+@app.delete("/invoices/{invoice_id}/permanent")
+def permanent_delete_invoice(invoice_id: int, user: dict = Depends(get_current_user)):
+    """Permanently delete an invoice (from trash)."""
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            err(404, "Invoice not found")
+        # Also delete linked cash entry
+        db.query(CashEntry).filter(CashEntry.invoice_id == invoice_id, CashEntry.user_id == user["sub"]).delete()
+        db.delete(inv)
+        db.commit()
+        logger.info("Permanent delete: invoice %d", invoice_id)
+        return {"success": True, "deleted": invoice_id}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Permanent delete failed")
+        err(500, "Delete failed")
+    finally:
+        db.close()
+
+# --- ADDED END ---
 
 # Build trigger: 2026-03-24
 # force deploy 2

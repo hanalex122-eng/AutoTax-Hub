@@ -51,6 +51,24 @@ def init_db():
             if "file_content_type" not in inv_cols:
                 conn.execute(text("ALTER TABLE invoices ADD COLUMN file_content_type VARCHAR"))
                 logger.info("Added 'file_content_type' column to invoices")
+        # --- ADDED START: soft delete columns ---
+        inv_cols = [c["name"] for c in insp.get_columns("invoices")]
+        with engine.begin() as conn:
+            if "is_deleted" not in inv_cols:
+                conn.execute(text("ALTER TABLE invoices ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE"))
+                logger.info("Added 'is_deleted' column to invoices")
+            if "deleted_at" not in inv_cols:
+                conn.execute(text("ALTER TABLE invoices ADD COLUMN deleted_at TIMESTAMP"))
+                logger.info("Added 'deleted_at' column to invoices")
+        ce_cols = [c["name"] for c in insp.get_columns("cash_entries")]
+        with engine.begin() as conn:
+            if "is_deleted" not in ce_cols:
+                conn.execute(text("ALTER TABLE cash_entries ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE"))
+                logger.info("Added 'is_deleted' column to cash_entries")
+            if "deleted_at" not in ce_cols:
+                conn.execute(text("ALTER TABLE cash_entries ADD COLUMN deleted_at TIMESTAMP"))
+                logger.info("Added 'deleted_at' column to cash_entries")
+        # --- ADDED END ---
     except Exception as e:
         logger.warning("Column migration skipped: %s", e)
 

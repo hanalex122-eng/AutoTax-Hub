@@ -696,6 +696,15 @@ function UploadView({triggerRefresh,onNav,showToast}){
         }else{setResults([{filename:files[0].name,status:"skipped",message:"Duplikat — ubersprungen"}]);}
       }
       /* --- ADDED END --- */
+      /* --- ADDED START: restore deleted duplicate --- */
+      else if(d.duplicate_deleted&&d.id){
+        if(confirm("Bu fatura daha once silinmis. Geri yuklemek ister misiniz?")){
+          await fetch(API+"/invoices/"+d.id+"/restore",{method:"POST",headers:{Authorization:"Bearer "+token}});
+          setResults([{filename:files[0].name,status:"ok",message:"Geri yuklendi — €"+(d.total_amount?.toFixed(2)||"0.00")}]);okCount=1;
+          if(showToast)showToast("Fatura geri yuklendi","success");
+        }else{setResults([{filename:files[0].name,status:"skipped",message:"Silinmis duplikat — ubersprungen"}]);}
+      }
+      /* --- ADDED END --- */
       else{setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}}
     else{const fd=new FormData();files.forEach(f=>fd.append("files",f));fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/batch",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();const r=d.results||[];setResults(r);okCount=r.filter(x=>x.status==="ok").length;}}
     catch(e){setResults([{filename:"Error",status:"error",message:e.message}]);}

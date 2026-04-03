@@ -37,6 +37,9 @@ class Invoice(Base):
     file_data = Column(LargeBinary, nullable=True)
     file_content_type = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # --- ADDED: soft delete ---
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
 
 
 class CashEntry(Base):
@@ -58,6 +61,9 @@ class CashEntry(Base):
     invoice_id = Column(Integer, nullable=True)
     date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # --- ADDED: soft delete ---
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
 
 
 class LlmUsage(Base):
