@@ -1356,3 +1356,45 @@ def parse_invoice(raw_text: str) -> dict:
         "currency": currency,
         "raw_text": raw_text,
     }
+
+
+# --- ADDED START ---
+def extract_entities(text: str) -> dict:
+    """Extract structured entities (IBAN, email, phone, address) from OCR text using regex."""
+    import re as _re
+
+    # IBAN: 2 letter country code + 2 check digits + up to 30 alphanumeric (with optional spaces)
+    iban_pat = r"\b([A-Z]{2}\s?\d{2}\s?(?:\d{4}\s?){2,7}\d{1,4})\b"
+    raw_ibans = _re.findall(iban_pat, text.upper())
+    ibans = [i.replace(" ", "") for i in raw_ibans if len(i.replace(" ", "")) >= 15]
+
+    # Email
+    email_pat = r"\b([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\b"
+    emails = _re.findall(email_pat, text)
+
+    # Phone: international and German formats
+    phone_pat = r"(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{2,5}\)?[\s\-]?)?\d{3,4}[\s\-]?\d{2,6}"
+    raw_phones = _re.findall(phone_pat, text)
+    phones = [p.strip() for p in raw_phones if len(p.replace(" ", "").replace("-", "")) >= 6]
+
+    # Address: lines containing street keywords + house number
+    addr_keywords = r"(?:str\.|straße|strasse|weg|platz|allee|gasse|ring|damm|ufer|chaussee|avenue|rue|road|street)"
+    addr_pat = r"(?i)(.{0,40}" + addr_keywords + r".{0,30}\d{1,5}.{0,20})"
+    addresses = [a.strip() for a in _re.findall(addr_pat, text)]
+    # Also match "PLZ Ort" pattern: 5-digit ZIP + city name
+    plz_pat = r"\b(\d{5}\s+[A-ZÄÖÜ][a-zäöüß]{2,}(?:\s+[A-ZÄÖÜ][a-zäöüß]{2,})?)\b"
+    addresses += [a.strip() for a in _re.findall(plz_pat, text)]
+
+    return {
+        "ibans": list(set(ibans)),
+        "emails": list(set(emails)),
+        "phones": list(set(phones)),
+        "addresses": list(set(addresses)),
+    }
+
+
+# Example call:
+# result = extract_entities("Rechnung an: Max Mustermann, Hauptstr. 12, 60311 Frankfurt\nIBAN: DE89 3704 0044 0532 0130 00\nTel: +49 69 1234567\nEmail: max@beispiel.de")
+# print(result)
+# => {"ibans": ["DE89370400440532013000"], "emails": ["max@beispiel.de"], "phones": ["+49 69 1234567"], "addresses": ["Hauptstr. 12, 60311 Frankfurt", "60311 Frankfurt"]}
+# --- ADDED END ---
