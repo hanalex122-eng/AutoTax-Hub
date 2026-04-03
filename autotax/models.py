@@ -60,15 +60,6 @@ class CashEntry(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
-class LlmUsage(Base):
-    __tablename__ = "llm_usage"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String, nullable=False, index=True)
-    date = Column(String, nullable=False, index=True)
-    count = Column(Integer, default=1)
-
-
 class UserCompany(Base):
     __tablename__ = "user_companies"
 

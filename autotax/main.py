@@ -52,7 +52,6 @@ async def security_headers(request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(self), microphone=()"
-    response.headers["X-Data-Retention"] = "none"
     return response
 
 
@@ -878,24 +877,20 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     await file.seek(0)
 
-    # Privacy: do NOT persist original file data — only keep for OCR processing
-    _file_data = None
+    # Save original file to DB (persists across deploys)
+    _file_data = content
     _file_ct = file.content_type or ""
 
-    logger.info("Upload by user %s: type=%s, size=%d bytes", user["sub"], file.content_type, len(content))
+    logger.info("Upload by user %s: %s (%s, %d bytes)", user["sub"], file.filename, file.content_type, len(content))
 
-    import gc
     raw_text = ""
     qr_data = {}
     try:
         raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=45)
     except asyncio.TimeoutError:
-        logger.warning("OCR timeout — saving with empty text")
+        logger.warning("OCR timeout for %s — saving with empty text", file.filename)
     except Exception:
-        logger.warning("OCR failed — saving with empty text")
-    finally:
-        del content
-        gc.collect()
+        logger.warning("OCR failed for %s — saving with empty text", file.filename)
 
     try:
         result = parse_invoice(raw_text)
@@ -905,7 +900,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     # Merge QR data (QR overrides OCR if available)
     if qr_data:
-        logger.info("QR data found: keys=%s", list(qr_data.keys()))
+        logger.info("QR data found for %s: %s", file.filename, {k: v for k, v in qr_data.items() if k != "qr_raw"})
         if qr_data.get("company") and (not result.get("vendor") or result.get("vendor") == "Unbekannt"):
             result["vendor"] = qr_data["company"]
         if qr_data.get("amount") and (not result.get("total_amount") or result.get("total_amount") == 0):
@@ -971,7 +966,6 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
 @app.post("/invoices/batch")
 async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = "expense", user: dict = Depends(get_current_user)):
-    import gc
     results = []
     for file in files:
         try:
@@ -993,10 +987,7 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
             try:
                 raw_text = await asyncio.wait_for(extract_text(file, handwriting=False, file_bytes=content), timeout=45)
             except Exception:
-                logger.warning("OCR failed/timeout for batch file")
-            finally:
-                del content
-                gc.collect()
+                logger.warning("OCR failed/timeout for batch file %s", file.filename)
             try:
                 parsed = parse_invoice(raw_text)
             except Exception:
@@ -2047,13 +2038,8 @@ async def import_kassenbuch_photo(file: UploadFile = File(...), user: dict = Dep
     from autotax.ocr import extract_handwriting_text
     import re as _re
 
-    import gc
     content = await file.read()
-    try:
-        text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
-    finally:
-        del content
-        gc.collect()
+    text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
     if not text:
         err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
 
@@ -2063,32 +2049,19 @@ async def import_kassenbuch_photo(file: UploadFile = File(...), user: dict = Dep
     try:
         for line in lines:
             line = line.strip()
-            if not line or len(line) < 4:
+            if not line or len(line) < 5:
                 continue
-            # Pattern 1: date + description + amount (strict)
             m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+(\d+[.,]\d{2})\s*$", line)
-            # Pattern 2: date + separator + description + amount (pipes/slashes from OCR)
             if not m:
                 m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s*[|/]?\s*(.+?)\s+[/|]?\s*(\d+[.,]\d{2})", line)
-            # Pattern 3: date with spaces (OCR misread: "01 03 26" instead of "01.03.26")
-            if not m:
-                m = _re.search(r"(\d{1,2}\s\d{1,2}\s\d{2,4})\s+(.+?)\s+(\d+[.,]\d{2})", line)
-            # Pattern 4: date + description + amount without decimals (e.g. "50" instead of "50,00")
-            if not m:
-                m = _re.search(r"(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+(\d{1,6})\s*$", line)
-            # Pattern 5: date with dashes (01-03-26)
-            if not m:
-                m = _re.search(r"(\d{1,2}-\d{1,2}-\d{2,4})\s+(.+?)\s+(\d+[.,]\d{2})", line)
             if not m:
                 continue
             datum_raw = m.group(1)
             beschreibung = m.group(2).strip()
-            amt_str = m.group(3).replace(",", ".")
-            betrag = float(amt_str) if "." in amt_str else float(amt_str)
+            betrag = float(m.group(3).replace(",", "."))
             if betrag <= 0 or len(beschreibung) < 2:
                 continue
-            # Normalize separators: space, slash, dash → dot
-            parts = datum_raw.replace("/", ".").replace("-", ".").replace(" ", ".").split(".")
+            parts = datum_raw.replace("/", ".").split(".")
             date_str = ""
             if len(parts) == 3:
                 d, mo, y = parts
@@ -2146,34 +2119,24 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
     """
     from autotax.ocr import extract_handwriting_text, extract_image_text, extract_pdf_text, extract_pdf_page_as_image
     import re as _re
-    import gc
 
     content = await file.read()
     filename = (file.filename or "").lower()
     content_type = (file.content_type or "").lower()
 
     # PDF support
-    text = ""
-    try:
-        if "pdf" in content_type or filename.endswith(".pdf"):
-            text = extract_pdf_text(content)
-            if not text or len(text.strip()) < 20:
-                img_bytes = extract_pdf_page_as_image(content)
-                if img_bytes:
-                    text = await extract_image_text(img_bytes, "scanned.png")
-        else:
-            # Image: try handwriting OCR first, fallback to printed
-            text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
+    if "pdf" in content_type or filename.endswith(".pdf"):
+        text = extract_pdf_text(content)
+        if not text or len(text.strip()) < 20:
+            img_bytes = extract_pdf_page_as_image(content)
+            if img_bytes:
+                text = await extract_image_text(img_bytes, "scanned.png")
+    else:
+        # Image: try handwriting OCR first, fallback to printed
+        text = await extract_handwriting_text(content, file.filename or "kassenbuch.jpg")
 
-            # If handwriting OCR returned little, try printed OCR (skip if already good enough)
-            if not text or len(text.strip()) < 30:
-                text_printed = await extract_image_text(content, file.filename or "kassenbuch.png")
-                if text_printed and len(text_printed.strip()) > len((text or "").strip()):
-                    text = text_printed
-    finally:
-        del content
-        gc.collect()
-
+    if not text or len(text.strip()) < 20:
+        text = await extract_image_text(content, file.filename or "kassenbuch.png")
     if not text or len(text.strip()) < 10:
         err(400, "Konnte das Bild nicht lesen. Bitte bessere Qualität verwenden.")
 
@@ -2185,8 +2148,6 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
 
     # Amount pattern: matches 42,50 | 1.234,56 | 800,00 | 42.50 | 800 | -16,60
     _AMT_PAT = r"-?\d[\d.]*[.,]\d{1,2}"
-    # Loose amount: also matches whole numbers (50, 800) common in handwriting
-    _AMT_PAT_LOOSE = r"-?\d[\d.]*(?:[.,]\d{1,2})?"
 
     # Pre-split: force newline before every date pattern
     _DATE_PAT = (
@@ -2285,61 +2246,6 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except (ValueError, AttributeError):
             return 0.0
 
-    def _score_line(line):
-        """Score a line for table-row likelihood: +2 date, +2 amount, +1 text."""
-        score = 0
-        if _re.search(_DATE_PAT, line):
-            score += 2
-        amounts = [a for a in _re.findall(r"(" + _AMT_PAT + r")", line) if not _is_date_fragment(a)]
-        if amounts:
-            score += 2
-        elif _re.search(r"\b\d{2,5}\b", line):
-            score += 1  # whole number — weaker signal
-        text_part = _re.sub(_DATE_PAT, "", line)
-        text_part = _re.sub(_AMT_PAT_LOOSE, "", text_part).strip()
-        if len(text_part) >= 3:
-            score += 1
-        return score
-
-    # Detect column order from header line (e.g. "Nr Datum Beschreibung Einnahmen Ausgaben Saldo")
-    _col_order = []  # list of column names in order, e.g. ["einnahmen", "ausgaben", "saldo"]
-    for _hl in lines[:5]:
-        _hl_lower = _hl.lower()
-        if "einnahmen" in _hl_lower or "ausgaben" in _hl_lower:
-            # Extract column names in order of appearance
-            _header_cols = []
-            for _word in _re.findall(r"[a-zäöü]+", _hl_lower):
-                if _word in ("einnahmen", "ausgaben", "saldo"):
-                    _header_cols.append(_word)
-            if _header_cols:
-                _col_order = _header_cols
-                logger.info("Detected column order from header: %s", _col_order)
-            break
-
-    def _assign_amounts_by_columns(amounts_list):
-        """Assign amounts to einnahmen/ausgaben based on detected column order."""
-        einnahmen, ausgaben = 0.0, 0.0
-        if not _col_order:
-            # No header detected — use default: 1 amount=ausgaben, 2 amounts=einnahmen+ausgaben
-            if len(amounts_list) >= 2:
-                einnahmen = amounts_list[0]
-                ausgaben = amounts_list[1]
-            elif len(amounts_list) == 1:
-                ausgaben = amounts_list[0]
-            return einnahmen, ausgaben
-        # Map amounts to columns by position (skip saldo)
-        col_idx = 0
-        for col_name in _col_order:
-            if col_name == "saldo":
-                continue  # always skip saldo
-            if col_idx < len(amounts_list):
-                if col_name == "einnahmen":
-                    einnahmen = amounts_list[col_idx]
-                elif col_name == "ausgaben":
-                    ausgaben = amounts_list[col_idx]
-                col_idx += 1
-        return einnahmen, ausgaben
-
     # Strategy 1: Window-based — group date line + next 2 lines into one entry
     i = 0
     while i < len(lines):
@@ -2372,45 +2278,28 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         else:
             i += 1
 
-        # Extract all amounts from line, filter out Saldo (negative/very large running totals)
-        _line_amounts_raw = _re.findall(r"(-?\d[\d.]*[.,]\d{1,2})", line)
-        _line_amounts = []
-        for _a in _line_amounts_raw:
-            if _is_date_fragment(_a.lstrip("-")):
-                continue
-            _v = _parse_amount(_a)
-            # Skip negative values (Saldo column) and very large values (>50000 = likely Saldo)
-            if _a.strip().startswith("-"):
-                continue
-            if _v > 50000:
-                continue
-            _line_amounts.append(_v)
-
-        # Pattern: Date + Description + amounts (Einnahmen/Ausgaben, ignoring Saldo)
+        # Pattern: Date + Description + two amounts
         m = _re.search(
-            r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*",
+            r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s+([\d.,]+)\s*$",
             line
         )
-        if m and _line_amounts:
+        if m:
             datum_raw, beschreibung = m.group(1), m.group(2).strip()
-            # Remove all numbers from description
-            beschreibung = _re.sub(r"-?\d[\d.]*[.,]\d{1,2}", "", beschreibung).strip()
-            beschreibung = _re.sub(r"\s+", " ", beschreibung).strip(" .,;:-")
-            if not beschreibung or len(beschreibung) < 2:
-                beschreibung = "Eintrag"
-            # Assign amounts based on detected column order (or default)
-            einnahmen, ausgaben = _assign_amounts_by_columns(_line_amounts)
+            val1, val2 = _parse_amount(m.group(3)), _parse_amount(m.group(4))
+            einnahmen = val1 if val1 > 0 and val2 > 0 else 0
+            ausgaben = val2 if val1 == 0 or (val1 > 0 and val2 > 0) else val1
+            if einnahmen == 0 and ausgaben == 0:
+                ausgaben = max(val1, val2)
             if beschreibung and len(beschreibung) >= 2:
-                rows.append({"date": _parse_date(datum_raw), "description": beschreibung[:80], "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
+                rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": round(einnahmen, 2), "expense": round(ausgaben, 2)})
             continue
 
-        # Pattern: DD.MM.YYYY + Description + single amount (no other amounts on line)
+        # Pattern: DD.MM.YYYY + Description + single amount
         m2 = _re.search(r"(?:\d{1,3}[.\s])?\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s+(.+?)\s+([\d.,]+)\s*$", line)
         if m2:
             datum_raw, beschreibung = m2.group(1), m2.group(2).strip()
-            _val = _parse_amount(m2.group(3))
-            if beschreibung and len(beschreibung) >= 2 and _val > 0 and _val <= 50000:
-                rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": 0, "expense": round(_val, 2)})
+            if beschreibung and len(beschreibung) >= 2:
+                rows.append({"date": _parse_date(datum_raw), "description": beschreibung, "income": 0, "expense": round(_parse_amount(m2.group(3)), 2)})
             continue
 
         # Pattern: YYYY-MM-DD + Description + two amounts
@@ -2440,25 +2329,20 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
             if date_m:
                 d = date_m.group(1)
                 desc = _re.sub(_DATE_PAT, "", line)
-                raw_nums = _re.findall(r"(-?" + _AMT_PAT + r")", desc)
-                # Filter: no date fragments, no negatives (Saldo), no >50000
-                numbers = []
-                for n in raw_nums:
-                    if _is_date_fragment(n.lstrip("-")):
-                        continue
-                    if n.strip().startswith("-"):
-                        continue
-                    pv = _parse_amount(n)
-                    if 0 < pv <= 50000:
-                        numbers.append(n)
-                desc = _re.sub(r"-?" + _AMT_PAT, "", desc).strip()
+                numbers = [a for a in _re.findall(r"(" + _AMT_PAT + r")", desc) if not _is_date_fragment(a)]
+                desc = _re.sub(_AMT_PAT, "", desc).strip()
                 desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-")
                 if len(desc) < 2:
                     desc = "Eintrag"
-                _parsed_nums = [_parse_amount(n) for n in numbers]
-                einnahmen, ausgaben = _assign_amounts_by_columns(_parsed_nums)
+                # Strict positional: numbers[-2]=expense, numbers[-1]=saldo
+                if len(numbers) >= 2:
+                    expense = _parse_amount(numbers[-2])
+                elif len(numbers) == 1:
+                    expense = _parse_amount(numbers[0])
+                else:
+                    expense = 0
                 parsed_d = _parse_date(d) if "." in d or "/" in d else d
-                rows.append({"date": parsed_d, "description": desc[:80], "income": round(einnahmen, 2), "expense": round(ausgaben, 2), "is_uncertain": ausgaben == 0 and einnahmen == 0})
+                rows.append({"date": parsed_d, "description": desc[:80], "income": 0, "expense": round(expense, 2), "is_uncertain": expense == 0})
 
     logger.info("Strategy 1 result: %d rows from %d lines (dates=%d) in %.2fs", len(rows), len(lines), len(all_dates_in_text), _time.time()-_t0)
 
@@ -2636,83 +2520,6 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except Exception as e:
             logger.warning("Strategy 5 column-based failed: %s", e)
 
-    # Strategy 6: Scored fallback — if all table strategies failed, score each line
-    # and return partial matches with confidence, rather than empty result
-    if not rows and text and len(text.strip()) > 10:
-        logger.info("Strategy 6: all table strategies failed, trying scored extraction")
-        raw_text_lines = [l.strip() for l in text.strip().split("\n") if l.strip() and len(l.strip()) > 3]
-        for rl in raw_text_lines[:100]:
-            rl_lower = rl.lower()
-            if any(w in rl_lower for w in ["datum", "beschreibung", "einnahmen", "ausgaben", "kassenbuch", "übertrag", "seitensumme", "saldo"]):
-                continue
-            score = _score_line(rl)
-            if score < 2:
-                continue  # skip lines with no useful signal
-            date_m = _re.search(r"(" + _DATE_PAT + r")", rl)
-            date_val = _parse_date(date_m.group(1)) if date_m else ""
-            # Try strict amount first, then loose (whole numbers)
-            amounts = [a for a in _re.findall(r"(" + _AMT_PAT + r")", rl) if not _is_date_fragment(a)]
-            if not amounts:
-                amounts = _re.findall(r"\b(\d{2,5})\b", rl)
-            desc = _re.sub(_DATE_PAT, "", rl)
-            desc = _re.sub(_AMT_PAT_LOOSE, "", desc)
-            desc = _re.sub(r"\s+", " ", desc).strip(" .,;:-|/")
-            if not desc or len(desc) < 2:
-                desc = rl[:80]
-            expense = _parse_amount(amounts[0]) if amounts else 0
-            confidence = round(min(score / 5.0, 1.0), 2)
-            rows.append({
-                "date": date_val,
-                "description": desc[:80],
-                "income": 0,
-                "expense": round(expense, 2),
-                "is_uncertain": score < 4,
-                "confidence": confidence,
-                "raw_fallback": True,
-            })
-        if rows:
-            logger.info("Strategy 6 scored fallback: %d lines (avg confidence=%.2f)",
-                        len(rows), sum(r.get("confidence", 0) for r in rows) / len(rows))
-
-    # Strategy 7: LLM fallback — if no rows or low confidence, try Claude Haiku
-    _avg_conf = (sum(r.get("confidence", 1.0) for r in rows) / len(rows)) if rows else 0
-    _high_conf_count = sum(1 for r in rows if r.get("confidence", 1.0) >= 0.8)
-    _text_len = len(text.strip()) if text else 0
-    _raw_count = len(raw_lines)
-    _llm_skip_reason = None
-    if _text_len < 20:
-        _llm_skip_reason = "hard block: text too short (%d chars)" % _text_len
-    elif _text_len <= 50:
-        _llm_skip_reason = "low text length (%d chars)" % _text_len
-    elif rows and _avg_conf >= 0.7:
-        _llm_skip_reason = "high confidence (%.2f)" % _avg_conf
-    elif _high_conf_count > 0:
-        _llm_skip_reason = "has %d high-confidence rows" % _high_conf_count
-    elif _raw_count <= 2:
-        _llm_skip_reason = "insufficient raw rows (%d)" % _raw_count
-    elif rows and _avg_conf >= 0.6:
-        _llm_skip_reason = "adequate confidence (%.2f)" % _avg_conf
-
-    if _llm_skip_reason:
-        logger.info("LLM skipped: %s", _llm_skip_reason)
-    else:
-        try:
-            from autotax.ocr import llm_parse_table
-            _user_id = str(user.get("sub", ""))
-            _user_plan = str(user.get("plan", "free"))
-            llm_rows = await llm_parse_table(text, user_id=_user_id, user_plan=_user_plan)
-            # Validate LLM rows: must have amount + (date or text)
-            llm_rows = [r for r in llm_rows if (r.get("expense", 0) + r.get("income", 0)) > 0 and (r.get("date", "").strip() or len(r.get("description", "").strip()) >= 3)]
-            if llm_rows:
-                if not rows:
-                    rows = llm_rows
-                    logger.info("Strategy 7: LLM provided %d rows (no prior rows)", len(llm_rows))
-                elif _avg_conf < 0.6 and len(llm_rows) > len(rows):
-                    rows = llm_rows
-                    logger.info("Strategy 7: LLM provided %d rows (replaced %d low-confidence)", len(llm_rows), len(rows))
-        except Exception as e:
-            logger.warning("Strategy 7 LLM fallback failed: %s", e)
-
     # Ensure all rows have is_uncertain flag
     for r in rows:
         if "is_uncertain" not in r:
@@ -2730,25 +2537,6 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         logger.info("Dedup: %d → %d rows", len(rows), len(unique_rows))
     rows = unique_rows
 
-    # Data quality: validate rows — reject rows without amount or without (date or text)
-    validated = []
-    for r in rows:
-        amount = r.get("expense", 0) + r.get("income", 0)
-        has_amount = amount > 0
-        has_date = bool(r.get("date", "").strip())
-        has_text = len(r.get("description", "").strip()) >= 3
-        if not has_amount:
-            continue  # RULE 2: reject if no valid amount
-        if not (has_date or has_text):
-            continue  # RULE 3: need date or text
-        # RULE 1: mark low-confidence rows
-        if r.get("confidence", 1.0) < 0.6:
-            r["is_uncertain"] = True
-        validated.append(r)
-    if len(validated) < len(rows):
-        logger.info("Validation: %d → %d rows (rejected %d)", len(rows), len(validated), len(rows) - len(validated))
-    rows = validated
-
     logger.info("Table import result: %d rows (expected %d)", len(rows), expected_count)
 
     # Generate CSV
@@ -2760,13 +2548,9 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         csv_lines.append(f'{r["date"]},"{desc}",{inc},{exp}')
     csv_text = "\n".join(csv_lines)
 
-    # Optionally save to DB — block if data quality too low
+    # Optionally save to DB
     saved = 0
-    _save_avg_conf = (sum(r.get("confidence", 1.0) for r in rows) / len(rows)) if rows else 0
-    _save_blocked = len(rows) < 2 or _save_avg_conf < 0.5
-    if _save_blocked and save:
-        logger.info("Auto-save blocked: %d rows, avg confidence=%.2f (min 2 rows, 0.5 confidence)", len(rows), _save_avg_conf)
-    if save and rows and not _save_blocked:
+    if save and rows:
         db = SessionLocal()
         try:
             for r in rows:
@@ -2826,7 +2610,6 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         "rows": rows,
         "row_count": len(rows),
         "saved": saved,
-        "save_blocked": _save_blocked if save else False,
         "csv": csv_text,
         "currency": detected_currency,
         "raw_rows": raw_lines,
