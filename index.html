@@ -685,7 +685,17 @@ function UploadView({triggerRefresh,onNav,showToast}){
   const addFiles=(nf)=>{const fa=Array.from(nf);setFiles(p=>{const ex=new Set(p.map(f=>f.name+f.size));return[...p,...fa.filter(f=>!ex.has(f.name+f.size))].slice(0,20);});};
   const upload=async()=>{if(!files.length)return;setUploading(true);setResults([]);const token=localStorage.getItem("atx_token");
     let okCount=0;
-    try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}
+    try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();
+      /* --- ADDED START: duplicate force upload --- */
+      if(d.duplicate&&d.can_force){
+        if(confirm("Bu fatura zaten yuklu ("+files[0].name+").\nTekrar yuklemek ister misiniz?")){
+          const fd2=new FormData();fd2.append("file",files[0]);fd2.append("invoice_type",invoiceType);fd2.append("force_upload","true");
+          const res2=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd2});const d2=await res2.json();
+          setResults([{filename:files[0].name,status:res2.ok?"ok":"error",message:res2.ok?"OK (Force) — €"+(d2.total_amount?.toFixed(2)||"0.00"):d2.detail}]);if(res2.ok){okCount=1;if(d2.warning&&showToast)showToast(d2.warning,"warn");}
+        }else{setResults([{filename:files[0].name,status:"skipped",message:"Duplikat — ubersprungen"}]);}
+      }
+      /* --- ADDED END --- */
+      else{setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}}
     else{const fd=new FormData();files.forEach(f=>fd.append("files",f));fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/batch",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();const r=d.results||[];setResults(r);okCount=r.filter(x=>x.status==="ok").length;}}
     catch(e){setResults([{filename:"Error",status:"error",message:e.message}]);}
     setUploading(false);setFiles([]);

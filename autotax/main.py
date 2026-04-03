@@ -936,7 +936,7 @@ async def upload_zip(request: Request, file: UploadFile = File(...), invoice_typ
 
 @app.post("/invoices/upload")
 @limiter.limit("20/minute")
-async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
+async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", force_upload: bool = False, user: dict = Depends(get_current_user)):
     if file.content_type not in ALLOWED_TYPES:
         err(400, "Ungültige Datei. Erlaubt: PDF, JPG, PNG, TIFF, WEBP, ZIP")
 
@@ -1038,7 +1038,13 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
             Invoice.date == (result.get("date") or ""),
         ).first()
         if dup:
-            return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "message": "Duplicate invoice detected"}
+            # --- ADDED START: force_upload bypass ---
+            if not force_upload:
+                logger.info("Duplicate detected: vendor=%s, amount=%s, date=%s", result.get("vendor"), result.get("total_amount"), result.get("date"))
+                return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "duplicate": True, "can_force": True, "message": "Bu fatura zaten yuklu. Tekrar yuklemek ister misiniz?"}
+            else:
+                logger.info("Force upload: duplicate bypassed for vendor=%s, amount=%s", result.get("vendor"), result.get("total_amount"))
+            # --- ADDED END ---
     finally:
         db_check.close()
 
