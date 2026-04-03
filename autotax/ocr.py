@@ -91,7 +91,7 @@ async def _ocr_api_call(client, filename: str, content: bytes, engine: str = "1"
     """Single OCR API call with given engine."""
     resp = await client.post(
         OCR_API_URL,
-        data={"apikey": OCR_API_KEY, "OCREngine": engine, "language": "ger"},
+        data={"apikey": OCR_API_KEY, "OCREngine": engine},
         files={"file": (filename, content)},
     )
     resp.raise_for_status()
