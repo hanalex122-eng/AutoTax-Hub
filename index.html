@@ -44,9 +44,11 @@ input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: #e2e8f0; }
 }
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }
-  table th, table td { padding: 4px 3px !important; font-size: 10px !important; }
-  table th { font-size: 9px !important; }
-  div[style*="padding:32"] { padding: 8px !important; }
+  table th, table td { padding: 6px 4px !important; font-size: 11px !important; }
+  table th { font-size: 10px !important; }
+  table input[type="text"], table input[type="number"] { font-size: 13px !important; min-width: 60px !important; padding: 6px 8px !important; }
+  table select { font-size: 12px !important; padding: 6px !important; }
+  div[style*="padding:32"] { padding: 12px !important; }
 }
 </style>
 </head>
@@ -1229,7 +1231,7 @@ function TableImportView({triggerRefresh,showToast,onNav}){
   const totalIncome=rows.reduce((s,r)=>s+(r.income||0),0);
   const totalExpense=rows.reduce((s,r)=>s+(r.expense||0),0);
 
-  return(<div style={{display:"flex",flexDirection:"column",gap:24,maxWidth:900}}>
+  return(<div style={{display:"flex",flexDirection:"column",gap:24,maxWidth:900,width:"100%",overflowX:"hidden"}}>
     <div>
       <h2 style={{fontSize:22,fontWeight:700,color:theme.text,margin:0}}>📊 Tabelle importieren</h2>
       <p style={{color:theme.textMuted,fontSize:14,margin:"4px 0 0"}}>Kassenbuch aus Foto, PDF, CSV oder Excel — auch handgeschrieben</p>
@@ -1254,7 +1256,7 @@ function TableImportView({triggerRefresh,showToast,onNav}){
       </div>}
     </div>
 
-    {file&&!loading&&!rows.length&&!saved&&<button style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s"}} onClick={analyze} onMouseOver={e=>e.currentTarget.style.transform="scale(1.03)"} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{mode==="image"?"🔍 Tabelle erkennen":"📥 Jetzt importieren"}</button>}
+    {file&&!loading&&!rows.length&&!saved&&<button style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:12,padding:"14px 28px",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s",width:"100%"}} onClick={analyze} onMouseOver={e=>e.currentTarget.style.transform="scale(1.03)"} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{mode==="image"?"🔍 Tabelle erkennen":"📥 Jetzt importieren"}</button>}
 
     {loading&&<div style={{...css.card,textAlign:"center",padding:32,background:"rgba(16,185,129,0.05)",border:"1px solid rgba(16,185,129,0.15)"}}>
       <div style={{display:"inline-block",width:36,height:36,border:"3px solid "+theme.border,borderTopColor:theme.accent,borderRadius:"50%",animation:"spin 0.8s linear infinite",marginBottom:12}}/>
@@ -1262,9 +1264,22 @@ function TableImportView({triggerRefresh,showToast,onNav}){
       <div style={{fontSize:12,color:theme.textDim,marginTop:6}}>Bitte warten — das kann einige Sekunden dauern</div>
     </div>}
 
-    {errorMsg&&<div style={{...css.card,background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",textAlign:"center",padding:20,animation:"fadeIn 0.3s ease"}}>
+    {errorMsg&&!rawRows.length&&<div style={{...css.card,background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",textAlign:"center",padding:20,animation:"fadeIn 0.3s ease"}}>
       <div style={{fontSize:15,fontWeight:600,color:theme.danger}}>{errorMsg}</div>
       <div style={{fontSize:12,color:theme.textMuted,marginTop:6}}>Tipp: Gute Beleuchtung, gerades Foto, oder CSV/Excel verwenden</div>
+    </div>}
+
+    {errorMsg&&rawRows.length>0&&rows.length===0&&<div style={{...css.card,padding:20,animation:"fadeIn 0.3s ease"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{flex:1,minWidth:200}}>
+          <div style={{fontSize:15,fontWeight:600,color:"#f59e0b"}}>⚠️ Tabelle nicht erkannt — extrahierter Text</div>
+          <div style={{fontSize:12,color:theme.textMuted,marginTop:4}}>{rawRows.length} Zeilen erkannt — Tabellenstruktur konnte nicht geparst werden</div>
+        </div>
+        <button style={{fontSize:12,padding:"8px 16px",borderRadius:8,border:"1px solid "+theme.border,background:theme.surfaceAlt,color:theme.text,cursor:"pointer",fontWeight:600,whiteSpace:"nowrap"}} onClick={()=>{navigator.clipboard.writeText(rawRows.join("\n"));showToast("Text kopiert")}}>📋 Kopieren</button>
+      </div>
+      <div style={{background:theme.surfaceAlt,borderRadius:10,padding:12,maxHeight:320,minHeight:80,overflowY:"auto",border:"1px solid "+theme.border}}>
+        {rawRows.map((line,i)=><div key={i} style={{fontSize:13,fontFamily:"monospace",padding:"4px 0",color:theme.text,lineHeight:1.5,borderBottom:i<rawRows.length-1?"1px solid "+theme.border:"none"}}>{line}</div>)}
+      </div>
     </div>}
 
     {saved>0&&<div style={{...css.card,background:"linear-gradient(135deg,rgba(16,185,129,0.12),rgba(59,130,246,0.08))",border:"1px solid rgba(16,185,129,0.3)",textAlign:"center",padding:28,animation:"fadeIn 0.5s ease"}}>
@@ -1281,7 +1296,7 @@ function TableImportView({triggerRefresh,showToast,onNav}){
             <tr style={{borderBottom:"2px solid "+theme.border,background:theme.surfaceAlt}}>
               {rawTable[0].map((h,ci)=><th key={ci} style={{padding:"8px 10px",textAlign:"left"}}>
                 <div style={{fontSize:11,color:theme.textDim,marginBottom:4}}>{h||"Spalte "+(ci+1)}</div>
-                <select style={{...css.input,fontSize:11,padding:"4px 6px",width:"100%"}} value={colMap.date===ci?"date":colMap.description===ci?"description":colMap.expense===ci?"expense":colMap.income===ci?"income":"ignore"} onChange={e=>{const role=e.target.value;const nm={...colMap};Object.keys(nm).forEach(k=>{if(nm[k]===ci)nm[k]=-1;});if(role!=="ignore")nm[role]=ci;setColMap(nm);}}>
+                <select style={{...css.input,fontSize:12,padding:"6px 8px",width:"100%",minHeight:32}} value={colMap.date===ci?"date":colMap.description===ci?"description":colMap.expense===ci?"expense":colMap.income===ci?"income":"ignore"} onChange={e=>{const role=e.target.value;const nm={...colMap};Object.keys(nm).forEach(k=>{if(nm[k]===ci)nm[k]=-1;});if(role!=="ignore")nm[role]=ci;setColMap(nm);}}>
                   <option value="ignore">-- Ignorieren --</option>
                   <option value="date">Datum</option>
                   <option value="description">Beschreibung</option>
@@ -1331,13 +1346,14 @@ function TableImportView({triggerRefresh,showToast,onNav}){
           </tr>)}</tbody>
         </table>
       </div>:
-      <div style={{borderRadius:12,border:"1px solid "+theme.border,background:theme.card,padding:16,maxHeight:400,overflowY:"auto"}}>
+      <div style={{borderRadius:12,border:"1px solid "+theme.border,background:theme.card,padding:16,maxHeight:400,minHeight:100,overflowY:"auto"}}>
         <div style={{fontSize:11,color:theme.textDim,marginBottom:8}}>OCR Original — {rawRows.length} Zeilen</div>
         {rawRows.map((line,i)=><div key={i} style={{fontSize:12,fontFamily:mono,color:theme.textMuted,padding:"3px 0",borderBottom:"1px solid "+theme.border+"33"}}>{line}</div>)}
       </div>}
-      <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end",flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end",flexWrap:"wrap",alignItems:"center"}}>
+        <button style={{...css.btnOutline,fontSize:12}} onClick={()=>{resetAll();fileRef.current?.click();}}>🔄 Neue Datei</button>
         {csv&&<button style={css.btnOutline} onClick={()=>{const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="tabelle_import.csv";a.click();URL.revokeObjectURL(u);}}>📥 Als CSV speichern</button>}
-        {isTable?<button style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s",opacity:saving?0.6:1}} onClick={saveRows} disabled={saving} onMouseOver={e=>{if(!saving)e.currentTarget.style.transform="scale(1.05)";}} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{saving?"⏳ Wird gespeichert...":"📒 Jetzt ins Kassenbuch übernehmen"}</button>
+        {isTable?<button style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(16,185,129,0.3)",transition:"all 0.3s",opacity:saving?0.6:1,flex:window.innerWidth<768?"1 1 100%":undefined}} onClick={saveRows} disabled={saving} onMouseOver={e=>{if(!saving)e.currentTarget.style.transform="scale(1.05)";}} onMouseOut={e=>e.currentTarget.style.transform="scale(1)"}>{saving?"⏳ Wird gespeichert...":"📒 Jetzt ins Kassenbuch übernehmen"}</button>
         :<div style={{fontSize:12,color:"#f59e0b",background:"rgba(245,158,11,0.08)",padding:"10px 16px",borderRadius:8,border:"1px solid rgba(245,158,11,0.2)"}}>Einzelbeleg erkannt — bitte über <strong>Upload</strong> hochladen. Tabelle Import ist nur für Kassenbuch-Tabellen.</div>}
       </div>
     </div>}

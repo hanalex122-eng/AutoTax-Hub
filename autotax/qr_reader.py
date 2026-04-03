@@ -40,7 +40,7 @@ def decode_qr_from_image(content: bytes) -> list[str]:
         for obj in decoded:
             text = obj.data.decode("utf-8", errors="ignore").strip()
             if text:
-                logger.info("QR/Barcode found (%s): %s", obj.type, text[:100])
+                logger.info("QR/Barcode found (%s), len=%d", obj.type, len(text))
                 results.append(text)
 
         # If nothing found, try grayscale + higher contrast
@@ -52,7 +52,7 @@ def decode_qr_from_image(content: bytes) -> list[str]:
             for obj in decoded:
                 text = obj.data.decode("utf-8", errors="ignore").strip()
                 if text:
-                    logger.info("QR/Barcode found after enhance (%s): %s", obj.type, text[:100])
+                    logger.info("QR/Barcode found after enhance (%s), len=%d", obj.type, len(text))
                     results.append(text)
 
         if results:
@@ -99,7 +99,7 @@ def decode_qr_from_pdf(content: bytes) -> list[str]:
                 for obj in decoded:
                     text = obj.data.decode("utf-8", errors="ignore").strip()
                     if text:
-                        logger.info("PDF QR/Barcode (%s): %s", obj.type, text[:100])
+                        logger.info("PDF QR/Barcode (%s), len=%d", obj.type, len(text))
                         results.append(text)
     except ImportError:
         logger.warning("pyzbar not available for PDF QR")
@@ -263,7 +263,7 @@ def extract_qr_data(content: bytes, content_type: str = "") -> dict:
 
     # Try parsing each QR code
     for qr_text in qr_texts:
-        logger.info("QR content: %s", qr_text[:200])
+        logger.info("QR content: len=%d", len(qr_text))
 
         # Try EPC/SEPA QR
         result = parse_epc_qr(qr_text)
