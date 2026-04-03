@@ -446,7 +446,7 @@ _DATEV_KONTO_MAP_INCOME = {
     "software": "8400", "shopping": "8400",
 }
 
-ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png", "image/tiff", "image/webp", "image/heic", "image/heif"}
+ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png", "image/tiff", "image/webp", "image/heic", "image/heif", "application/zip", "application/x-zip-compressed"}
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # Magic bytes for file type validation (prevents fake content_type)
@@ -457,6 +457,7 @@ _MAGIC_BYTES = {
     b"II\x2a\x00": "image/tiff",  # little-endian TIFF
     b"MM\x00\x2a": "image/tiff",  # big-endian TIFF
     b"RIFF": "image/webp",        # WebP starts with RIFF
+    b"PK\x03\x04": "application/zip",  # ZIP archive
 }
 
 
@@ -861,17 +862,116 @@ def create_invoice_manual(body: dict = Body(...), user: dict = Depends(get_curre
         db.close()
 
 
+@app.post("/invoices/upload-zip")
+@limiter.limit("5/minute")
+async def upload_zip(request: Request, file: UploadFile = File(...), invoice_type: str = "expense", user: dict = Depends(get_current_user)):
+    """Upload a ZIP file containing invoices (PDF, JPG, PNG). Extracts and processes each file."""
+    import zipfile
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:
+        err(400, "ZIP zu groß (max 50MB)")
+    if not content[:4] == b"PK\x03\x04":
+        err(400, "Keine gültige ZIP-Datei")
+    results = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            for name in zf.namelist():
+                name_lower = name.lower()
+                if name.startswith("__MACOSX") or name.startswith("."):
+                    continue
+                if not any(name_lower.endswith(ext) for ext in (".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".webp")):
+                    results.append({"filename": name, "status": "skipped", "message": "Nicht unterstützt"})
+                    continue
+                try:
+                    file_data = zf.read(name)
+                    if len(file_data) == 0:
+                        continue
+                    if len(file_data) > MAX_FILE_SIZE:
+                        results.append({"filename": name, "status": "error", "message": "Datei zu groß"})
+                        continue
+                    # Determine content type from extension
+                    if name_lower.endswith(".pdf"):
+                        ct = "application/pdf"
+                    elif name_lower.endswith((".jpg", ".jpeg")):
+                        ct = "image/jpeg"
+                    elif name_lower.endswith(".png"):
+                        ct = "image/png"
+                    elif name_lower.endswith(".tiff"):
+                        ct = "image/tiff"
+                    else:
+                        ct = "image/webp"
+                    # Create a fake UploadFile for existing pipeline
+                    fake_file = UploadFile(filename=name, file=io.BytesIO(file_data))
+                    fake_file.content_type = ct
+                    raw_text = ""
+                    try:
+                        raw_text = await asyncio.wait_for(extract_text(fake_file, handwriting=False, file_bytes=file_data), timeout=45)
+                    except Exception:
+                        logger.warning("OCR failed for ZIP entry: %s", name)
+                    try:
+                        parsed = parse_invoice(raw_text)
+                    except Exception:
+                        results.append({"filename": name, "status": "error", "message": "Parse failed"})
+                        continue
+                    if invoice_type in ("income", "expense"):
+                        parsed["invoice_type"] = invoice_type
+                    invoice_id = save_invoice(parsed, user_id=user["sub"], filename=name)
+                    auto_create_cash_entry(invoice_id, user["sub"], parsed)
+                    results.append({"filename": name, "status": "ok", "id": invoice_id, "vendor": parsed.get("vendor", ""), "total": parsed.get("total_amount", 0)})
+                except Exception as e:
+                    results.append({"filename": name, "status": "error", "message": str(e)})
+    except zipfile.BadZipFile:
+        err(400, "Beschädigte ZIP-Datei")
+    return {"success": True, "results": results, "total": len(results)}
+
+
 @app.post("/invoices/upload")
 @limiter.limit("20/minute")
 async def upload_invoice(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
     if file.content_type not in ALLOWED_TYPES:
-        err(400, "Ungültige Datei. Erlaubt: PDF, JPG, PNG, TIFF, WEBP")
+        err(400, "Ungültige Datei. Erlaubt: PDF, JPG, PNG, TIFF, WEBP, ZIP")
 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         err(400, "Datei zu groß (max 10MB)")
     if len(content) == 0:
         err(400, "Leere Datei")
+
+    # ZIP: extract and process each file inside
+    if content[:4] == b"PK\x03\x04" or (file.content_type or "").lower() in ("application/zip", "application/x-zip-compressed"):
+        import zipfile
+        zip_results = []
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                for name in zf.namelist():
+                    nl = name.lower()
+                    if name.startswith("__MACOSX") or name.startswith("."):
+                        continue
+                    if not any(nl.endswith(e) for e in (".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".webp")):
+                        continue
+                    try:
+                        fd = zf.read(name)
+                        if not fd or len(fd) > MAX_FILE_SIZE:
+                            continue
+                        ct = "application/pdf" if nl.endswith(".pdf") else "image/jpeg" if nl.endswith((".jpg",".jpeg")) else "image/png"
+                        fake = UploadFile(filename=name, file=io.BytesIO(fd))
+                        fake.content_type = ct
+                        rt = ""
+                        try:
+                            rt = await asyncio.wait_for(extract_text(fake, handwriting=handwriting, file_bytes=fd), timeout=45)
+                        except Exception:
+                            pass
+                        parsed = parse_invoice(rt)
+                        if invoice_type in ("income", "expense"):
+                            parsed["invoice_type"] = invoice_type
+                        inv_id = save_invoice(parsed, user_id=user["sub"], filename=name)
+                        auto_create_cash_entry(inv_id, user["sub"], parsed)
+                        zip_results.append({"filename": name, "status": "ok", "id": inv_id})
+                    except Exception:
+                        zip_results.append({"filename": name, "status": "error"})
+        except zipfile.BadZipFile:
+            err(400, "Beschädigte ZIP-Datei")
+        return {"success": True, "results": zip_results, "count": len(zip_results)}
 
     if not _validate_file_magic(content, file.content_type or ""):
         err(400, "Ungültige Datei — Dateityp stimmt nicht mit Inhalt überein")
