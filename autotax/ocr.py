@@ -222,9 +222,7 @@ def extract_pdf_page_as_image(content: bytes) -> bytes:
 
 async def _ocr_api_call(client, filename: str, content: bytes, engine: str = "1", is_table: bool = False) -> str:
     """Single OCR API call with given engine."""
-    api_data = {"apikey": OCR_API_KEY, "OCREngine": engine, "detectOrientation": "true", "scale": "true"}
-    if is_table:
-        api_data["isTable"] = "true"
+    api_data = {"apikey": OCR_API_KEY, "OCREngine": engine}
     resp = await client.post(
         OCR_API_URL,
         data=api_data,
