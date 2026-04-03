@@ -376,6 +376,184 @@ function resetForm() {
 
 // Init
 document.getElementById("invoiceDate").value = new Date().toISOString().slice(0, 10);
+
+
+// --- ADDED START: Autocomplete, VAT calc, date shortcuts ---
+
+// === 1. VENDOR AUTOCOMPLETE ===
+const KNOWN_VENDORS = [
+  "Lidl","Aldi","Rewe","Edeka","Penny","Netto","Kaufland","dm","Rossmann",
+  "Amazon","eBay","Otto","Zalando","MediaMarkt","Saturn","IKEA","H&M",
+  "Shell","Aral","Total","Esso","Jet","BP",
+  "Auchan","Carrefour","Leclerc","Intermarche",
+  "Starbucks","McDonald's","Burger King","Subway","Nordsee",
+  "Telekom","Vodafone","O2","1&1",
+  "DHL","DPD","Hermes","UPS","FedEx","GLS",
+  "Allianz","HUK","DEVK","ADAC",
+  "Apple","Google","Microsoft","Adobe","Spotify","Netflix",
+  "Deichmann","C&A","TK Maxx","Primark",
+  "Müller","Tchibo","Toom","OBI","Hornbach","Bauhaus",
+  "DocMorris","Apotheke","Fielmann","Apollo",
+];
+(function initAutocomplete() {
+  const input = document.getElementById("vendor");
+  const wrap = input.parentElement;
+  wrap.style.position = "relative";
+  const dropdown = document.createElement("div");
+  dropdown.id = "vendorDropdown";
+  dropdown.style.cssText = "position:absolute;top:100%;left:0;right:0;background:#111827;border:1.5px solid #2a3548;border-radius:10px;max-height:200px;overflow-y:auto;z-index:100;display:none;margin-top:4px;";
+  wrap.appendChild(dropdown);
+
+  input.addEventListener("input", function() {
+    const val = this.value.toLowerCase().trim();
+    if (val.length < 1) { dropdown.style.display = "none"; return; }
+    const matches = KNOWN_VENDORS.filter(v => v.toLowerCase().includes(val)).slice(0, 8);
+    if (!matches.length) { dropdown.style.display = "none"; return; }
+    dropdown.innerHTML = matches.map(v =>
+      '<div style="padding:10px 14px;cursor:pointer;color:#f1f5f9;font-size:14px;border-bottom:1px solid #1e293b;" ' +
+      'onmousedown="document.getElementById(\'vendor\').value=\'' + v.replace(/'/g, "\\'") + '\';document.getElementById(\'vendorDropdown\').style.display=\'none\';" ' +
+      'onmouseenter="this.style.background=\'rgba(16,185,129,0.1)\'" onmouseleave="this.style.background=\'transparent\'">' + v + '</div>'
+    ).join("");
+    dropdown.style.display = "block";
+  });
+  input.addEventListener("blur", function() { setTimeout(() => dropdown.style.display = "none", 150); });
+})();
+
+
+// === 2. VAT AUTO-CALCULATION ===
+(function initVatCalc() {
+  // Add netto/vat display after amount input
+  const amountGroup = document.getElementById("amount").closest(".form-group");
+  const calcDiv = document.createElement("div");
+  calcDiv.id = "vatCalcDisplay";
+  calcDiv.style.cssText = "display:flex;gap:16px;margin-top:8px;font-size:13px;color:#64748b;";
+  calcDiv.innerHTML = '<span>Netto: <strong id="nettoVal" style="color:#94a3b8">--</strong></span><span>MwSt: <strong id="mwstVal" style="color:#94a3b8">--</strong></span>';
+  amountGroup.appendChild(calcDiv);
+
+  function updateCalc() {
+    const brutto = parseFloat(document.getElementById("amount").value) || 0;
+    const vr = vatRate || document.getElementById("vatCustom").value.trim();
+    const vatPct = parseFloat(vr) || 0;
+    if (brutto > 0 && vatPct > 0) {
+      const mwst = Math.round(brutto * vatPct / (100 + vatPct) * 100) / 100;
+      const netto = Math.round((brutto - mwst) * 100) / 100;
+      document.getElementById("nettoVal").textContent = netto.toFixed(2) + " \u20AC";
+      document.getElementById("mwstVal").textContent = mwst.toFixed(2) + " \u20AC (" + vatPct + "%)";
+    } else if (brutto > 0) {
+      document.getElementById("nettoVal").textContent = brutto.toFixed(2) + " \u20AC";
+      document.getElementById("mwstVal").textContent = "0,00 \u20AC";
+    } else {
+      document.getElementById("nettoVal").textContent = "--";
+      document.getElementById("mwstVal").textContent = "--";
+    }
+  }
+  document.getElementById("amount").addEventListener("input", updateCalc);
+  document.getElementById("vatCustom").addEventListener("input", updateCalc);
+  // Hook into setVat
+  const origSetVat = window.setVat;
+  window.setVat = function(v) { origSetVat(v); setTimeout(updateCalc, 50); };
+})();
+
+
+// === 3. DATE SHORTCUTS ===
+(function initDateShortcuts() {
+  const dateGroup = document.getElementById("invoiceDate").closest(".form-group");
+  const shortcuts = document.createElement("div");
+  shortcuts.style.cssText = "display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;";
+
+  function addBtn(label, daysAgo) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.style.cssText = "padding:5px 12px;border-radius:6px;border:1px solid #2a3548;background:#111827;color:#94a3b8;cursor:pointer;font-size:12px;font-family:inherit;transition:all 0.15s;";
+    btn.onmouseenter = function() { this.style.borderColor = "#10b981"; this.style.color = "#10b981"; };
+    btn.onmouseleave = function() { this.style.borderColor = "#2a3548"; this.style.color = "#94a3b8"; };
+    btn.onclick = function() {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      document.getElementById("invoiceDate").value = d.toISOString().slice(0, 10);
+    };
+    shortcuts.appendChild(btn);
+  }
+  addBtn("Heute", 0);
+  addBtn("Gestern", 1);
+  addBtn("Vorgestern", 2);
+  addBtn("Letzte Woche", 7);
+  addBtn("Vor 2 Wochen", 14);
+  dateGroup.appendChild(shortcuts);
+})();
+
+
+// === 4. KEYBOARD SHORTCUTS ===
+document.addEventListener("keydown", function(e) {
+  // Ctrl+S = Save
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    e.preventDefault();
+    saveBeleg();
+  }
+  // Escape = Cancel
+  if (e.key === "Escape") {
+    window.location.href = "/";
+  }
+});
+
+
+// === 5. DRAG & DROP FILE ===
+(function initDragDrop() {
+  const drop = document.getElementById("fileDrop");
+  drop.addEventListener("dragover", function(e) { e.preventDefault(); this.style.borderColor = "#10b981"; this.style.background = "rgba(16,185,129,0.06)"; });
+  drop.addEventListener("dragleave", function() { this.style.borderColor = "#2a3548"; this.style.background = "#111827"; });
+  drop.addEventListener("drop", function(e) {
+    e.preventDefault();
+    this.style.borderColor = "#2a3548";
+    this.style.background = "#111827";
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      selectedFile = f;
+      this.innerHTML = '<div class="selected">' + f.name + ' (' + (f.size/1024).toFixed(0) + ' KB)</div>';
+    }
+  });
+})();
+
+
+// === 6. AUTO-CATEGORY BY VENDOR ===
+(function initAutoCategory() {
+  const VENDOR_CATS = {
+    food: ["lidl","aldi","rewe","edeka","penny","netto","kaufland","auchan","carrefour","leclerc","intermarche","müller"],
+    restaurant: ["starbucks","mcdonald","burger king","subway","nordsee"],
+    fuel: ["shell","aral","total","esso","jet","bp"],
+    electronics: ["mediamarkt","saturn","apple","samsung"],
+    clothing: ["h&m","c&a","deichmann","zalando","tk maxx","primark"],
+    telecom: ["telekom","vodafone","o2","1&1"],
+    shipping: ["dhl","dpd","hermes","ups","fedex","gls"],
+    insurance: ["allianz","huk","devk","adac"],
+    software: ["adobe","spotify","netflix","google","microsoft"],
+    health: ["docmorris","apotheke","fielmann","apollo"],
+    home: ["ikea","toom","obi","hornbach","bauhaus"],
+    shopping: ["amazon","ebay","otto","tchibo"],
+  };
+  document.getElementById("vendor").addEventListener("change", function() {
+    const v = this.value.toLowerCase().trim();
+    for (const [cat, vendors] of Object.entries(VENDOR_CATS)) {
+      if (vendors.some(vn => v.includes(vn))) {
+        document.getElementById("category").value = cat;
+        break;
+      }
+    }
+  });
+  // Also trigger on autocomplete selection
+  document.getElementById("vendor").addEventListener("input", function() {
+    const v = this.value.toLowerCase().trim();
+    for (const [cat, vendors] of Object.entries(VENDOR_CATS)) {
+      if (vendors.some(vn => v.includes(vn))) {
+        document.getElementById("category").value = cat;
+        break;
+      }
+    }
+  });
+})();
+
+// --- ADDED END ---
 </script>
 </body>
 </html>
