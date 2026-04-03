@@ -688,7 +688,8 @@ function UploadView({triggerRefresh,onNav,showToast}){
     try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();
       /* --- ADDED START: duplicate force upload --- */
       if(d.duplicate&&d.can_force){
-        if(confirm("Bu fatura zaten yuklu ("+files[0].name+").\nTekrar yuklemek ister misiniz?")){
+        const userConfirmed = await window.showDuplicateModal(files[0].name);
+        if(userConfirmed){
           const fd2=new FormData();fd2.append("file",files[0]);fd2.append("invoice_type",invoiceType);fd2.append("force_upload","true");
           const res2=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd2});const d2=await res2.json();
           setResults([{filename:files[0].name,status:res2.ok?"ok":"error",message:res2.ok?"OK (Force) — €"+(d2.total_amount?.toFixed(2)||"0.00"):d2.detail}]);if(res2.ok){okCount=1;if(d2.warning&&showToast)showToast(d2.warning,"warn");}
@@ -1768,7 +1769,70 @@ function App(){
   </div>);
 }
 
-ReactDOM.render(<App/>, document.getElementById("root"));
+/* --- ADDED START: Duplicate confirmation modal --- */
+function DuplicateModal({visible, filename, onConfirm, onCancel}) {
+  if (!visible) return null;
+  return React.createElement("div", {
+    style: {position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn 0.2s ease",padding:20},
+    onClick: onCancel
+  },
+    React.createElement("div", {
+      style: {background:"#1e293b",border:"1px solid #2a3548",borderRadius:16,padding:32,maxWidth:440,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,0.5)",animation:"fadeIn 0.3s ease"},
+      onClick: function(e){e.stopPropagation();}
+    },
+      React.createElement("div", {style:{fontSize:32,textAlign:"center",marginBottom:12}}, "\u26A0\uFE0F"),
+      React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"#f1f5f9",textAlign:"center",marginBottom:8}}, "Fatura zaten y\u00FCkl\u00FC"),
+      React.createElement("div", {style:{fontSize:14,color:"#94a3b8",textAlign:"center",lineHeight:1.6,marginBottom:6}},
+        "Bu fatura daha \u00F6nce sisteme eklenmi\u015F."
+      ),
+      filename ? React.createElement("div", {style:{fontSize:12,color:"#64748b",textAlign:"center",marginBottom:20,fontFamily:"monospace",background:"#111827",padding:"6px 12px",borderRadius:8}}, filename) : null,
+      React.createElement("div", {style:{fontSize:14,color:"#f59e0b",textAlign:"center",marginBottom:24}},
+        "Tekrar y\u00FCklemek ister misiniz?"
+      ),
+      React.createElement("div", {style:{display:"flex",gap:12,justifyContent:"center"}},
+        React.createElement("button", {
+          onClick: onCancel,
+          style: {padding:"12px 24px",borderRadius:10,border:"1.5px solid #2a3548",background:"transparent",color:"#94a3b8",fontSize:14,fontWeight:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"},
+          onMouseEnter: function(e){e.target.style.borderColor="#ef4444";e.target.style.color="#ef4444";},
+          onMouseLeave: function(e){e.target.style.borderColor="#2a3548";e.target.style.color="#94a3b8";}
+        }, "\u0130ptal"),
+        React.createElement("button", {
+          onClick: onConfirm,
+          style: {padding:"12px 24px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 16px rgba(16,185,129,0.3)",transition:"all 0.2s"},
+          onMouseEnter: function(e){e.target.style.transform="scale(1.05)";},
+          onMouseLeave: function(e){e.target.style.transform="scale(1)";}
+        }, "Evet, tekrar y\u00FCkle")
+      )
+    )
+  );
+}
+
+// Global duplicate modal state (used by upload flow)
+window._dupModal = {resolve: null};
+window.showDuplicateModal = function(filename) {
+  return new Promise(function(resolve) {
+    window._dupModal.resolve = resolve;
+    window._dupModal.filename = filename;
+    window._dupModal.visible = true;
+    // Force re-render
+    if (window._dupModalForceUpdate) window._dupModalForceUpdate();
+  });
+};
+
+function DuplicateModalRoot() {
+  const [, setTick] = useState(0);
+  useEffect(function() { window._dupModalForceUpdate = function() { setTick(function(t){return t+1;}); }; }, []);
+  const m = window._dupModal;
+  return React.createElement(DuplicateModal, {
+    visible: m.visible || false,
+    filename: m.filename || "",
+    onConfirm: function() { m.visible = false; setTick(function(t){return t+1;}); if (m.resolve) m.resolve(true); },
+    onCancel: function() { m.visible = false; setTick(function(t){return t+1;}); if (m.resolve) m.resolve(false); }
+  });
+}
+/* --- ADDED END --- */
+
+ReactDOM.render(React.createElement(Fragment, null, React.createElement(App), React.createElement(DuplicateModalRoot)), document.getElementById("root"));
 </script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
 </body>
