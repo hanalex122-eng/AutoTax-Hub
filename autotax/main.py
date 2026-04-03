@@ -159,7 +159,7 @@ def auto_create_cash_entry(invoice_id: int, user_id: int, data: dict):
             entry_type="expense",
             category=data.get("category") or "other",
             payment_method=data.get("payment_method") or "",
-            reference=f"INV-{invoice_id}",
+            reference=data.get("invoice_number") or f"INV-{invoice_id}",
             notes=f"Auto-sync from invoice #{invoice_id}",
             is_reconciled=False,
             invoice_id=invoice_id,
