@@ -356,6 +356,15 @@ async def serve_frontend_app():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+# --- ADDED START: Beleg entry page ---
+@app.get("/beleg", response_class=HTMLResponse)
+async def serve_beleg_page():
+    beleg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "beleg.html")
+    with open(beleg_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+# --- ADDED END ---
+
+
 @app.get("/agb", response_class=HTMLResponse)
 def agb_page():
     return HTMLResponse(content="""<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>AGB — AutoTax-HUB</title>
