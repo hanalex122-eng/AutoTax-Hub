@@ -1061,11 +1061,21 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
     except Exception:
         pass
 
+    # OCR quality warning
+    _ocr_warning = ""
+    if not raw_text or len(raw_text.strip()) < 20:
+        _ocr_warning = "OCR konnte den Text nicht lesen — bitte manuell prüfen"
+    elif safe_float(result.get("total_amount")) == 0:
+        _ocr_warning = "Betrag nicht erkannt — bitte manuell eingeben"
+    elif result.get("vendor") == "Unbekannt":
+        _ocr_warning = "Lieferant nicht erkannt — bitte manuell eingeben"
+
     return {
         "id": invoice_id,
         "total_amount": safe_float(result.get("total_amount")),
         "filename": file.filename,
         "status": "ok",
+        "warning": _ocr_warning,
     }
 
 
