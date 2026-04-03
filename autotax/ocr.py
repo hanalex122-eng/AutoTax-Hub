@@ -223,3 +223,117 @@ async def extract_text_and_qr(file: UploadFile, handwriting: bool = False, file_
         ocr_text = content.decode("utf-8", errors="ignore")
 
     return ocr_text, qr_data
+
+
+# --- ADDED START: Table-specific OCR preprocessing ---
+def preprocess_table_image(content: bytes) -> bytes:
+    """Aggressive preprocessing for handwritten table photos (Kassenbuch).
+    Does NOT replace preprocess_image — used only for table import.
+    Steps: EXIF fix → grayscale → deskew → shadow removal → high contrast → adaptive threshold → denoise."""
+    try:
+        from PIL import Image, ImageEnhance, ImageOps, ImageFilter
+        import numpy as np
+        img = Image.open(io.BytesIO(content))
+
+        # Fix EXIF rotation
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
+
+        # Grayscale
+        img = img.convert("L")
+
+        # Resize — keep larger for table detail (max 2000px)
+        max_dim = 2000
+        if img.width > max_dim or img.height > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+
+        # Deskew: find best rotation angle by projection profile
+        try:
+            thumb = img.copy()
+            thumb.thumbnail((500, 500))
+            arr_t = 255 - np.array(thumb)
+            best_angle, best_score = 0, 0
+            for a10 in range(-50, 51, 5):
+                angle = a10 / 10.0
+                rot = thumb.rotate(angle, expand=False, fillcolor=255)
+                row_sums = np.sum(255 - np.array(rot), axis=1)
+                score = np.sum(row_sums ** 2)
+                if score > best_score:
+                    best_score = score
+                    best_angle = angle
+            if abs(best_angle) > 0.3:
+                logger.info("Table deskew: %.1f°", best_angle)
+                img = img.rotate(best_angle, expand=True, fillcolor=255)
+        except Exception:
+            pass
+
+        # Shadow removal: divide by blurred background
+        arr_f = np.array(img, dtype=np.float32)
+        bg = np.array(img.filter(ImageFilter.GaussianBlur(radius=50)), dtype=np.float32)
+        bg[bg == 0] = 1
+        no_shadow = np.clip(arr_f * 255.0 / bg, 0, 255).astype(np.uint8)
+        img = Image.fromarray(no_shadow)
+
+        # High contrast + sharpen
+        img = ImageOps.autocontrast(img, cutoff=3)
+        img = ImageEnhance.Contrast(img).enhance(2.5)
+        img = ImageEnhance.Sharpness(img).enhance(2.5)
+
+        # Adaptive threshold: binarize for clean text
+        arr = np.array(img)
+        blur_arr = np.array(img.filter(ImageFilter.GaussianBlur(radius=15)))
+        binary = np.where(arr < blur_arr - 18, 0, 255).astype(np.uint8)
+        img = Image.fromarray(binary)
+
+        # Denoise
+        img = img.filter(ImageFilter.MedianFilter(size=3))
+
+        # Save as JPEG
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=92)
+        processed = buf.getvalue()
+
+        if len(processed) > 950000:
+            img.thumbnail((1600, 1600), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=88)
+            processed = buf.getvalue()
+
+        logger.info("Table image preprocessed: %d bytes → %d bytes (%dx%d)", len(content), len(processed), img.width, img.height)
+        img.close()
+        return processed
+    except Exception as e:
+        logger.warning("Table preprocessing failed, using standard: %s", e)
+        return preprocess_image(content)
+
+
+async def extract_table_text(content: bytes, filename: str) -> str:
+    """OCR for handwritten tables — tries aggressive preprocessing, then standard.
+    Does NOT replace extract_handwriting_text — used only for table import."""
+    if not OCR_API_KEY:
+        return ""
+    logger.info("Table OCR: processing %s (%d bytes)", filename, len(content))
+
+    # Attempt 1: aggressive table preprocessing + Engine 2 (handwriting)
+    processed = preprocess_table_image(content)
+    best_text = ""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            best_text = await _ocr_api_call(client, filename, processed, "2")
+            logger.info("Table OCR attempt 1 (table_preprocess+E2): %d chars", len(best_text))
+
+            # Attempt 2: if insufficient, try standard preprocess + Engine 2
+            if len(best_text) < 40:
+                processed_std = preprocess_image(content)
+                text2 = await _ocr_api_call(client, filename, processed_std, "2")
+                logger.info("Table OCR attempt 2 (standard+E2): %d chars", len(text2))
+                if len(text2) > len(best_text):
+                    best_text = text2
+
+            return best_text
+    except Exception as e:
+        logger.warning("Table OCR failed: %s", e)
+        return best_text
+# --- ADDED END ---
