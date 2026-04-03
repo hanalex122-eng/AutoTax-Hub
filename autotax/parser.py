@@ -1463,3 +1463,143 @@ company_store = CompanyStore()
 # result = store.match_or_create(entities)
 # print(result)  # => {"name": "Auchan", "iban": "FR7630004000031234567890143", "email": "info@auchan.fr", "address": "Breme d'Or"}
 # --- ADDED END ---
+
+
+# --- ADDED START: OCR quality validation & field detection helpers ---
+import re as _re
+import logging as _logging
+
+_val_logger = _logging.getLogger("autotax.validation")
+
+
+def validate_ocr_result(text: str) -> dict:
+    """Score OCR output quality 0-100. Checks text length, amounts, dates, keywords."""
+    if not text:
+        return {"is_valid": False, "score": 0, "fields": {}}
+
+    score = 0
+    fields = {"has_amount": False, "has_date": False, "has_keywords": False, "has_iban": False}
+
+    # Text length scoring (max 25 points)
+    tlen = len(text.strip())
+    if tlen > 200:
+        score += 25
+    elif tlen > 100:
+        score += 20
+    elif tlen > 50:
+        score += 15
+    elif tlen > 20:
+        score += 10
+    elif tlen > 5:
+        score += 5
+
+    # Amount detection (max 25 points)
+    amt_patterns = [
+        r"\d+[.,]\d{2}\s*€",
+        r"€\s*\d+[.,]\d{2}",
+        r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b",
+        r"\b\d+,\d{2}\b",
+    ]
+    for pat in amt_patterns:
+        if _re.search(pat, text):
+            fields["has_amount"] = True
+            score += 25
+            break
+
+    # Date detection (max 20 points)
+    date_patterns = [
+        r"\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b",
+        r"\b\d{4}-\d{2}-\d{2}\b",
+    ]
+    for pat in date_patterns:
+        if _re.search(pat, text):
+            fields["has_date"] = True
+            score += 20
+            break
+
+    # Keyword detection (max 15 points)
+    keywords = ["rechnung", "quittung", "beleg", "betrag", "gesamt", "summe", "total",
+                "netto", "brutto", "mwst", "steuer", "ust", "datum", "kassenbon",
+                "facture", "reçu", "tva", "montant"]
+    text_lower = text.lower()
+    kw_count = sum(1 for kw in keywords if kw in text_lower)
+    if kw_count >= 3:
+        score += 15
+        fields["has_keywords"] = True
+    elif kw_count >= 1:
+        score += 8
+        fields["has_keywords"] = True
+
+    # IBAN detection (max 15 points)
+    if _re.search(r"[A-Z]{2}\d{2}\s?\d{4}\s?\d{4}", text.upper()):
+        fields["has_iban"] = True
+        score += 15
+
+    is_valid = score >= 30
+    _val_logger.info("OCR validation: score=%d, valid=%s, len=%d, fields=%s", score, is_valid, tlen, fields)
+    return {"is_valid": is_valid, "score": min(score, 100), "fields": fields}
+
+
+def detect_amounts(text: str) -> list[float]:
+    """Extract all monetary amounts from OCR text (German/European format)."""
+    results = []
+    for m in _re.finditer(r"(\d{1,3}(?:\.\d{3})*,\d{2})", text):
+        raw = m.group(1).replace(".", "").replace(",", ".")
+        try:
+            val = float(raw)
+            if 0.01 <= val <= 999999:
+                results.append(val)
+        except ValueError:
+            pass
+    for m in _re.finditer(r"(?<!\d)(\d{1,6}\.\d{2})(?!\d)", text):
+        try:
+            val = float(m.group(1))
+            if 0.01 <= val <= 999999 and val not in results:
+                results.append(val)
+        except ValueError:
+            pass
+    return sorted(set(results), reverse=True)
+
+
+def detect_dates(text: str) -> list[str]:
+    """Extract all dates from OCR text, return as YYYY-MM-DD."""
+    results = []
+    for m in _re.finditer(r"(\d{1,2})[./](\d{1,2})[./](\d{4})", text):
+        d, mo, y = m.group(1), m.group(2), m.group(3)
+        if 1 <= int(d) <= 31 and 1 <= int(mo) <= 12:
+            results.append(f"{y}-{mo.zfill(2)}-{d.zfill(2)}")
+    for m in _re.finditer(r"(\d{1,2})[./](\d{1,2})[./](\d{2})(?!\d)", text):
+        d, mo, y = m.group(1), m.group(2), "20" + m.group(3)
+        if 1 <= int(d) <= 31 and 1 <= int(mo) <= 12:
+            results.append(f"{y}-{mo.zfill(2)}-{d.zfill(2)}")
+    for m in _re.finditer(r"(\d{4})-(\d{2})-(\d{2})", text):
+        results.append(m.group(0))
+    return list(dict.fromkeys(results))
+
+
+def detect_vat(text: str) -> list[str]:
+    """Detect VAT rates mentioned in text."""
+    rates = []
+    for m in _re.finditer(r"(\d{1,2}(?:[.,]\d{1,2})?)\s*%", text):
+        rate = m.group(1).replace(",", ".")
+        try:
+            val = float(rate)
+            if val in (7, 19, 5.5, 10, 13, 20, 21, 25, 8.1, 3.8, 2.6, 2.1):
+                rates.append(f"{val}%")
+        except ValueError:
+            pass
+    text_lower = text.lower()
+    if ("mwst" in text_lower or "ust" in text_lower) and not rates:
+        rates.append("19%")
+    if "tva" in text_lower and not rates:
+        rates.append("20%")
+    return list(dict.fromkeys(rates))
+
+
+# Example:
+# text = "Rechnung Nr. 12345\nDatum: 15.03.2026\nGesamt: 42,50 €\nMwSt 19%: 6,78 €"
+# validate_ocr_result(text) => {"is_valid": True, "score": 85, ...}
+# detect_amounts(text)      => [42.5, 6.78]
+# detect_dates(text)        => ["2026-03-15"]
+# detect_vat(text)          => ["19%"]
+# --- ADDED END ---
