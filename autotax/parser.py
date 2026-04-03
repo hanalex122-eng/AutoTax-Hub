@@ -1398,3 +1398,68 @@ def extract_entities(text: str) -> dict:
 # print(result)
 # => {"ibans": ["DE89370400440532013000"], "emails": ["max@beispiel.de"], "phones": ["+49 69 1234567"], "addresses": ["Hauptstr. 12, 60311 Frankfurt", "60311 Frankfurt"]}
 # --- ADDED END ---
+
+
+# --- ADDED START ---
+class CompanyStore:
+    """Simple in-memory company store. Matches by IBAN (primary) or email (fallback)."""
+
+    def __init__(self):
+        self._by_iban: dict[str, dict] = {}
+        self._by_email: dict[str, dict] = {}
+
+    def add_company(self, data: dict) -> dict:
+        """Add or update a company entry. Returns the stored company."""
+        company = {
+            "name": str(data.get("name", "") or ""),
+            "iban": str(data.get("iban", "") or "").replace(" ", ""),
+            "email": str(data.get("email", "") or "").lower().strip(),
+            "address": str(data.get("address", "") or ""),
+        }
+        if company["iban"]:
+            self._by_iban[company["iban"]] = company
+        if company["email"]:
+            self._by_email[company["email"]] = company
+        return company
+
+    def find_by_iban(self, iban: str) -> dict | None:
+        """Look up company by IBAN. Returns None if not found."""
+        return self._by_iban.get(iban.replace(" ", ""))
+
+    def find_by_email(self, email: str) -> dict | None:
+        """Look up company by email. Returns None if not found."""
+        return self._by_email.get(email.lower().strip())
+
+    def match_or_create(self, entities: dict) -> dict:
+        """Match existing company from extracted entities, or create new entry.
+        Uses IBAN as primary key, email as fallback."""
+        # Try IBAN match first
+        for iban in entities.get("ibans", []):
+            found = self.find_by_iban(iban)
+            if found:
+                return found
+        # Fallback: try email match
+        for email in entities.get("emails", []):
+            found = self.find_by_email(email)
+            if found:
+                return found
+        # No match — create new entry from entities
+        new_company = {
+            "name": "",
+            "iban": entities.get("ibans", [""])[0] if entities.get("ibans") else "",
+            "email": entities.get("emails", [""])[0] if entities.get("emails") else "",
+            "address": entities.get("addresses", [""])[0] if entities.get("addresses") else "",
+        }
+        return self.add_company(new_company)
+
+
+# Global instance
+company_store = CompanyStore()
+
+# Example usage:
+# store = CompanyStore()
+# store.add_company({"name": "Auchan", "iban": "FR7630004000031234567890143", "email": "info@auchan.fr", "address": "Breme d'Or"})
+# entities = {"ibans": ["FR7630004000031234567890143"], "emails": [], "phones": [], "addresses": []}
+# result = store.match_or_create(entities)
+# print(result)  # => {"name": "Auchan", "iban": "FR7630004000031234567890143", "email": "info@auchan.fr", "address": "Breme d'Or"}
+# --- ADDED END ---
