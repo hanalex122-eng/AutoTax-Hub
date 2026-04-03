@@ -232,6 +232,49 @@ COUNTRY_VAT_DEFAULTS: dict[str, float] = {
     "MT": 18.0,
 }
 
+# --- ADDED START: Extra countries with high VAT rates ---
+COUNTRY_VAT_DEFAULTS.update({
+    "TR": 20.0,   # Türkiye (KDV)
+    "GB": 20.0,   # United Kingdom (VAT)
+    "NO": 25.0,   # Norway (MVA)
+    "IS": 24.0,   # Iceland
+    "RS": 20.0,   # Serbia (PDV)
+    "BA": 17.0,   # Bosnia (PDV)
+    "ME": 21.0,   # Montenegro
+    "MK": 18.0,   # North Macedonia (DDV)
+    "AL": 20.0,   # Albania (TVSH)
+    "XK": 18.0,   # Kosovo
+    "UA": 20.0,   # Ukraine (PDV)
+    "MD": 20.0,   # Moldova
+    "GE": 18.0,   # Georgia
+    "IN": 18.0,   # India (GST)
+    "BR": 17.0,   # Brazil (ICMS avg)
+    "AR": 21.0,   # Argentina (IVA)
+    "MX": 16.0,   # Mexico (IVA)
+    "CL": 19.0,   # Chile (IVA)
+    "CO": 19.0,   # Colombia (IVA)
+    "US": 0.0,    # USA (no federal VAT, sales tax varies)
+    "CA": 5.0,    # Canada (GST)
+    "AU": 10.0,   # Australia (GST)
+    "NZ": 15.0,   # New Zealand (GST)
+    "JP": 10.0,   # Japan (consumption tax)
+    "KR": 10.0,   # South Korea (VAT)
+    "CN": 13.0,   # China (VAT)
+    "AE": 5.0,    # UAE (VAT)
+    "SA": 15.0,   # Saudi Arabia (VAT)
+    "IL": 17.0,   # Israel (Ma'am)
+    "ZA": 15.0,   # South Africa (VAT)
+    "MA": 20.0,   # Morocco (TVA)
+    "TN": 19.0,   # Tunisia (TVA)
+    "EG": 14.0,   # Egypt (VAT)
+    "NG": 7.5,    # Nigeria (VAT)
+    "KE": 16.0,   # Kenya (VAT)
+    "RU": 20.0,   # Russia (NDS)
+})
+
+
+# --- ADDED END (indicators update moved after dict definition below) ---
+
 COUNTRY_INDICATORS: dict[str, list[str]] = {
     "DE": [
         "deutschland", "germany", "steuer-nr", "steuernummer",
@@ -272,6 +315,32 @@ COUNTRY_INDICATORS: dict[str, list[str]] = {
     ],
 }
 
+# --- ADDED START: Extra country indicators ---
+COUNTRY_INDICATORS.update({
+    "TR": [
+        "türkiye", "turkey", "kdv", "t.c.", "vergi", "fatura", "fis", "fiş",
+        "istanbul", "ankara", "izmir", "antalya", "bursa", "adana",
+        "tl", "₺", "turkish lira",
+    ],
+    "GB": [
+        "united kingdom", "uk", "vat reg", "london", "manchester",
+        "birmingham", "ltd", "plc", "£", "gbp",
+    ],
+    "NO": [
+        "norge", "norway", "mva", "org.nr", "oslo", "bergen", "nok",
+    ],
+    "RS": [
+        "srbija", "serbia", "pdv", "beograd", "pib", "rsd",
+    ],
+    "UA": [
+        "україна", "ukraine", "pdv", "kyiv", "uah", "грн",
+    ],
+    "RU": [
+        "россия", "russia", "ндс", "nds", "inn", "москва", "rub", "₽",
+    ],
+})
+# --- ADDED END ---
+
 # Known reduced VAT rates per country
 KNOWN_VAT_RATES: dict[str, list[float]] = {
     "DE": [19.0, 7.0],
@@ -284,6 +353,26 @@ KNOWN_VAT_RATES: dict[str, list[float]] = {
     "CH": [8.1, 3.8, 2.6],
     "LU": [17.0, 14.0, 8.0, 3.0],
 }
+
+# --- ADDED START: Extra country VAT rates ---
+KNOWN_VAT_RATES.update({
+    "TR": [20.0, 10.0, 1.0],
+    "GB": [20.0, 5.0, 0.0],
+    "NO": [25.0, 15.0, 12.0],
+    "IS": [24.0, 11.0],
+    "RS": [20.0, 10.0],
+    "UA": [20.0, 14.0, 7.0],
+    "IN": [28.0, 18.0, 12.0, 5.0],
+    "BR": [17.0, 12.0, 7.0],
+    "AR": [21.0, 10.5, 27.0],
+    "MX": [16.0, 0.0],
+    "JP": [10.0, 8.0],
+    "CN": [13.0, 9.0, 6.0],
+    "AE": [5.0],
+    "SA": [15.0],
+    "RU": [20.0, 10.0],
+})
+# --- ADDED END ---
 
 # ════════════════════════════════════════════════════════════════
 # NORMALIZATION
@@ -792,6 +881,65 @@ def detect_currency(raw_text: str) -> str:
         return "GBP"
     if " CHF" in tu:
         return "CHF"
+    # --- ADDED START: Extra currencies ---
+    if "₽" in t or " RUB" in tu:
+        return "RUB"
+    if " NOK" in tu or " KR" in tu:
+        if any(w in t.lower() for w in ["norge", "norway", "oslo"]):
+            return "NOK"
+    if " SEK" in tu:
+        return "SEK"
+    if " DKK" in tu:
+        return "DKK"
+    if " PLN" in tu or " ZŁ" in tu or "zł" in t:
+        return "PLN"
+    if " CZK" in tu or " KČ" in tu or "kč" in t:
+        return "CZK"
+    if " HUF" in tu or " FT" in tu:
+        return "HUF"
+    if " RON" in tu or " LEI" in tu:
+        return "RON"
+    if " HRK" in tu or " KN" in tu:
+        return "HRK"
+    if " RSD" in tu or " DIN" in tu:
+        return "RSD"
+    if " UAH" in tu or "₴" in t or "грн" in t:
+        return "UAH"
+    if "¥" in t or " JPY" in tu:
+        return "JPY"
+    if "₩" in t or " KRW" in tu:
+        return "KRW"
+    if "₹" in t or " INR" in tu:
+        return "INR"
+    if " CNY" in tu or " RMB" in tu or "元" in t:
+        return "CNY"
+    if " AED" in tu or "د.إ" in t:
+        return "AED"
+    if " SAR" in tu or "﷼" in t:
+        return "SAR"
+    if " ZAR" in tu:
+        return "ZAR"
+    if " BRL" in tu or "R$" in t:
+        return "BRL"
+    if " MXN" in tu:
+        return "MXN"
+    if " ARS" in tu:
+        return "ARS"
+    if " CAD" in tu or "C$" in t:
+        return "CAD"
+    if " AUD" in tu or "A$" in t:
+        return "AUD"
+    if " NZD" in tu:
+        return "NZD"
+    if " ILS" in tu or "₪" in t:
+        return "ILS"
+    if " MAD" in tu:
+        return "MAD"
+    if " TND" in tu:
+        return "TND"
+    if " EGP" in tu:
+        return "EGP"
+    # --- ADDED END ---
     # Default
     if "€" in t or "EUR" in tu:
         return "EUR"
