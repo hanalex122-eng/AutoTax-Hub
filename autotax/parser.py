@@ -1523,32 +1523,35 @@ def parse_invoice(raw_text: str) -> dict:
     _norm = normalize(raw_text)
     _norm = normalize_amount_text(_norm)
 
-    # Priority 1: "Betrag" alone (Lidl, Aldi style) — this is the total you pay
+    # Priority 1: "Betrag" alone (Lidl, Aldi style) — this IS the total you pay
+    _betrag_found = False
     _betrag_m = re.search(r"(?<!\w)betrag\s*(?!.*(?:mwst|steuer|ust|netto|teil|rest|steuerbetrag))\s*:?\s*(?:eur\s*)?(\d+\.\d{2})", _norm, re.IGNORECASE)
     if _betrag_m:
         _bv = float(_betrag_m.group(1))
-        if _bv > total and 0.01 <= _bv < 100000:
-            total = _bv
+        if 0.01 <= _bv < 100000:
+            total = _bv  # Betrag = definitive total, no comparison needed
+            _betrag_found = True
 
-    # Priority 2: explicit brutto keywords
-    _brutto_kws = [r"brutto", r"summe\s*brutto", r"bruttobetrag", r"gesamtbetrag\s*brutto",
-                   r"summe\s*inkl", r"gesamtbetrag\s*inkl", r"inkl\s*mwst", r"total\s*ttc"]
-    _brutto_val = 0.0
-    for _bkw in _brutto_kws:
-        _bm = re.search(rf"(?<!\w){_bkw}\s*:?\s*(\d+\.\d{{2}})", _norm, re.IGNORECASE)
-        if _bm:
-            _bv = float(_bm.group(1))
-            if _bv > _brutto_val and 0.01 <= _bv < 100000:
-                _brutto_val = _bv
-    if _brutto_val > 0 and _brutto_val > total:
-        total = _brutto_val
+    if not _betrag_found:
+        # Priority 2: explicit brutto keywords
+        _brutto_kws = [r"brutto", r"summe\s*brutto", r"bruttobetrag", r"gesamtbetrag\s*brutto",
+                       r"summe\s*inkl", r"gesamtbetrag\s*inkl", r"inkl\s*mwst", r"total\s*ttc"]
+        _brutto_val = 0.0
+        for _bkw in _brutto_kws:
+            _bm = re.search(rf"(?<!\w){_bkw}\s*:?\s*(\d+\.\d{{2}})", _norm, re.IGNORECASE)
+            if _bm:
+                _bv = float(_bm.group(1))
+                if _bv > _brutto_val and 0.01 <= _bv < 100000:
+                    _brutto_val = _bv
+        if _brutto_val > 0 and _brutto_val > total:
+            total = _brutto_val
 
-    # Priority 3: "summe" without netto/mwst/steuer next to it
-    _summe_m = re.search(r"(?<!\w)(?:summe|gesamt)\s*(?!.*(?:netto|mwst|steuer|ust))\s*:?\s*(\d+\.\d{2})", _norm, re.IGNORECASE)
-    if _summe_m:
-        _sv = float(_summe_m.group(1))
-        if _sv > total and 0.01 <= _sv < 100000:
-            total = _sv
+        # Priority 3: "summe" without netto/mwst/steuer next to it
+        _summe_m = re.search(r"(?<!\w)(?:summe|gesamt)\s*(?!.*(?:netto|mwst|steuer|ust))\s*:?\s*(\d+\.\d{2})", _norm, re.IGNORECASE)
+        if _summe_m:
+            _sv = float(_summe_m.group(1))
+            if _sv > total and 0.01 <= _sv < 100000:
+                total = _sv
     # --- ADDED END ---
 
     vat_rates, vat_amount = extract_vat_info(raw_text, total, country)
