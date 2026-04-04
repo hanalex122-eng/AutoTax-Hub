@@ -495,7 +495,22 @@ def extract_vendor(raw_text: str) -> str:
             if len(known_vendor) >= 3 and known_vendor in cl:
                 return _clean_vendor_name(c)
 
-    # Priority 3: first candidate (usually store name at top of receipt)
+    # Priority 3: first candidate that is NOT an address
+    # --- ADDED START: skip address-like candidates ---
+    _addr_re = re.compile(
+        r"(?:\d{4,5}\s+\w)"  # PLZ + city
+        r"|(?:\w+(?:str|straße|strasse|weg|platz|allee|gasse|ring|damm)\b)"  # street names
+        r"|(?:str\.\s*\d)"  # "Str. 5"
+        r"|(?:rue\s|avenue\s|boulevard\s)"  # French streets
+        r"|(?:^\d+[a-z]?\s*,)"  # "12a, ..."
+        r"|(?:\w+\s+\d+\s*[-/]\s*\d+)"  # "Musterweg 5-7"
+        , re.IGNORECASE
+    )
+    for c in candidates:
+        if not _addr_re.search(c):
+            return _clean_vendor_name(c)
+    # --- ADDED END ---
+    # Fallback: first candidate even if address-like
     return _clean_vendor_name(candidates[0])
 
 
