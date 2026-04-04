@@ -384,6 +384,14 @@ async def serve_landing_page():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 # --- ADDED END ---
 
+# --- ADDED START: Split-view editor page ---
+@app.get("/editor", response_class=HTMLResponse)
+async def serve_editor_page():
+    ep = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "editor.html")
+    with open(ep, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+# --- ADDED END ---
+
 # --- ADDED START: Beleg entry page ---
 @app.get("/beleg", response_class=HTMLResponse)
 async def serve_beleg_page():

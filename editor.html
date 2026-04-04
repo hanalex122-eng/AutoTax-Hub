@@ -1,0 +1,397 @@
+<!-- --- ADDED START: Split-view invoice editor --- -->
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beleg Editor - AutoTax-HUB</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#111827;border-bottom:1px solid #1e293b;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.topbar-logo{font-size:18px;font-weight:800;color:#10b981}
+.topbar-logo span{color:#f1f5f9}
+.topbar-title{font-size:14px;color:#94a3b8}
+.topbar-id{font-family:'JetBrains Mono',monospace;font-size:12px;color:#64748b;background:#1e293b;padding:4px 10px;border-radius:6px}
+.topbar-btns{display:flex;gap:8px}
+
+/* Split container */
+.split{display:flex;flex:1;overflow:hidden}
+
+/* Left: Image viewer */
+.left-panel{flex:1;background:#0a0e17;display:flex;flex-direction:column;border-right:2px solid #1e293b;min-width:0}
+.left-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#111827;border-bottom:1px solid #1e293b;flex-shrink:0}
+.left-header span{font-size:13px;color:#94a3b8;font-weight:600}
+.zoom-controls{display:flex;gap:6px}
+.zoom-btn{width:32px;height:32px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#f1f5f9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.zoom-btn:hover{border-color:#10b981;color:#10b981}
+.image-container{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;position:relative}
+.image-container img{max-width:none;transition:transform .2s;transform-origin:top center;cursor:grab}
+.image-container img:active{cursor:grabbing}
+.no-image{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#475569}
+.no-image .icon{font-size:48px;margin-bottom:12px}
+.no-image p{font-size:14px}
+
+/* Right: Edit form */
+.right-panel{width:420px;display:flex;flex-direction:column;background:#111827;overflow:hidden;flex-shrink:0}
+.right-header{padding:12px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.right-header h3{font-size:15px;font-weight:700;color:#f1f5f9}
+.status-badge{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600}
+.status-ok{background:rgba(16,185,129,0.15);color:#10b981}
+.status-warn{background:rgba(245,158,11,0.15);color:#f59e0b}
+.right-body{flex:1;overflow-y:auto;padding:16px}
+
+/* Form */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;background:#0a0e17;border:1.5px solid #2a3548;border-radius:8px;color:#f1f5f9;font-size:14px;font-family:inherit;outline:none;transition:border .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#10b981}
+.field textarea{resize:vertical;min-height:60px}
+.field select{cursor:pointer}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-highlight input{border-color:#f59e0b;background:rgba(245,158,11,0.05)}
+.field-ok input{border-color:rgba(16,185,129,0.3)}
+
+.section-title{font-size:12px;font-weight:700;color:#10b981;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #1e293b;text-transform:uppercase;letter-spacing:1px}
+
+/* Amount field */
+.amount-wrap{position:relative}
+.amount-wrap input{padding-left:28px;font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.amount-wrap .sym{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#64748b;font-size:16px}
+
+/* Buttons */
+.btn{padding:10px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .2s}
+.btn-save{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3)}
+.btn-save:hover{transform:scale(1.03)}
+.btn-cancel{background:transparent;border:1.5px solid #2a3548;color:#94a3b8}
+.btn-cancel:hover{border-color:#ef4444;color:#ef4444}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-outline{background:transparent;border:1px solid #2a3548;color:#94a3b8}
+.btn-outline:hover{border-color:#10b981;color:#10b981}
+
+.bottom-bar{display:flex;gap:10px;justify-content:space-between;padding:12px 16px;border-top:1px solid #1e293b;flex-shrink:0;background:#111827}
+
+/* Nav arrows */
+.nav-arrows{display:flex;gap:6px}
+.nav-arrow{width:36px;height:36px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#94a3b8;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.nav-arrow:hover{border-color:#10b981;color:#10b981}
+.nav-arrow:disabled{opacity:0.3;cursor:not-allowed}
+
+/* Toast */
+.toast{position:fixed;top:20px;right:20px;background:#10b981;color:#050a12;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;z-index:9999;animation:slideIn .3s ease;box-shadow:0 4px 20px rgba(16,185,129,0.4)}
+@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+/* Resize handle */
+.resize-handle{width:6px;background:#1e293b;cursor:col-resize;flex-shrink:0;transition:background .15s}
+.resize-handle:hover{background:#10b981}
+
+@media(max-width:900px){
+  .split{flex-direction:column}
+  .left-panel{flex:none;height:40vh;border-right:none;border-bottom:2px solid #1e293b}
+  .right-panel{width:100%;flex:1}
+  .resize-handle{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">Auto<span>Tax</span></div>
+    <span class="topbar-title">Beleg Editor</span>
+    <span class="topbar-id" id="invIdBadge">#—</span>
+  </div>
+  <div class="topbar-btns">
+    <div class="nav-arrows">
+      <button class="nav-arrow" id="btnPrev" onclick="navigate(-1)" title="Vorheriger">&#9664;</button>
+      <span id="navCounter" style="color:#64748b;font-size:12px;display:flex;align-items:center;padding:0 8px">—/—</span>
+      <button class="nav-arrow" id="btnNext" onclick="navigate(1)" title="Nächster">&#9654;</button>
+    </div>
+    <button class="btn btn-cancel btn-sm" onclick="window.location.href='/'">&#10005; Schließen</button>
+  </div>
+</div>
+
+<!-- Split View -->
+<div class="split">
+  <!-- Left: Original image -->
+  <div class="left-panel">
+    <div class="left-header">
+      <span>&#128196; Original Beleg</span>
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoom(-0.2)" title="Verkleinern">−</button>
+        <button class="zoom-btn" onclick="zoom(0)" title="Zurücksetzen">&#8634;</button>
+        <button class="zoom-btn" onclick="zoom(0.2)" title="Vergrößern">+</button>
+        <button class="zoom-btn" onclick="rotate()" title="Drehen">&#8635;</button>
+      </div>
+    </div>
+    <div class="image-container" id="imageContainer">
+      <div class="no-image" id="noImage">
+        <div class="icon">&#128196;</div>
+        <p>Kein Original gespeichert</p>
+        <p style="font-size:12px;margin-top:4px">Beleg wurde ohne Datei hochgeladen</p>
+      </div>
+      <img id="belegImg" style="display:none" draggable="false">
+    </div>
+  </div>
+
+  <!-- Resize handle -->
+  <div class="resize-handle" id="resizeHandle"></div>
+
+  <!-- Right: Edit form -->
+  <div class="right-panel" id="rightPanel">
+    <div class="right-header">
+      <h3>&#9998; Daten bearbeiten</h3>
+      <span class="status-badge status-ok" id="statusBadge">Erkannt</span>
+    </div>
+    <div class="right-body">
+
+      <div class="section-title">&#127970; Firma</div>
+      <div class="field" id="f_vendor"><label>Lieferant / Firma</label><input id="vendor" placeholder="z.B. Lidl, Amazon"></div>
+      <div class="field-row">
+        <div class="field"><label>IBAN</label><input id="iban" placeholder="DE89 3704 0044..."></div>
+        <div class="field"><label>Telefon</label><input id="phone" placeholder="+49 ..."></div>
+      </div>
+      <div class="field"><label>Adresse</label><input id="address" placeholder="Straße Nr, PLZ Ort"></div>
+
+      <div class="section-title">&#128176; Rechnungsdaten</div>
+      <div class="field-row">
+        <div class="field" id="f_amount">
+          <label>Betrag (Brutto)</label>
+          <div class="amount-wrap"><span class="sym">&euro;</span><input id="amount" type="number" step="0.01" placeholder="0.00"></div>
+        </div>
+        <div class="field"><label>MwSt</label>
+          <select id="vat_rate"><option value="19%">19%</option><option value="7%">7%</option><option value="0%">0%</option><option value="5.5%">5,5%</option><option value="10%">10%</option><option value="20%">20%</option></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field" id="f_date"><label>Datum</label><input id="date" type="date"></div>
+        <div class="field"><label>Rechnungs-Nr.</label><input id="invoice_number" placeholder="RE-2026-001"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Kategorie</label>
+          <select id="category"><option value="other">Sonstige</option><option value="food">Lebensmittel</option><option value="restaurant">Restaurant</option><option value="fuel">Kraftstoff</option><option value="transport">Transport</option><option value="office">Büro</option><option value="electronics">Elektronik</option><option value="clothing">Kleidung</option><option value="health">Gesundheit</option><option value="telecom">Telekommunikation</option><option value="insurance">Versicherung</option><option value="software">Software</option></select>
+        </div>
+        <div class="field"><label>Typ</label>
+          <select id="invoice_type"><option value="expense">Ausgabe</option><option value="income">Einnahme</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Zahlungsart</label>
+        <select id="payment_method"><option value="">—</option><option value="cash">Bar</option><option value="card">Karte</option><option value="transfer">Überweisung</option><option value="paypal">PayPal</option><option value="apple_pay">Apple Pay</option></select>
+      </div>
+
+      <div class="section-title">&#128221; OCR Text</div>
+      <div class="field"><label>Erkannter Text</label><textarea id="ocr_text" rows="4" style="font-family:monospace;font-size:11px;color:#64748b" readonly></textarea></div>
+
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn btn-cancel" onclick="window.location.href='/'">Abbrechen</button>
+      <button class="btn btn-save" id="btnSave" onclick="save()">&#10003; Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const API = window.location.origin;
+const token = localStorage.getItem("atx_token");
+let invoices = [];
+let currentIdx = 0;
+let currentZoom = 1;
+let currentRotation = 0;
+
+// Get invoice ID from URL: /editor?id=123 or /editor/123
+function getInvoiceId() {
+  const params = new URLSearchParams(window.location.search);
+  return parseInt(params.get("id")) || 0;
+}
+
+// Load all invoices for navigation
+async function loadInvoices() {
+  if (!token) { window.location.href = "/"; return; }
+  try {
+    const res = await fetch(API + "/invoices?limit=500", {headers: {Authorization: "Bearer " + token}});
+    const data = await res.json();
+    invoices = (data.items || data || []).filter(i => i.total_amount !== undefined);
+    const targetId = getInvoiceId();
+    if (targetId) {
+      currentIdx = invoices.findIndex(i => i.id === targetId);
+      if (currentIdx < 0) currentIdx = 0;
+    }
+    if (invoices.length > 0) loadInvoice(invoices[currentIdx]);
+    updateNav();
+  } catch(e) { console.error(e); }
+}
+
+function updateNav() {
+  document.getElementById("navCounter").textContent = (currentIdx + 1) + "/" + invoices.length;
+  document.getElementById("btnPrev").disabled = currentIdx <= 0;
+  document.getElementById("btnNext").disabled = currentIdx >= invoices.length - 1;
+}
+
+function navigate(dir) {
+  currentIdx = Math.max(0, Math.min(invoices.length - 1, currentIdx + dir));
+  loadInvoice(invoices[currentIdx]);
+  updateNav();
+}
+
+function loadInvoice(inv) {
+  document.getElementById("invIdBadge").textContent = "#" + inv.id;
+  document.getElementById("vendor").value = inv.vendor || "";
+  document.getElementById("amount").value = inv.total_amount || "";
+  document.getElementById("vat_rate").value = inv.vat_rate || "19%";
+  document.getElementById("date").value = inv.date || "";
+  document.getElementById("invoice_number").value = inv.invoice_number || "";
+  document.getElementById("category").value = inv.category || "other";
+  document.getElementById("invoice_type").value = inv.invoice_type || "expense";
+  document.getElementById("payment_method").value = inv.payment_method || "";
+  document.getElementById("ocr_text").value = inv.ocr_snippet || "";
+  document.getElementById("iban").value = inv.vendor_iban || "";
+  document.getElementById("phone").value = inv.vendor_phone || "";
+  document.getElementById("address").value = inv.vendor_address || "";
+
+  // Status badge
+  const badge = document.getElementById("statusBadge");
+  if (!inv.total_amount || inv.total_amount === 0 || inv.vendor === "Unbekannt") {
+    badge.textContent = "Prüfen";
+    badge.className = "status-badge status-warn";
+  } else {
+    badge.textContent = "Erkannt";
+    badge.className = "status-badge status-ok";
+  }
+
+  // Highlight empty important fields
+  ["f_vendor","f_amount","f_date"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = "field";
+  });
+  if (!inv.vendor || inv.vendor === "Unbekannt") document.getElementById("f_vendor").className = "field field-highlight";
+  if (!inv.total_amount || inv.total_amount === 0) document.getElementById("f_amount").className = "field field-highlight";
+  if (!inv.date) document.getElementById("f_date").className = "field field-highlight";
+
+  // Load image
+  loadImage(inv.id);
+  currentZoom = 1;
+  currentRotation = 0;
+}
+
+async function loadImage(id) {
+  const img = document.getElementById("belegImg");
+  const noImg = document.getElementById("noImage");
+  try {
+    const res = await fetch(API + "/vault/" + id + "/download?mode=inline", {headers: {Authorization: "Bearer " + token}});
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      img.src = url;
+      img.style.display = "block";
+      img.style.transform = "scale(1)";
+      noImg.style.display = "none";
+    } else {
+      img.style.display = "none";
+      noImg.style.display = "flex";
+    }
+  } catch(e) {
+    img.style.display = "none";
+    noImg.style.display = "flex";
+  }
+}
+
+function zoom(delta) {
+  const img = document.getElementById("belegImg");
+  if (delta === 0) { currentZoom = 1; }
+  else { currentZoom = Math.max(0.3, Math.min(5, currentZoom + delta)); }
+  img.style.transform = "scale(" + currentZoom + ") rotate(" + currentRotation + "deg)";
+}
+
+function rotate() {
+  currentRotation = (currentRotation + 90) % 360;
+  const img = document.getElementById("belegImg");
+  img.style.transform = "scale(" + currentZoom + ") rotate(" + currentRotation + "deg)";
+}
+
+async function save() {
+  const inv = invoices[currentIdx];
+  if (!inv) return;
+  const body = {
+    vendor: document.getElementById("vendor").value,
+    total_amount: parseFloat(document.getElementById("amount").value) || 0,
+    vat_rate: document.getElementById("vat_rate").value,
+    date: document.getElementById("date").value,
+    invoice_number: document.getElementById("invoice_number").value,
+    category: document.getElementById("category").value,
+    invoice_type: document.getElementById("invoice_type").value,
+    payment_method: document.getElementById("payment_method").value,
+  };
+  document.getElementById("btnSave").disabled = true;
+  document.getElementById("btnSave").textContent = "Speichern...";
+  try {
+    const res = await fetch(API + "/invoices/" + inv.id, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json", Authorization: "Bearer " + token},
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      // Update local data
+      Object.assign(inv, body);
+      showToast("Gespeichert!");
+      // Auto-advance to next if available
+      if (currentIdx < invoices.length - 1) {
+        setTimeout(() => navigate(1), 800);
+      }
+    } else {
+      const d = await res.json();
+      alert("Fehler: " + (d.detail || "Unbekannt"));
+    }
+  } catch(e) { alert("Fehler: " + e.message); }
+  document.getElementById("btnSave").disabled = false;
+  document.getElementById("btnSave").textContent = "\u2713 Speichern";
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 2000);
+}
+
+// Keyboard shortcuts
+document.addEventListener("keydown", function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
+  if (e.key === "ArrowLeft" && e.altKey) { e.preventDefault(); navigate(-1); }
+  if (e.key === "ArrowRight" && e.altKey) { e.preventDefault(); navigate(1); }
+  if (e.key === "Escape") { window.location.href = "/"; }
+});
+
+// Resize handle drag
+(function() {
+  const handle = document.getElementById("resizeHandle");
+  const left = document.querySelector(".left-panel");
+  const right = document.getElementById("rightPanel");
+  let dragging = false;
+  handle.addEventListener("mousedown", function(e) { dragging = true; e.preventDefault(); });
+  document.addEventListener("mousemove", function(e) {
+    if (!dragging) return;
+    const x = e.clientX;
+    const total = window.innerWidth;
+    const leftW = Math.max(200, Math.min(total - 300, x));
+    left.style.flex = "none";
+    left.style.width = leftW + "px";
+    right.style.width = (total - leftW - 6) + "px";
+  });
+  document.addEventListener("mouseup", function() { dragging = false; });
+})();
+
+// Init
+loadInvoices();
+</script>
+</body>
+</html>
+<!-- --- ADDED END --- -->
