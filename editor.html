@@ -247,8 +247,20 @@ async function loadInvoices() {
     invoices = (data.items || data || []).filter(i => i.total_amount !== undefined);
     const targetId = getInvoiceId();
     if (targetId) {
-      currentIdx = invoices.findIndex(i => i.id === targetId);
-      if (currentIdx < 0) currentIdx = 0;
+      // Match by ID — compare as numbers to avoid type mismatch
+      currentIdx = invoices.findIndex(i => parseInt(i.id) === parseInt(targetId));
+      if (currentIdx < 0) {
+        // ID not in filtered list — load directly via detail API
+        try {
+          const detRes = await fetch(API + "/invoices/" + targetId + "/detail", {headers: {Authorization: "Bearer " + token}});
+          if (detRes.ok) {
+            const detData = await detRes.json();
+            invoices.unshift(detData);
+            currentIdx = 0;
+          }
+        } catch(e) {}
+        if (currentIdx < 0) currentIdx = 0;
+      }
     }
     if (invoices.length > 0) loadInvoice(invoices[currentIdx]);
     updateNav();
