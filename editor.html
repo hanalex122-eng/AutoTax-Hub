@@ -187,6 +187,12 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
       <div class="section-title">&#128221; OCR Text</div>
       <div class="field"><label>Erkannter Text</label><textarea id="ocr_text" rows="4" style="font-family:monospace;font-size:11px;color:#64748b" readonly></textarea></div>
 
+      <!-- --- ADDED START: Ek Kalem (extra line items) --- -->
+      <div class="section-title">&#128203; Positionen</div>
+      <div id="lineItems"></div>
+      <button type="button" onclick="addLineItem()" style="width:100%;padding:10px;border-radius:8px;border:1.5px dashed #2a3548;background:transparent;color:#10b981;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;margin-top:4px" onmouseenter="this.style.borderColor='#10b981'" onmouseleave="this.style.borderColor='#2a3548'">&#10133; Position hinzufügen</button>
+      <!-- --- ADDED END --- -->
+
     </div>
 
     <div class="bottom-bar">
@@ -388,6 +394,85 @@ document.addEventListener("keydown", function(e) {
   });
   document.addEventListener("mouseup", function() { dragging = false; });
 })();
+
+// --- ADDED START: Line items (Positionen) ---
+let lineItemCount = 0;
+
+function addLineItem(desc, amount, date) {
+  lineItemCount++;
+  const id = lineItemCount;
+  const container = document.getElementById("lineItems");
+  const row = document.createElement("div");
+  row.id = "li_" + id;
+  row.style.cssText = "display:grid;grid-template-columns:1fr 2fr 100px 32px;gap:6px;align-items:center;margin-bottom:6px;padding:8px;background:#0a0e17;border-radius:8px;border:1px solid #1e293b;";
+  row.innerHTML =
+    '<input type="date" value="' + (date || "") + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none" placeholder="Datum">' +
+    '<input type="text" value="' + (desc || "").replace(/"/g, '&quot;') + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none" placeholder="Beschreibung">' +
+    '<input type="number" step="0.01" value="' + (amount || "") + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:\'JetBrains Mono\',monospace;outline:none;text-align:right" placeholder="0.00">' +
+    '<button onclick="removeLineItem(' + id + ')" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:transparent;color:#ef4444;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Entfernen">&#10005;</button>';
+  container.appendChild(row);
+}
+
+function removeLineItem(id) {
+  const el = document.getElementById("li_" + id);
+  if (el) el.remove();
+}
+
+function getLineItems() {
+  const rows = document.querySelectorAll("#lineItems > div");
+  const items = [];
+  rows.forEach(function(row) {
+    const inputs = row.querySelectorAll("input");
+    if (inputs.length >= 3) {
+      const d = inputs[0].value;
+      const desc = inputs[1].value.trim();
+      const amt = parseFloat(inputs[2].value) || 0;
+      if (desc || amt > 0) items.push({date: d, description: desc, amount: amt});
+    }
+  });
+  return items;
+}
+
+function clearLineItems() {
+  document.getElementById("lineItems").innerHTML = "";
+  lineItemCount = 0;
+}
+
+// Extend save to include line items as separate bookkeeping entries
+const _origSave = save;
+save = async function() {
+  await _origSave();
+  // Save line items as separate cash entries
+  const items = getLineItems();
+  if (items.length === 0) return;
+  const inv = invoices[currentIdx];
+  for (const item of items) {
+    try {
+      await fetch(API + "/bookkeeping", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", Authorization: "Bearer " + token},
+        body: JSON.stringify({
+          description: item.description || "Position",
+          vendor: document.getElementById("vendor").value || "Unbekannt",
+          gross_amount: item.amount,
+          vat_rate: document.getElementById("vat_rate").value || "19%",
+          entry_type: document.getElementById("invoice_type").value || "expense",
+          category: document.getElementById("category").value || "other",
+          payment_method: document.getElementById("payment_method").value || "",
+          reference: document.getElementById("invoice_number").value || "",
+          notes: "Position von Rechnung #" + (inv ? inv.id : ""),
+          date: item.date || document.getElementById("date").value || "",
+        }),
+      });
+    } catch(e) { console.error("Line item save failed:", e); }
+  }
+  if (items.length > 0) showToast(items.length + " Position(en) gespeichert!");
+};
+
+// Clear line items when navigating
+const _origNavigate = navigate;
+navigate = function(dir) { clearLineItems(); _origNavigate(dir); };
+// --- ADDED END ---
 
 // Init
 loadInvoices();
