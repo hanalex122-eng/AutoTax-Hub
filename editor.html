@@ -27,8 +27,8 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
 .left-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#111827;border-bottom:1px solid #1e293b;flex-shrink:0}
 .left-header span{font-size:13px;color:#94a3b8;font-weight:600}
 .zoom-controls{display:flex;gap:6px}
-.zoom-btn{width:32px;height:32px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#f1f5f9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.zoom-btn:hover{border-color:#10b981;color:#10b981}
+.zoom-btn{width:32px;height:32px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#f1f5f9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)}
+.zoom-btn:hover{border-color:#10b981;color:#10b981;transform:scale(1.15);box-shadow:0 0 12px rgba(16,185,129,0.2)}
 .image-container{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;position:relative}
 .image-container img{max-width:none;transition:transform .2s;transform-origin:top center;cursor:grab}
 .image-container img:active{cursor:grabbing}
@@ -65,10 +65,10 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
 
 /* Buttons */
 .btn{padding:10px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .2s}
-.btn-save{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3)}
-.btn-save:hover{transform:scale(1.03)}
-.btn-cancel{background:transparent;border:1.5px solid #2a3548;color:#94a3b8}
-.btn-cancel:hover{border-color:#ef4444;color:#ef4444}
+.btn-save{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3);transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)}
+.btn-save:hover{transform:scale(1.06);box-shadow:0 6px 30px rgba(16,185,129,0.5)}
+.btn-cancel{background:transparent;border:1.5px solid #2a3548;color:#94a3b8;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)}
+.btn-cancel:hover{border-color:#ef4444;color:#ef4444;transform:scale(1.04)}
 .btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
 .btn-outline{background:transparent;border:1px solid #2a3548;color:#94a3b8}
 .btn-outline:hover{border-color:#10b981;color:#10b981}
@@ -77,8 +77,8 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
 
 /* Nav arrows */
 .nav-arrows{display:flex;gap:6px}
-.nav-arrow{width:36px;height:36px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#94a3b8;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.nav-arrow:hover{border-color:#10b981;color:#10b981}
+.nav-arrow{width:36px;height:36px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#94a3b8;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)}
+.nav-arrow:hover{border-color:#10b981;color:#10b981;transform:scale(1.12);box-shadow:0 0 12px rgba(16,185,129,0.15)}
 .nav-arrow:disabled{opacity:0.3;cursor:not-allowed}
 
 /* Toast */
@@ -190,7 +190,7 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
       <!-- --- ADDED START: Ek Kalem (extra line items) --- -->
       <div class="section-title">&#128203; Positionen</div>
       <div id="lineItems"></div>
-      <button type="button" onclick="addLineItem()" style="width:100%;padding:10px;border-radius:8px;border:1.5px dashed #2a3548;background:transparent;color:#10b981;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;margin-top:4px" onmouseenter="this.style.borderColor='#10b981'" onmouseleave="this.style.borderColor='#2a3548'">&#10133; Position hinzufügen</button>
+      <button type="button" onclick="addLineItem()" style="width:100%;padding:12px;border-radius:10px;border:2px dashed #1e293b;background:rgba(16,185,129,0.04);color:#10b981;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275);margin-top:6px;letter-spacing:0.5px" onmouseenter="this.style.borderColor='#10b981';this.style.background='rgba(16,185,129,0.1)';this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 20px rgba(16,185,129,0.2)'" onmouseleave="this.style.borderColor='#1e293b';this.style.background='rgba(16,185,129,0.04)';this.style.transform='scale(1)';this.style.boxShadow='none'">&#10133; Position hinzufügen</button>
       <!-- --- ADDED END --- -->
 
     </div>
@@ -404,12 +404,16 @@ function addLineItem(desc, amount, date) {
   const container = document.getElementById("lineItems");
   const row = document.createElement("div");
   row.id = "li_" + id;
-  row.style.cssText = "display:grid;grid-template-columns:1fr 2fr 100px 32px;gap:6px;align-items:center;margin-bottom:6px;padding:8px;background:#0a0e17;border-radius:8px;border:1px solid #1e293b;";
+  row.style.cssText = "display:grid;grid-template-columns:110px 1fr 100px 36px;gap:8px;align-items:center;margin-bottom:8px;padding:10px 12px;background:#0a0e17;border-radius:10px;border:1px solid #1e293b;transition:all .2s;";
+  row.onmouseenter = function(){this.style.borderColor='#10b981';this.style.boxShadow='0 0 12px rgba(16,185,129,0.08)';};
+  row.onmouseleave = function(){this.style.borderColor='#1e293b';this.style.boxShadow='none';};
+  var inputStyle = "padding:8px 10px;background:#111827;border:1.5px solid #2a3548;border-radius:8px;color:#f1f5f9;font-size:13px;font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;width:100%";
+  var inputFocus = "onfocus=\"this.style.borderColor='#10b981';this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.12)'\" onblur=\"this.style.borderColor='#2a3548';this.style.boxShadow='none'\"";
   row.innerHTML =
-    '<input type="date" value="' + (date || "") + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none" placeholder="Datum">' +
-    '<input type="text" value="' + (desc || "").replace(/"/g, '&quot;') + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:inherit;outline:none" placeholder="Beschreibung">' +
-    '<input type="number" step="0.01" value="' + (amount || "") + '" style="padding:7px 8px;background:#111827;border:1px solid #2a3548;border-radius:6px;color:#f1f5f9;font-size:12px;font-family:\'JetBrains Mono\',monospace;outline:none;text-align:right" placeholder="0.00">' +
-    '<button onclick="removeLineItem(' + id + ')" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);background:transparent;color:#ef4444;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Entfernen">&#10005;</button>';
+    '<input type="date" value="' + (date || "") + '" style="' + inputStyle + '" ' + inputFocus + '>' +
+    '<input type="text" value="' + (desc || "").replace(/"/g, '&quot;') + '" style="' + inputStyle + '" placeholder="z.B. Milch, Benzin..." ' + inputFocus + '>' +
+    '<input type="number" step="0.01" value="' + (amount || "") + '" style="' + inputStyle + ';font-family:JetBrains Mono,monospace;text-align:right;font-weight:600" placeholder="0.00" ' + inputFocus + '>' +
+    '<button onclick="removeLineItem(' + id + ')" style="width:32px;height:32px;border-radius:8px;border:1.5px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.05);color:#ef4444;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(0.175,0.885,0.32,1.275)" onmouseenter="this.style.background=\'rgba(239,68,68,0.15)\';this.style.transform=\'scale(1.15)\';this.style.borderColor=\'#ef4444\'" onmouseleave="this.style.background=\'rgba(239,68,68,0.05)\';this.style.transform=\'scale(1)\';this.style.borderColor=\'rgba(239,68,68,0.2)\'" title="Entfernen">&#10005;</button>';
   container.appendChild(row);
 }
 
