@@ -689,9 +689,11 @@ function UploadView({triggerRefresh,onNav,showToast}){
   const[files,setFiles]=useState([]);const[results,setResults]=useState([]);const[uploading,setUploading]=useState(false);const[dragOver,setDragOver]=useState(false);const fileRef=useRef(null);
   const[invoiceType,setInvoiceType]=useState("expense");
   const addFiles=(nf)=>{const fa=Array.from(nf);setFiles(p=>{const ex=new Set(p.map(f=>f.name+f.size));return[...p,...fa.filter(f=>!ex.has(f.name+f.size))].slice(0,20);});};
-  const upload=async()=>{if(!files.length)return;setUploading(true);setResults([]);const token=localStorage.getItem("atx_token");
+  const _refreshToken=async()=>{const refresh=localStorage.getItem("atx_refresh");if(!refresh)return null;try{const r=await fetch(API+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:refresh})});if(r.ok){const d=await r.json();localStorage.setItem("atx_token",d.token);if(d.refresh_token)localStorage.setItem("atx_refresh",d.refresh_token);return d.token;}}catch(e){}return null;};
+  const _uploadOne=async(f,tk)=>{const fd=new FormData();fd.append("file",f);fd.append("invoice_type",invoiceType);let res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+tk},body:fd});if(res.status===401){const newTk=await _refreshToken();if(newTk){const fd2=new FormData();fd2.append("file",f);fd2.append("invoice_type",invoiceType);res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+newTk},body:fd2});}}return res;};
+  const upload=async()=>{if(!files.length)return;setUploading(true);setResults([]);let token=localStorage.getItem("atx_token");
     let okCount=0;
-    try{if(files.length===1){const fd=new FormData();fd.append("file",files[0]);fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();
+    try{if(files.length===1){const res=await _uploadOne(files[0],token);const d=await res.json();
       /* --- ADDED START: duplicate force upload --- */
       if(d.duplicate&&d.can_force){
         const userConfirmed = await window.showDuplicateModal(files[0].name);
@@ -713,12 +715,12 @@ function UploadView({triggerRefresh,onNav,showToast}){
       /* --- ADDED END --- */
       else{setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}}
     else{
-      /* Upload files one by one instead of batch — more reliable */
+      /* Upload files one by one with auto token refresh */
       const allResults=[];
       for(const f of files){
         try{
-          const fd=new FormData();fd.append("file",f);fd.append("invoice_type",invoiceType);
-          const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});
+          token=localStorage.getItem("atx_token");
+          const res=await _uploadOne(f,token);
           const d=await res.json();
           allResults.push({filename:f.name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):(d.detail||d.message||"Fehler")});
           if(res.ok)okCount++;
