@@ -69,6 +69,14 @@ def init_db():
                 conn.execute(text("ALTER TABLE cash_entries ADD COLUMN deleted_at TIMESTAMP"))
                 logger.info("Added 'deleted_at' column to cash_entries")
         # --- ADDED END ---
+        # --- ADDED START: company detail columns ---
+        uc_cols = [c["name"] for c in insp.get_columns("user_companies")]
+        with engine.begin() as conn:
+            for col in ["iban", "tax_id", "address", "phone", "fax", "email", "website"]:
+                if col not in uc_cols:
+                    conn.execute(text(f"ALTER TABLE user_companies ADD COLUMN {col} VARCHAR"))
+                    logger.info("Added '%s' column to user_companies", col)
+        # --- ADDED END ---
     except Exception as e:
         logger.warning("Column migration skipped: %s", e)
 

@@ -1100,17 +1100,33 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     auto_create_cash_entry(invoice_id, user["sub"], result)
 
-    # Auto-detect income: if vendor matches user's registered company
+    # Auto-detect income: if vendor/IBAN/email matches user's registered company
     try:
         db_c = SessionLocal()
         user_companies = db_c.query(UserCompany).filter(UserCompany.user_id == user["sub"]).all()
         if user_companies:
             inv = db_c.query(Invoice).filter(Invoice.id == invoice_id).first()
-            if inv and inv.vendor:
-                vendor_lower = inv.vendor.lower()
+            if inv:
+                vendor_lower = (inv.vendor or "").lower()
+                inv_iban = result.get("vendor_iban", "").replace(" ", "").upper()
+                inv_email = result.get("vendor_email", "").lower()
                 for uc in user_companies:
-                    if uc.company_name.lower() in vendor_lower or vendor_lower in uc.company_name.lower() or _fuzzy_match(uc.company_name, inv.vendor):
+                    matched = False
+                    # Match by company name
+                    if vendor_lower and uc.company_name:
+                        if uc.company_name.lower() in vendor_lower or vendor_lower in uc.company_name.lower() or _fuzzy_match(uc.company_name, inv.vendor or ""):
+                            matched = True
+                    # Match by IBAN
+                    if not matched and inv_iban and uc.iban:
+                        if inv_iban == uc.iban.replace(" ", "").upper():
+                            matched = True
+                    # Match by email
+                    if not matched and inv_email and uc.email:
+                        if inv_email == uc.email.lower():
+                            matched = True
+                    if matched:
                         inv.invoice_type = "income"
+                        logger.info("Auto-detected income: invoice %d matches company '%s'", invoice_id, uc.company_name)
                         db_c.commit()
                         break
         db_c.close()
@@ -3224,7 +3240,7 @@ def list_companies(user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
         companies = db.query(UserCompany).filter(UserCompany.user_id == user["sub"]).all()
-        return [{"id": c.id, "company_name": c.company_name} for c in companies]
+        return [{"id": c.id, "company_name": c.company_name, "iban": c.iban or "", "tax_id": c.tax_id or "", "address": c.address or "", "phone": c.phone or "", "fax": c.fax or "", "email": c.email or "", "website": c.website or ""} for c in companies]
     finally:
         db.close()
 
@@ -3242,7 +3258,16 @@ def add_company(body: dict = Body(...), user: dict = Depends(get_current_user)):
         dup = db.query(UserCompany).filter(UserCompany.user_id == user["sub"], UserCompany.company_name == company_name).first()
         if dup:
             err(400, "Firma existiert bereits")
-        c = UserCompany(user_id=user["sub"], company_name=company_name)
+        c = UserCompany(
+            user_id=user["sub"], company_name=company_name,
+            iban=body.get("iban", "").strip() or None,
+            tax_id=body.get("tax_id", "").strip() or None,
+            address=body.get("address", "").strip() or None,
+            phone=body.get("phone", "").strip() or None,
+            fax=body.get("fax", "").strip() or None,
+            email=body.get("email", "").strip() or None,
+            website=body.get("website", "").strip() or None,
+        )
         db.add(c)
         db.commit()
         db.refresh(c)

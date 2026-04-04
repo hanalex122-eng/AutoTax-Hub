@@ -82,3 +82,11 @@ class UserCompany(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     company_name = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # --- ADDED: company details ---
+    iban = Column(String, nullable=True)
+    tax_id = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    fax = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    website = Column(String, nullable=True)
