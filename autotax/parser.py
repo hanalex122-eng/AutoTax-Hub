@@ -1486,6 +1486,31 @@ def parse_invoice(raw_text: str) -> dict:
     category = detect_category(vendor, raw_text)
     date = extract_date(raw_text)
     total = extract_total(raw_text)
+
+    # --- ADDED START: Ensure brutto (not netto) is used ---
+    # If text has both netto and brutto/summe, pick the larger (brutto) value
+    _norm = normalize(raw_text)
+    _norm = normalize_amount_text(_norm)
+    _brutto_kws = [r"brutto", r"summe\s*brutto", r"bruttobetrag", r"gesamtbetrag\s*brutto",
+                   r"summe\s*inkl", r"gesamtbetrag\s*inkl", r"inkl\s*mwst", r"total\s*ttc"]
+    _brutto_val = 0.0
+    for _bkw in _brutto_kws:
+        _bm = re.search(rf"(?<!\w){_bkw}\s*:?\s*(\d+\.\d{{2}})", _norm, re.IGNORECASE)
+        if _bm:
+            _bv = float(_bm.group(1))
+            if _bv > _brutto_val and 0.01 <= _bv < 100000:
+                _brutto_val = _bv
+    # If we found an explicit brutto and it's bigger than what extract_total returned, use it
+    if _brutto_val > 0 and _brutto_val > total:
+        total = _brutto_val
+    # Also: if "summe" exists without "netto" next to it, prefer that
+    _summe_m = re.search(r"(?<!\w)(?:summe|gesamt)\s*(?!.*netto)\s*:?\s*(\d+\.\d{2})", _norm, re.IGNORECASE)
+    if _summe_m:
+        _sv = float(_summe_m.group(1))
+        if _sv > total and 0.01 <= _sv < 100000:
+            total = _sv
+    # --- ADDED END ---
+
     vat_rates, vat_amount = extract_vat_info(raw_text, total, country)
     vat_rate_str = f"{vat_rates[0]}%" if vat_rates else "0%"
     invoice_number = extract_invoice_number(raw_text)
