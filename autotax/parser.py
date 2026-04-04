@@ -495,19 +495,27 @@ def extract_vendor(raw_text: str) -> str:
             if len(known_vendor) >= 3 and known_vendor in cl:
                 return _clean_vendor_name(c)
 
-    # Priority 3: first candidate that is NOT an address
+    # Priority 3: first candidate that is NOT an address/city/phone
     # --- ADDED START: skip address-like candidates ---
     _addr_re = re.compile(
         r"(?:\d{4,5}\s+\w)"  # PLZ + city
-        r"|(?:\w+(?:str|straße|strasse|weg|platz|allee|gasse|ring|damm)\b)"  # street names
+        r"|(?:\w+(?:str|straße|strasse|weg|platz|allee|gasse|ring|damm|ufer|chaussee)\b)"  # street names
         r"|(?:str\.\s*\d)"  # "Str. 5"
-        r"|(?:rue\s|avenue\s|boulevard\s)"  # French streets
+        r"|(?:rue\s|avenue\s|boulevard\s|chemin\s)"  # French streets
         r"|(?:^\d+[a-z]?\s*,)"  # "12a, ..."
         r"|(?:\w+\s+\d+\s*[-/]\s*\d+)"  # "Musterweg 5-7"
+        r"|(?:^\d[\d\s/\-]{6,}$)"  # phone numbers
+        r"|(?:^tel|^fax|^fon|^phone)"  # phone labels
+        r"|(?:^0\d{2,4}\s)"  # German area codes "0681 ..."
+        r"|(?:^\+\d)"  # international phone "+49..."
         , re.IGNORECASE
     )
+    _city_re = re.compile(
+        r"^(?:berlin|hamburg|münchen|munich|köln|cologne|frankfurt|stuttgart|düsseldorf|dortmund|essen|bremen|dresden|leipzig|hannover|nürnberg|duisburg|bochum|wuppertal|bielefeld|bonn|mannheim|karlsruhe|wiesbaden|augsburg|aachen|braunschweig|chemnitz|kiel|halle|magdeburg|freiburg|lübeck|erfurt|rostock|mainz|kassel|saarbrücken|oberhausen|mülheim|potsdam|leverkusen|oldenburg|osnabrück|heidelberg|darmstadt|paderborn|regensburg|ingolstadt|würzburg|wolfsburg|offenbach|ulm|heilbronn|göttingen|reutlingen|koblenz|remscheid|trier|salzgitter|jena|gera|moers|hildesheim|cottbus|siegen|gütersloh|witten|iserlohn|schwerin|konstanz|worms|marburg|lüneburg|bamberg|bayreuth|aschaffenburg|plauen|fulda|landshut|velbert|giessen|detmold|wilhelmshaven|norderstedt|neumünster|schwäbisch|euskirchen|lüdenscheid|dorsten|gladbeck|herten|dinslaken|grevenbroich|bergheim|wesel|dormagen|troisdorf|meerbusch|friedrichshafen|langenfeld|bornheim|haltern|ahlen|bremerhaven|goslar|emden|delmenhorst|celle|neubrandenburg|greifswald|stralsund|paris|lyon|marseille|toulouse|nice|nantes|strasbourg|montpellier|bordeaux|lille|wien|graz|linz|salzburg|innsbruck|zürich|bern|basel|genf|lausanne|istanbul|ankara|izmir|antalya|london|manchester|birmingham|amsterdam|rotterdam|den\s+haag|bruxelles|brüssel|roma|milano|madrid|barcelona)"
+        r"(?:\s|$|,)", re.IGNORECASE
+    )
     for c in candidates:
-        if not _addr_re.search(c):
+        if not _addr_re.search(c) and not _city_re.match(c.strip()):
             return _clean_vendor_name(c)
     # --- ADDED END ---
     # Fallback: first candidate even if address-like
