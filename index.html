@@ -394,17 +394,10 @@ function Sidebar({active,onNav,onLogout,collapsed}){
         </div>}
       </div>))}
     </div>
-    <div style={{padding:"12px 10px",borderTop:`1px solid ${theme.border}`}}>
-      {!collapsed&&<div style={{padding:"6px 14px",marginBottom:6}}>
-        <select value={typeof getLang==="function"?getLang():"de"} onChange={e=>{if(typeof setLang==="function")setLang(e.target.value);}} style={{width:"100%",padding:"8px 10px",background:theme.surfaceAlt,border:`1px solid ${theme.border}`,borderRadius:8,color:theme.text,fontSize:13,fontFamily:"inherit",cursor:"pointer",outline:"none"}}>
-          <option value="de">🇩🇪 Deutsch</option>
-          <option value="en">🇬🇧 English</option>
-          <option value="tr">🇹🇷 Türkçe</option>
-          <option value="fr">🇫🇷 Français</option>
-          <option value="es">🇪🇸 Español</option>
-          <option value="ar">🇸🇦 العربية</option>
-        </select>
-      </div>}
+    <div style={{padding:"8px 10px",borderTop:`1px solid ${theme.border}`,flexShrink:0}}>
+      {!collapsed&&<select value={typeof getLang==="function"?getLang():"de"} onChange={e=>{if(typeof setLang==="function")setLang(e.target.value);}} style={{width:"100%",padding:"8px 10px",background:theme.surfaceAlt,border:`1px solid ${theme.border}`,borderRadius:8,color:theme.text,fontSize:13,fontFamily:"inherit",cursor:"pointer",outline:"none",marginBottom:8}}>
+        <option value="de">🇩🇪 Deutsch</option><option value="en">🇬🇧 English</option><option value="tr">🇹🇷 Türkçe</option><option value="fr">🇫🇷 Français</option><option value="es">🇪🇸 Español</option><option value="ar">🇸🇦 العربية</option>
+      </select>}
       <div onClick={onLogout} onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
         style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,cursor:"pointer",color:theme.textDim,transition:"all 0.2s"}}>
         <Icon d={I.logout} size={20}/>{!collapsed&&<span style={{fontSize:14}}>{typeof t==="function"?t("logout"):"Abmelden"}</span>}
