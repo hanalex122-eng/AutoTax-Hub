@@ -367,7 +367,7 @@ function AuthScreen({onLogin}){
 }
 
 function Sidebar({active,onNav,onLogout,collapsed}){
-  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"tableimport",icon:I.upload,label:"Tabelle Import"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"editor",icon:I.check,label:"Beleg Editor"},{id:"export",icon:I.export,label:"Export"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"_sep"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
+  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"tableimport",icon:I.upload,label:"Tabelle Import"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"editor",icon:I.check,label:"Beleg Editor"},{id:"export",icon:I.export,label:"Export"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"_sep"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
   const[hovered,setHovered]=useState(null);
   const isMobile=window.innerWidth<768;
   return(<div style={{width:isMobile?(collapsed?0:248):(collapsed?72:248),background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"all 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden",...(isMobile?{position:"fixed",top:0,left:0,bottom:0,zIndex:1000}:{})}}>
