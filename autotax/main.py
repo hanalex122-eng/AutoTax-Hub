@@ -1303,7 +1303,7 @@ def list_invoices(
 def invoice_dashboard(country: str = Query("DE"), user: dict = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        all_invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"]).all()
+        all_invoices = db.query(Invoice).filter(Invoice.user_id == user["sub"], (Invoice.is_deleted == False) | (Invoice.is_deleted == None)).all()
         # Filter out invalid entries (amount=0 or vendor=Unbekannt)
         invoices = [i for i in all_invoices if safe_float(i.total_amount) > 0 and safe_vendor(i.vendor) != "Unbekannt"]
 
@@ -3140,6 +3140,7 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
     db = SessionLocal()
     try:
         q = db.query(Invoice).filter(Invoice.user_id == user["sub"])
+        q = q.filter((Invoice.is_deleted == False) | (Invoice.is_deleted == None))
         if search:
             from sqlalchemy import or_
             q = q.filter(or_(Invoice.vendor.ilike(f"%{search}%"), Invoice.date.ilike(f"%{search}%")))
