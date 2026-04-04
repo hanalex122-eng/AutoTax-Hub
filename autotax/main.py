@@ -1080,10 +1080,10 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
                 # --- ADDED: check if duplicate is soft-deleted ---
                 if dup.is_deleted:
                     logger.info("Duplicate is soft-deleted: invoice %d", dup.id)
-                    return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate_deleted", "duplicate_deleted": True, "message": "Bu fatura daha once silinmis. Geri yuklemek ister misiniz?"}
+                    return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate_deleted", "duplicate_deleted": True, "message": "Diese Rechnung wurde zuvor gelöscht. Wiederherstellen?"}
                 # --- END ---
                 logger.info("Duplicate detected: vendor=%s, amount=%s, date=%s", result.get("vendor"), result.get("total_amount"), result.get("date"))
-                return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "duplicate": True, "can_force": True, "message": "Bu fatura zaten yuklu. Tekrar yuklemek ister misiniz?"}
+                return {"id": dup.id, "total_amount": safe_float(dup.total_amount), "filename": file.filename, "status": "duplicate", "duplicate": True, "can_force": True, "message": "Diese Rechnung wurde bereits hochgeladen. Erneut hochladen?"}
             else:
                 logger.info("Force upload: duplicate bypassed for vendor=%s, amount=%s", result.get("vendor"), result.get("total_amount"))
             # --- ADDED END ---

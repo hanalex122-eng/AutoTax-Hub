@@ -698,11 +698,11 @@ function UploadView({triggerRefresh,onNav,showToast}){
       /* --- ADDED END --- */
       /* --- ADDED START: restore deleted duplicate --- */
       else if(d.duplicate_deleted&&d.id){
-        if(confirm("Bu fatura daha once silinmis. Geri yuklemek ister misiniz?")){
+        if(confirm("Diese Rechnung wurde zuvor gelöscht. Wiederherstellen?")){
           await fetch(API+"/invoices/"+d.id+"/restore",{method:"POST",headers:{Authorization:"Bearer "+token}});
-          setResults([{filename:files[0].name,status:"ok",message:"Geri yuklendi — €"+(d.total_amount?.toFixed(2)||"0.00")}]);okCount=1;
-          if(showToast)showToast("Fatura geri yuklendi","success");
-        }else{setResults([{filename:files[0].name,status:"skipped",message:"Silinmis duplikat — ubersprungen"}]);}
+          setResults([{filename:files[0].name,status:"ok",message:"Wiederhergestellt — €"+(d.total_amount?.toFixed(2)||"0.00")}]);okCount=1;
+          if(showToast)showToast("Rechnung wiederhergestellt","success");
+        }else{setResults([{filename:files[0].name,status:"skipped",message:"Gelöschtes Duplikat — übersprungen"}]);}
       }
       /* --- ADDED END --- */
       else{setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}}
@@ -1788,13 +1788,13 @@ function DuplicateModal({visible, filename, onConfirm, onCancel}) {
       onClick: function(e){e.stopPropagation();}
     },
       React.createElement("div", {style:{fontSize:32,textAlign:"center",marginBottom:12}}, "\u26A0\uFE0F"),
-      React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"#f1f5f9",textAlign:"center",marginBottom:8}}, "Fatura zaten y\u00FCkl\u00FC"),
+      React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"#f1f5f9",textAlign:"center",marginBottom:8}}, "Rechnung bereits vorhanden"),
       React.createElement("div", {style:{fontSize:14,color:"#94a3b8",textAlign:"center",lineHeight:1.6,marginBottom:6}},
-        "Bu fatura daha \u00F6nce sisteme eklenmi\u015F."
+        "Diese Rechnung wurde bereits hochgeladen."
       ),
       filename ? React.createElement("div", {style:{fontSize:12,color:"#64748b",textAlign:"center",marginBottom:20,fontFamily:"monospace",background:"#111827",padding:"6px 12px",borderRadius:8}}, filename) : null,
       React.createElement("div", {style:{fontSize:14,color:"#f59e0b",textAlign:"center",marginBottom:24}},
-        "Tekrar y\u00FCklemek ister misiniz?"
+        "Erneut hochladen?"
       ),
       React.createElement("div", {style:{display:"flex",gap:12,justifyContent:"center"}},
         React.createElement("button", {
@@ -1802,13 +1802,13 @@ function DuplicateModal({visible, filename, onConfirm, onCancel}) {
           style: {padding:"12px 24px",borderRadius:10,border:"1.5px solid #2a3548",background:"transparent",color:"#94a3b8",fontSize:14,fontWeight:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"},
           onMouseEnter: function(e){e.target.style.borderColor="#ef4444";e.target.style.color="#ef4444";},
           onMouseLeave: function(e){e.target.style.borderColor="#2a3548";e.target.style.color="#94a3b8";}
-        }, "\u0130ptal"),
+        }, "Abbrechen"),
         React.createElement("button", {
           onClick: onConfirm,
           style: {padding:"12px 24px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 16px rgba(16,185,129,0.3)",transition:"all 0.2s"},
           onMouseEnter: function(e){e.target.style.transform="scale(1.05)";},
           onMouseLeave: function(e){e.target.style.transform="scale(1)";}
-        }, "Evet, tekrar y\u00FCkle")
+        }, "Ja, erneut hochladen")
       )
     )
   );
