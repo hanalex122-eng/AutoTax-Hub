@@ -712,7 +712,20 @@ function UploadView({triggerRefresh,onNav,showToast}){
       }
       /* --- ADDED END --- */
       else{setResults([{filename:files[0].name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):d.detail}]);if(res.ok){okCount=1;if(d.warning&&showToast)showToast(d.warning,"warn");}}}
-    else{const fd=new FormData();files.forEach(f=>fd.append("files",f));fd.append("invoice_type",invoiceType);const res=await fetch(API+"/invoices/batch",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});const d=await res.json();const r=d.results||[];setResults(r);okCount=r.filter(x=>x.status==="ok").length;}}
+    else{
+      /* Upload files one by one instead of batch — more reliable */
+      const allResults=[];
+      for(const f of files){
+        try{
+          const fd=new FormData();fd.append("file",f);fd.append("invoice_type",invoiceType);
+          const res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd});
+          const d=await res.json();
+          allResults.push({filename:f.name,status:res.ok?"ok":"error",message:res.ok?"OK — €"+(d.total_amount?.toFixed(2)||"0.00"):(d.detail||d.message||"Fehler")});
+          if(res.ok)okCount++;
+        }catch(ex){allResults.push({filename:f.name,status:"error",message:ex.message});}
+      }
+      setResults(allResults);
+    }}
     catch(e){setResults([{filename:"Error",status:"error",message:e.message}]);}
     setUploading(false);setFiles([]);
     if(triggerRefresh)triggerRefresh();
