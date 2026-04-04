@@ -1185,14 +1185,12 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
                 results.append({"filename": file.filename, "status": "error", "message": "Ungültige Datei"})
                 continue
             await file.seek(0)
+            _batch_file_data = content  # save reference before OCR
             raw_text = ""
             try:
                 raw_text = await asyncio.wait_for(extract_text(file, handwriting=False, file_bytes=content), timeout=45)
             except Exception:
                 logger.warning("OCR failed/timeout for batch file")
-            finally:
-                del content
-                gc.collect()
             try:
                 parsed = parse_invoice(raw_text)
             except Exception:
@@ -1214,9 +1212,6 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
                 continue
             if invoice_type in ("income", "expense"):
                 parsed["invoice_type"] = invoice_type
-            # --- ADDED: re-read file for storage (content was deleted after OCR) ---
-            await file.seek(0)
-            _batch_file_data = await file.read()
             invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename, file_data=_batch_file_data, file_content_type=file.content_type or "")
             auto_create_cash_entry(invoice_id, user["sub"], parsed)
             results.append({

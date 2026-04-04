@@ -359,7 +359,7 @@ async def extract_table_text_autorotate(content: bytes, filename: str) -> str:
     best_rot = 0
 
     async with httpx.AsyncClient(timeout=30) as client:
-        for rot in [0, 90, 180, 270]:
+        for rot in [0, 90]:
             # Rotate image
             if rot == 0:
                 rotated = img
