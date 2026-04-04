@@ -151,13 +151,21 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
     </div>
     <div class="right-body">
 
-      <div class="section-title">&#127970; Firma</div>
-      <div class="field" id="f_vendor"><label>Lieferant / Firma</label><input id="vendor" placeholder="z.B. Lidl, Amazon"></div>
+      <div class="section-title">&#127970; Firma / Lieferant</div>
+      <div class="field" id="f_vendor"><label>Firmenname</label><input id="vendor" placeholder="z.B. Lidl GmbH, Amazon EU S.a.r.l."></div>
+      <div class="field"><label>Adresse</label><input id="address" placeholder="Musterstr. 1, 60311 Frankfurt"></div>
       <div class="field-row">
-        <div class="field"><label>IBAN</label><input id="iban" placeholder="DE89 3704 0044..."></div>
-        <div class="field"><label>Telefon</label><input id="phone" placeholder="+49 ..."></div>
+        <div class="field"><label>IBAN</label><input id="iban" placeholder="DE89 3704 0044 0532 0130 00"></div>
+        <div class="field"><label>Steuer-Nr / USt-ID</label><input id="tax_id" placeholder="DE123456789"></div>
       </div>
-      <div class="field"><label>Adresse</label><input id="address" placeholder="Straße Nr, PLZ Ort"></div>
+      <div class="field-row">
+        <div class="field"><label>Telefon</label><input id="phone" placeholder="+49 123 456789"></div>
+        <div class="field"><label>Fax</label><input id="fax" placeholder="+49 123 456780"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>E-Mail</label><input id="email" placeholder="rechnung@firma.de"></div>
+        <div class="field"><label>Webseite</label><input id="website" placeholder="www.firma.de"></div>
+      </div>
 
       <div class="section-title">&#128176; Rechnungsdaten</div>
       <div class="field-row">
@@ -270,6 +278,10 @@ function loadInvoice(inv) {
   document.getElementById("iban").value = inv.vendor_iban || "";
   document.getElementById("phone").value = inv.vendor_phone || "";
   document.getElementById("address").value = inv.vendor_address || "";
+  document.getElementById("fax").value = "";
+  document.getElementById("email").value = "";
+  document.getElementById("website").value = "";
+  document.getElementById("tax_id").value = "";
 
   // Status badge
   const badge = document.getElementById("statusBadge");
@@ -424,6 +436,8 @@ async function loadFullOcrText(id) {
         ocrLines.textContent = _fullOcrText || "(Kein OCR Text vorhanden)";
         _ocrHighlighted = false;
       }
+      // Auto-fill company details from OCR text
+      autoFillFromOcr(_fullOcrText);
     } else {
       if (ocrLines) ocrLines.textContent = "(Fehler beim Laden)";
     }
@@ -431,6 +445,27 @@ async function loadFullOcrText(id) {
     if (ocrLines) ocrLines.textContent = "(Fehler)";
   }
   if (ocrLoading) ocrLoading.style.display = "none";
+}
+
+function autoFillFromOcr(text) {
+  if (!text) return;
+  // Email
+  var em = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  if (em && !document.getElementById("email").value) document.getElementById("email").value = em[0];
+  // Website
+  var web = text.match(/(?:www\.)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/i);
+  if (web && !document.getElementById("website").value) document.getElementById("website").value = web[0];
+  // Fax
+  var fax = text.match(/(?:fax|telefax)\s*[.:]\s*([\d\s/\-+]{6,20})/i);
+  if (fax && !document.getElementById("fax").value) document.getElementById("fax").value = fax[1].trim();
+  // Tax ID / USt-ID
+  var tax = text.match(/(?:ust[.\-]?id[.\-]?(?:nr)?|steuer[.\-]?nr|tax[.\-]?id|siret|siren|nif|cif|p\.?iva)\s*[.:]\s*([A-Z0-9\s/\-]{5,20})/i);
+  if (tax && !document.getElementById("tax_id").value) document.getElementById("tax_id").value = tax[1].trim();
+  // Address: PLZ + Ort (if not already filled)
+  if (!document.getElementById("address").value) {
+    var addr = text.match(/(\d{4,5}\s+[A-ZÄÖÜ][a-zäöüß]{2,}(?:\s+[A-ZÄÖÜ][a-zäöüß]{2,})?)/);
+    if (addr) document.getElementById("address").value = addr[1];
+  }
 }
 
 function copyOcrText() {
