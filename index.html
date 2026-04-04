@@ -1800,13 +1800,13 @@ function DuplicateModal({visible, filename, onConfirm, onCancel}) {
       onClick: function(e){e.stopPropagation();}
     },
       React.createElement("div", {style:{fontSize:32,textAlign:"center",marginBottom:12}}, "\u26A0\uFE0F"),
-      React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"#f1f5f9",textAlign:"center",marginBottom:8}}, "Rechnung bereits vorhanden"),
+      React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"#f1f5f9",textAlign:"center",marginBottom:8}}, typeof t==="function"?t("duplicate_title"):"Rechnung bereits vorhanden"),
       React.createElement("div", {style:{fontSize:14,color:"#94a3b8",textAlign:"center",lineHeight:1.6,marginBottom:6}},
-        "Diese Rechnung wurde bereits hochgeladen."
+        typeof t==="function"?t("duplicate_msg"):"Diese Rechnung wurde bereits hochgeladen."
       ),
       filename ? React.createElement("div", {style:{fontSize:12,color:"#64748b",textAlign:"center",marginBottom:20,fontFamily:"monospace",background:"#111827",padding:"6px 12px",borderRadius:8}}, filename) : null,
       React.createElement("div", {style:{fontSize:14,color:"#f59e0b",textAlign:"center",marginBottom:24}},
-        "Erneut hochladen?"
+        typeof t==="function"?t("duplicate_ask"):"Erneut hochladen?"
       ),
       React.createElement("div", {style:{display:"flex",gap:12,justifyContent:"center"}},
         React.createElement("button", {
@@ -1814,13 +1814,13 @@ function DuplicateModal({visible, filename, onConfirm, onCancel}) {
           style: {padding:"12px 24px",borderRadius:10,border:"1.5px solid #2a3548",background:"transparent",color:"#94a3b8",fontSize:14,fontWeight:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"},
           onMouseEnter: function(e){e.target.style.borderColor="#ef4444";e.target.style.color="#ef4444";},
           onMouseLeave: function(e){e.target.style.borderColor="#2a3548";e.target.style.color="#94a3b8";}
-        }, "Abbrechen"),
+        }, typeof t==="function"?t("cancel"):"Abbrechen"),
         React.createElement("button", {
           onClick: onConfirm,
           style: {padding:"12px 24px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 16px rgba(16,185,129,0.3)",transition:"all 0.2s"},
           onMouseEnter: function(e){e.target.style.transform="scale(1.05)";},
           onMouseLeave: function(e){e.target.style.transform="scale(1)";}
-        }, "Ja, erneut hochladen")
+        }, typeof t==="function"?t("duplicate_yes"):"Ja, erneut hochladen")
       )
     )
   );
