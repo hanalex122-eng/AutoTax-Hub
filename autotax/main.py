@@ -3159,6 +3159,34 @@ def list_vault(search: Optional[str] = Query(None), user: dict = Depends(get_cur
         db.close()
 
 
+# --- ADDED START: Upload/replace original file for existing invoice ---
+@app.post("/vault/{invoice_id}/upload")
+async def upload_vault_file(invoice_id: int, file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Upload or replace original receipt file for an existing invoice."""
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            err(404, "Invoice not found")
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            err(400, "Datei zu groß")
+        inv.file_data = content
+        inv.file_content_type = file.content_type or "application/octet-stream"
+        inv.filename = file.filename or inv.filename
+        db.commit()
+        logger.info("Vault upload: invoice %d, %d bytes", invoice_id, len(content))
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Vault upload failed")
+        err(500, "Upload failed")
+    finally:
+        db.close()
+# --- ADDED END ---
+
+
 @app.get("/vault/{invoice_id}/download")
 def download_vault_file(invoice_id: int, mode: str = Query("inline"), user: dict = Depends(get_current_user)):
     """Download original receipt file from DB. mode=inline (preview) or attachment (download)."""

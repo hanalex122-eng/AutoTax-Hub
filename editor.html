@@ -135,6 +135,8 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
         <div class="icon">&#128196;</div>
         <p>Kein Original gespeichert</p>
         <p style="font-size:12px;margin-top:4px">Beleg wurde ohne Datei hochgeladen</p>
+        <input type="file" id="reuploadFile" accept="image/*,.pdf" style="display:none" onchange="reuploadOriginal(this)">
+        <button onclick="document.getElementById('reuploadFile').click()" style="margin-top:12px;padding:10px 20px;border-radius:8px;border:1.5px dashed #2a3548;background:transparent;color:#10b981;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s" onmouseenter="this.style.borderColor='#10b981'" onmouseleave="this.style.borderColor='#2a3548'">&#128206; Original hochladen</button>
       </div>
       <img id="belegImg" style="display:none" draggable="false">
     </div>
@@ -415,6 +417,31 @@ document.addEventListener("keydown", function(e) {
   });
   document.addEventListener("mouseup", function() { dragging = false; });
 })();
+
+// --- ADDED START: Re-upload original file ---
+async function reuploadOriginal(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const inv = invoices[currentIdx];
+  if (!inv) return;
+  const fd = new FormData();
+  fd.append("file", f);
+  try {
+    const res = await fetch(API + "/vault/" + inv.id + "/upload", {
+      method: "POST",
+      headers: {Authorization: "Bearer " + token},
+      body: fd,
+    });
+    if (res.ok) {
+      showToast("Original hochgeladen!");
+      loadImage(inv.id);
+    } else {
+      alert("Upload fehlgeschlagen");
+    }
+  } catch(e) { alert("Fehler: " + e.message); }
+  input.value = "";
+}
+// --- ADDED END ---
 
 // --- ADDED START: Full OCR text, popout, highlight ---
 let _fullOcrText = "";
