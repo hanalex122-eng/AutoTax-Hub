@@ -128,7 +128,7 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
         <button class="zoom-btn" onclick="zoom(0)" title="Zurücksetzen">&#8634;</button>
         <button class="zoom-btn" onclick="zoom(0.2)" title="Vergrößern">+</button>
         <button class="zoom-btn" onclick="rotate()" title="Drehen">&#8635;</button>
-        <button onclick="popoutImage()" title="Original in neuem Fenster öffnen" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)" onmouseenter="this.style.transform='scale(1.08)';this.style.boxShadow='0 0 16px rgba(16,185,129,0.3)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='none'">&#128470; Belege öffnen</button>
+        <button onclick="reloadOriginal()" title="Original neu laden" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)" onmouseenter="this.style.transform='scale(1.08)';this.style.boxShadow='0 0 16px rgba(16,185,129,0.3)'" onmouseleave="this.style.transform='scale(1)';this.style.boxShadow='none'">&#128196; Original laden</button>
       </div>
     </div>
     <div class="image-container" id="imageContainer">
@@ -465,6 +465,13 @@ async function reuploadOriginal(input) {
     }
   } catch(e) { alert("Fehler: " + e.message); }
   input.value = "";
+}
+// --- ADDED END ---
+
+// --- ADDED START: Reload original in left panel ---
+function reloadOriginal() {
+  var inv = invoices[currentIdx];
+  if (inv) loadImage(inv.id);
 }
 // --- ADDED END ---
 
