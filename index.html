@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="/lang.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #0a0e17; font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -367,7 +368,8 @@ function AuthScreen({onLogin}){
 }
 
 function Sidebar({active,onNav,onLogout,collapsed}){
-  const items=[{id:"dashboard",icon:I.dashboard,label:"Dashboard"},{id:"invoices",icon:I.invoice,label:"Rechnungen"},{id:"upload",icon:I.upload,label:"Upload"},{id:"tableimport",icon:I.upload,label:"Tabelle Import"},{id:"bookkeeping",icon:I.tax,label:"Kassenbuch"},{id:"vault",icon:I.invoice,label:"Belege"},{id:"editor",icon:I.check,label:"Beleg Editor"},{id:"export",icon:I.export,label:"Export"},{id:"companies",icon:I.invoice,label:"Firmen"},{id:"chat",icon:I.chat,label:"AI Chat"},{id:"_sep"},{id:"pricing",icon:I.export,label:"Preise"},{id:"help",icon:I.help,label:"Hilfe"},{id:"feedback",icon:I.chat,label:"Feedback"}];
+  const _t=typeof t==="function"?t:k=>k;
+  const items=[{id:"dashboard",icon:I.dashboard,label:_t("dashboard")},{id:"invoices",icon:I.invoice,label:_t("invoices")},{id:"upload",icon:I.upload,label:_t("upload")},{id:"tableimport",icon:I.upload,label:_t("tableimport")},{id:"bookkeeping",icon:I.tax,label:_t("bookkeeping")},{id:"vault",icon:I.invoice,label:_t("vault")},{id:"editor",icon:I.check,label:_t("editor")},{id:"export",icon:I.export,label:_t("export")},{id:"companies",icon:I.invoice,label:_t("companies")},{id:"chat",icon:I.chat,label:_t("chat")},{id:"_sep"},{id:"pricing",icon:I.export,label:_t("pricing")},{id:"help",icon:I.help,label:_t("help")},{id:"feedback",icon:I.chat,label:_t("feedback")}];
   const[hovered,setHovered]=useState(null);
   const isMobile=window.innerWidth<768;
   return(<div style={{width:isMobile?(collapsed?0:248):(collapsed?72:248),background:theme.surface,borderRight:`1px solid ${theme.border}`,display:"flex",flexDirection:"column",transition:"all 0.3s cubic-bezier(0.4,0,0.2,1)",flexShrink:0,overflow:"hidden",...(isMobile?{position:"fixed",top:0,left:0,bottom:0,zIndex:1000}:{})}}>
@@ -393,9 +395,19 @@ function Sidebar({active,onNav,onLogout,collapsed}){
       </div>))}
     </div>
     <div style={{padding:"12px 10px",borderTop:`1px solid ${theme.border}`}}>
+      {!collapsed&&<div style={{padding:"6px 14px",marginBottom:6}}>
+        <select value={typeof getLang==="function"?getLang():"de"} onChange={e=>{if(typeof setLang==="function")setLang(e.target.value);}} style={{width:"100%",padding:"8px 10px",background:theme.surfaceAlt,border:`1px solid ${theme.border}`,borderRadius:8,color:theme.text,fontSize:13,fontFamily:"inherit",cursor:"pointer",outline:"none"}}>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="tr">🇹🇷 Türkçe</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="ar">🇸🇦 العربية</option>
+        </select>
+      </div>}
       <div onClick={onLogout} onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
         style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,cursor:"pointer",color:theme.textDim,transition:"all 0.2s"}}>
-        <Icon d={I.logout} size={20}/>{!collapsed&&<span style={{fontSize:14}}>Abmelden</span>}
+        <Icon d={I.logout} size={20}/>{!collapsed&&<span style={{fontSize:14}}>{typeof t==="function"?t("logout"):"Abmelden"}</span>}
       </div>
     </div>
   </div>);

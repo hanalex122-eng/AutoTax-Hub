@@ -385,6 +385,14 @@ async def serve_landing_page():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 # --- ADDED END ---
 
+# --- ADDED START: Language file ---
+@app.get("/lang.js")
+async def serve_lang_js():
+    lp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lang.js")
+    with open(lp, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+# --- ADDED END ---
+
 # --- ADDED START: Split-view editor page ---
 @app.get("/editor", response_class=HTMLResponse)
 async def serve_editor_page():
