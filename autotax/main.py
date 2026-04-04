@@ -175,6 +175,22 @@ def auto_create_cash_entry(invoice_id: int, user_id: int, data: dict):
         db.close()
 
 
+# --- ADDED START: quick entity extractors for invoice_to_dict ---
+import re as _re_global
+
+def _extract_first_iban(text):
+    m = _re_global.search(r"\b([A-Z]{2}\s?\d{2}\s?(?:\d{4}\s?){2,7}\d{1,4})\b", text.upper())
+    return m.group(1).replace(" ", "") if m else ""
+
+def _extract_first_phone(text):
+    m = _re_global.search(r"(?:tel\.?|fon|phone|fax)\s*:?\s*([\d\s/\-+]{6,20})", text, _re_global.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+def _extract_first_address(text):
+    m = _re_global.search(r"(\d{4,5}\s+[A-ZÄÖÜ][a-zäöüß]{2,}(?:\s+[A-ZÄÖÜ][a-zäöüß]{2,})?)", text)
+    return m.group(1).strip() if m else ""
+# --- ADDED END ---
+
 def invoice_to_dict(i):
     return {
         "id": i.id,
@@ -191,6 +207,10 @@ def invoice_to_dict(i):
         "created_at": i.created_at.strftime("%Y-%m-%dT%H:%M:%S") if i.created_at else "",
         "ocr_snippet": (i.raw_text or "")[:200],
         "konto": _DATEV_KONTO_MAP.get(safe_category(i.category), "6800") if safe_invoice_type(i.invoice_type) == "expense" else _DATEV_KONTO_MAP_INCOME.get(safe_category(i.category), "8400"),
+        # --- ADDED: vendor details from raw_text ---
+        "vendor_iban": _extract_first_iban(i.raw_text or ""),
+        "vendor_phone": _extract_first_phone(i.raw_text or ""),
+        "vendor_address": _extract_first_address(i.raw_text or ""),
     }
 
 
@@ -1104,6 +1124,11 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
         "filename": file.filename,
         "status": "ok",
         "warning": _ocr_warning,
+        "vendor": result.get("vendor", ""),
+        "vendor_iban": result.get("vendor_iban", ""),
+        "vendor_email": result.get("vendor_email", ""),
+        "vendor_phone": result.get("vendor_phone", ""),
+        "vendor_address": result.get("vendor_address", ""),
     }
 
 

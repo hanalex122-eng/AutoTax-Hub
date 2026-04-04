@@ -1539,6 +1539,10 @@ def parse_invoice(raw_text: str) -> dict:
     invoice_number = extract_invoice_number(raw_text)
     payment_method = detect_payment_method(raw_text)
 
+    # --- ADDED START: Extract company details (IBAN, address, phone, email) ---
+    entities = extract_entities(raw_text)
+    # --- ADDED END ---
+
     return {
         "total_amount": total,
         "vat_amount": vat_amount,
@@ -1551,6 +1555,10 @@ def parse_invoice(raw_text: str) -> dict:
         "country": country,
         "currency": currency,
         "raw_text": raw_text,
+        "vendor_iban": entities.get("ibans", [""])[0] if entities.get("ibans") else "",
+        "vendor_email": entities.get("emails", [""])[0] if entities.get("emails") else "",
+        "vendor_phone": entities.get("phones", [""])[0] if entities.get("phones") else "",
+        "vendor_address": entities.get("addresses", [""])[0] if entities.get("addresses") else "",
     }
 
 
