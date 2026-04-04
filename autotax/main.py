@@ -1024,7 +1024,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
 
     await file.seek(0)
 
-    # Privacy: do NOT persist original file data — only keep for OCR processing
+    # Save original file to DB for vault preview
     _file_data = content
     _file_ct = file.content_type or ""
 
@@ -1206,7 +1206,10 @@ async def upload_batch(files: List[UploadFile] = File(...), invoice_type: str = 
                 continue
             if invoice_type in ("income", "expense"):
                 parsed["invoice_type"] = invoice_type
-            invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename)
+            # --- ADDED: re-read file for storage (content was deleted after OCR) ---
+            await file.seek(0)
+            _batch_file_data = await file.read()
+            invoice_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename, file_data=_batch_file_data, file_content_type=file.content_type or "")
             auto_create_cash_entry(invoice_id, user["sub"], parsed)
             results.append({
                 "filename": file.filename,
