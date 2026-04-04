@@ -207,6 +207,7 @@ def invoice_to_dict(i):
         "created_at": i.created_at.strftime("%Y-%m-%dT%H:%M:%S") if i.created_at else "",
         "ocr_snippet": (i.raw_text or "")[:200],
         "konto": _DATEV_KONTO_MAP.get(safe_category(i.category), "6800") if safe_invoice_type(i.invoice_type) == "expense" else _DATEV_KONTO_MAP_INCOME.get(safe_category(i.category), "8400"),
+        "has_original": bool(i.file_data and len(i.file_data) > 0) if i.file_data else False,
         # --- ADDED: vendor details from raw_text ---
         "vendor_iban": _extract_first_iban(i.raw_text or ""),
         "vendor_phone": _extract_first_phone(i.raw_text or ""),
