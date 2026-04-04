@@ -30,8 +30,9 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
 .zoom-btn{width:32px;height:32px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#f1f5f9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275)}
 .zoom-btn:hover{border-color:#10b981;color:#10b981;transform:scale(1.15);box-shadow:0 0 12px rgba(16,185,129,0.2)}
 .image-container{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;position:relative}
-.image-container img{max-width:none;transition:transform .2s;transform-origin:top center;cursor:grab}
+.image-container img{max-width:100%;height:auto;transition:transform .2s;transform-origin:top center;cursor:grab}
 .image-container img:active{cursor:grabbing}
+.image-container iframe{width:100%;height:100%;border:none;border-radius:8px;background:#fff}
 .no-image{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#475569}
 .no-image .icon{font-size:48px;margin-bottom:12px}
 .no-image p{font-size:14px}
@@ -314,14 +315,29 @@ function loadInvoice(inv) {
 async function loadImage(id) {
   const img = document.getElementById("belegImg");
   const noImg = document.getElementById("noImage");
+  const container = document.getElementById("imageContainer");
+  // Remove old iframe if exists
+  var oldIframe = container.querySelector("iframe");
+  if (oldIframe) oldIframe.remove();
   try {
     const res = await fetch(API + "/vault/" + id + "/download?mode=inline", {headers: {Authorization: "Bearer " + token}});
     if (res.ok) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      img.src = url;
-      img.style.display = "block";
-      img.style.transform = "scale(1)";
+      _currentImageUrl = url;
+      if (blob.type && blob.type.includes("pdf")) {
+        // PDF: show in iframe
+        img.style.display = "none";
+        var iframe = document.createElement("iframe");
+        iframe.src = url;
+        iframe.style.cssText = "width:100%;height:100%;border:none;border-radius:8px;background:#fff;min-height:500px";
+        container.appendChild(iframe);
+      } else {
+        // Image: show in img tag
+        img.src = url;
+        img.style.display = "block";
+        img.style.transform = "scale(1)";
+      }
       noImg.style.display = "none";
     } else {
       img.style.display = "none";
