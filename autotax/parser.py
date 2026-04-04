@@ -1292,11 +1292,20 @@ def extract_total(raw_text: str) -> float:
                 return val
 
     # Fallback: largest reasonable amount on the receipt
+    # --- ADDED: skip values on TVA/VAT lines (they are rates, not amounts) ---
     amounts = []
-    for m in re.findall(r"(\d+\.\d{2})", text):
-        val = float(m)
-        if 0.01 <= val < 100000:
-            amounts.append(val)
+    lines = text.split("\n")
+    for line in lines:
+        # Skip lines that look like TVA/VAT rate table rows
+        if re.match(r"^\s*\d{1,2}[.,]\d{2}\s+\d", line):
+            continue  # "5.50  0.19  3.38  3.57" — TVA table row
+        if re.match(r"^\s*(?:tva|vat|mwst|ust|brut\b|net\b)", line, re.IGNORECASE):
+            continue  # TVA header/summary line
+        for m in re.findall(r"(\d+\.\d{2})", line):
+            val = float(m)
+            if 0.01 <= val < 100000:
+                amounts.append(val)
+    # --- END ---
 
     if amounts:
         return max(amounts)
