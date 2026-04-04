@@ -2875,6 +2875,54 @@ async def import_image_table(file: UploadFile = File(...), save: bool = False, u
         except Exception as e:
             logger.warning("Strategy 5 column-based failed: %s", e)
 
+    # --- ADDED START: Strategy 5.5: Lineless table — lines with text + amount but no date ---
+    # For invoices like B-Werk where items have no dates, just description + amount
+    if not rows or len(rows) < 2:
+        _lineless_rows = []
+        _skip_kws = {"summe", "total", "gesamt", "netto", "brutto", "mwst", "ust", "steuer",
+                     "zwischensumme", "subtotal", "betrag", "datum", "beschreibung", "nr",
+                     "einnahmen", "ausgaben", "saldo", "übertrag", "rechnung", "seite",
+                     "kassenbuch", "seitensumme", "gegeben", "rückgeld", "wechselgeld",
+                     "kartenzahlung", "barzahlung", "payment", "bezahlt"}
+        for rl in lines:
+            rl_lower = rl.lower().strip()
+            # Skip header/total/keyword lines
+            if any(kw in rl_lower for kw in _skip_kws):
+                continue
+            # Skip very short lines
+            if len(rl.strip()) < 5:
+                continue
+            # Must have at least one amount at the end
+            _amt_match = _re.search(r"(.+?)\s+(" + _AMT_PAT + r")\s*$", rl.strip())
+            if not _amt_match:
+                # Try loose: text + whole number at end
+                _amt_match = _re.search(r"(.+?)\s+(\d{1,6})\s*$", rl.strip())
+            if _amt_match:
+                desc = _amt_match.group(1).strip()
+                amt_raw = _amt_match.group(2)
+                # Clean description: remove leading numbers (item nr), punctuation
+                desc = _re.sub(r"^\d{1,4}[.\s]+", "", desc).strip()
+                desc = _re.sub(r"^[.\-:,]+", "", desc).strip()
+                if len(desc) < 2:
+                    continue
+                amt = _parse_amount(amt_raw) if "," in amt_raw or "." in amt_raw else float(amt_raw)
+                if amt <= 0 or amt > 50000:
+                    continue
+                # Try to find date on this line
+                _d_m = _re.search(r"(" + _DATE_PAT + r")", rl)
+                _date = _parse_date(_d_m.group(1)) if _d_m else ""
+                _lineless_rows.append({
+                    "date": _date,
+                    "description": desc[:80],
+                    "income": 0,
+                    "expense": round(amt, 2),
+                    "is_uncertain": True,
+                })
+        if len(_lineless_rows) > len(rows):
+            rows = _lineless_rows
+            logger.info("Strategy 5.5 lineless table: %d rows extracted", len(rows))
+    # --- ADDED END ---
+
     # Strategy 6: Scored fallback — if all table strategies failed, score each line
     # and return partial matches with confidence, rather than empty result
     if not rows and text and len(text.strip()) > 10:
