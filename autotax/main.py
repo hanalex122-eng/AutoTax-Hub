@@ -356,6 +356,14 @@ async def serve_frontend_app():
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
+# --- ADDED START: Landing page ---
+@app.get("/landing", response_class=HTMLResponse)
+async def serve_landing_page():
+    lp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "landing-new.html")
+    with open(lp, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+# --- ADDED END ---
+
 # --- ADDED START: Beleg entry page ---
 @app.get("/beleg", response_class=HTMLResponse)
 async def serve_beleg_page():

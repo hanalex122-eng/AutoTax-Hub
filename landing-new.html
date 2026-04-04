@@ -1,0 +1,272 @@
+<!-- --- ADDED START --- -->
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTax-HUB — Faturalar otomatik, vergi basit</title>
+<meta name="description" content="Faturalarinizi fotograflayin, otomatik tanisin, Kassenbuch ve DATEV export. Almanya'daki freelancer ve kucuk isletmeler icin.">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+
+/* NAV */
+.nav{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto;padding:20px 24px}
+.nav-logo{font-size:22px;font-weight:800;color:#10b981}
+.nav-logo span{color:#f1f5f9}
+.nav-links{display:flex;gap:24px;align-items:center}
+.nav-links a{font-size:14px;color:#94a3b8;transition:color 0.2s}
+.nav-links a:hover{color:#f1f5f9}
+.nav-cta{background:#10b981;color:#050a12;padding:10px 22px;border-radius:10px;font-weight:700;font-size:14px;transition:all 0.2s}
+.nav-cta:hover{background:#0ea472;transform:scale(1.03)}
+
+/* HERO */
+.hero{text-align:center;padding:100px 24px 80px;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(16,185,129,0.12) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-block;background:rgba(16,185,129,0.12);color:#10b981;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:24px;border:1px solid rgba(16,185,129,0.2)}
+.hero h1{font-size:52px;font-weight:800;line-height:1.1;margin-bottom:20px;letter-spacing:-1px}
+.hero h1 span{background:linear-gradient(135deg,#10b981,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:20px;color:#94a3b8;max-width:600px;margin:0 auto 36px;line-height:1.6}
+.hero-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:16px 36px;border-radius:12px;font-size:17px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 24px rgba(16,185,129,0.3)}
+.btn-primary:hover{transform:scale(1.05)}
+.btn-secondary{background:transparent;border:1.5px solid #2a3548;color:#94a3b8;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:500;cursor:pointer;transition:all 0.2s}
+.btn-secondary:hover{border-color:#10b981;color:#10b981}
+.hero-stats{display:flex;gap:40px;justify-content:center;margin-top:48px}
+.hero-stat{text-align:center}
+.hero-stat .num{font-size:28px;font-weight:800;color:#10b981}
+.hero-stat .label{font-size:13px;color:#64748b;margin-top:4px}
+
+/* SECTION */
+.section{max-width:1200px;margin:0 auto;padding:80px 24px}
+.section-title{text-align:center;margin-bottom:48px}
+.section-title h2{font-size:36px;font-weight:800;margin-bottom:12px;letter-spacing:-0.5px}
+.section-title p{font-size:16px;color:#94a3b8;max-width:600px;margin:0 auto}
+
+/* FEATURES */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feature-card{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:28px;transition:all 0.2s}
+.feature-card:hover{border-color:#10b981;transform:translateY(-4px);box-shadow:0 8px 30px rgba(16,185,129,0.1)}
+.feature-icon{font-size:32px;margin-bottom:12px}
+.feature-card h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.feature-card p{font-size:14px;color:#94a3b8;line-height:1.5}
+
+/* HOW IT WORKS */
+.steps{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+.step{flex:1;min-width:220px;max-width:280px;text-align:center;padding:32px 24px;background:#111827;border:1px solid #1e293b;border-radius:16px}
+.step-num{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#10b981,#3b82f6);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.step h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.step p{font-size:13px;color:#94a3b8}
+
+/* PRICING */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto}
+.price-card{background:#111827;border:1px solid #1e293b;border-radius:20px;padding:32px;text-align:center;transition:all 0.2s;position:relative}
+.price-card.popular{border-color:#10b981;box-shadow:0 0 40px rgba(16,185,129,0.15)}
+.price-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#3b82f6);color:#fff;padding:5px 18px;border-radius:20px;font-size:12px;font-weight:700}
+.price-card h3{font-size:22px;font-weight:700;margin-bottom:8px}
+.price-amount{font-size:48px;font-weight:800;margin:16px 0 4px}
+.price-amount span{font-size:18px;color:#64748b;font-weight:500}
+.price-period{font-size:14px;color:#64748b;margin-bottom:24px}
+.price-features{list-style:none;text-align:left;margin-bottom:28px}
+.price-features li{padding:8px 0;font-size:14px;color:#94a3b8;border-bottom:1px solid #1e293b;display:flex;align-items:center;gap:8px}
+.price-features li:last-child{border:none}
+.price-features .check{color:#10b981;font-weight:700}
+.price-features .cross{color:#475569}
+.price-btn{width:100%;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all 0.2s;font-family:inherit}
+.price-btn-free{background:#1e293b;color:#94a3b8}
+.price-btn-free:hover{background:#2a3548}
+.price-btn-pop{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3)}
+.price-btn-pop:hover{transform:scale(1.03)}
+.price-btn-pro{background:#3b82f6;color:#fff}
+.price-btn-pro:hover{background:#2563eb}
+
+/* TRUST */
+.trust{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;margin-top:48px}
+.trust-item{display:flex;align-items:center;gap:10px;padding:12px 20px;background:#111827;border-radius:12px;border:1px solid #1e293b}
+.trust-item .icon{font-size:20px}
+.trust-item .text{font-size:13px;color:#94a3b8}
+.trust-item strong{color:#f1f5f9}
+
+/* CTA */
+.cta-section{text-align:center;padding:80px 24px;background:linear-gradient(180deg,#050a12,#0a1628)}
+.cta-section h2{font-size:36px;font-weight:800;margin-bottom:16px}
+.cta-section p{font-size:18px;color:#94a3b8;margin-bottom:32px}
+
+/* FOOTER */
+.footer{text-align:center;padding:32px 24px;border-top:1px solid #1e293b;font-size:13px;color:#475569}
+.footer a{color:#64748b;margin:0 12px}
+.footer a:hover{color:#10b981}
+
+/* MOBILE */
+@media(max-width:768px){
+  .hero h1{font-size:32px}
+  .hero p{font-size:16px}
+  .features-grid{grid-template-columns:1fr}
+  .pricing-grid{grid-template-columns:1fr}
+  .hero-stats{flex-direction:column;gap:16px}
+  .nav-links a:not(.nav-cta){display:none}
+  .steps{flex-direction:column;align-items:center}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">Auto<span>Tax</span>-HUB</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Preise</a>
+    <a href="#how">Wie es funktioniert</a>
+    <a href="/app" class="nav-cta">Kostenlos starten</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Beta — Jetzt kostenlos testen</div>
+  <h1>Faturalar <span>otomatik</span>,<br>Vergi <span>basit</span></h1>
+  <p>Fotograflayin, yukleyin, bitti. AutoTax-HUB faturalarinizi otomatik tanir, kategorize eder ve Kassenbuch'unuza kaydeder.</p>
+  <div class="hero-btns">
+    <a href="/app" class="btn-primary">Kostenlos starten</a>
+    <a href="#how" class="btn-secondary">Wie es funktioniert</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="num">64+</div><div class="label">Lander unterstutzt</div></div>
+    <div class="hero-stat"><div class="num">30+</div><div class="label">Wahrungen</div></div>
+    <div class="hero-stat"><div class="num">198</div><div class="label">Lieferanten erkannt</div></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="section-title">
+    <h2>Alles was Sie brauchen</h2>
+    <p>Von der Fotoaufnahme bis zum DATEV-Export — alles in einer Plattform</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card"><div class="feature-icon">&#128248;</div><h3>OCR Texterkennung</h3><p>PDF, Foto, sogar Handschrift — alles wird automatisch gelesen und erkannt</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128179;</div><h3>QR-Code Erkennung</h3><p>EPC, SEPA, Swiss QR, ZUGFeRD — Daten direkt aus dem QR-Code</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128200;</div><h3>Kassenbuch</h3><p>Einnahmen und Ausgaben automatisch verbucht, abgeglichen und exportiert</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128176;</div><h3>MwSt Erkennung</h3><p>7%, 19% und 60+ internationale Steuersatze automatisch erkannt</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128196;</div><h3>DATEV Export</h3><p>CSV, Excel, DATEV und JSON — direkt an Ihren Steuerberater senden</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128274;</div><h3>DSGVO konform</h3><p>Daten in der EU, verschlusselt, kein Tracking. Ihre Belege sind sicher.</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128230;</div><h3>ZIP Upload</h3><p>Ganze Ordner als ZIP hochladen — alle Belege werden einzeln verarbeitet</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128221;</div><h3>E-Rechnung</h3><p>XRechnung, ZUGFeRD, Factur-X — XML Import mit einem Klick</p></div>
+    <div class="feature-card"><div class="feature-icon">&#128202;</div><h3>EUR (Steuer)</h3><p>Einnahmen-Uberschuss-Rechnung automatisch berechnet und exportfertig</p></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how" style="background:#0a1020;border-radius:24px;margin:0 auto;max-width:1200px">
+  <div class="section-title">
+    <h2>So funktioniert's</h2>
+    <p>In 3 Schritten von der Quittung zum Kassenbuch</p>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><h3>Fotografieren</h3><p>Beleg mit dem Handy fotografieren oder PDF hochladen</p></div>
+    <div class="step"><div class="step-num">2</div><h3>Erkennen</h3><p>AutoTax liest Lieferant, Betrag, Datum und MwSt automatisch</p></div>
+    <div class="step"><div class="step-num">3</div><h3>Fertig</h3><p>Eintrag im Kassenbuch, DATEV-Export fur den Steuerberater</p></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-title">
+    <h2>Einfache Preise</h2>
+    <p>Starten Sie kostenlos. Upgraden Sie wenn Sie wachsen.</p>
+  </div>
+  <div class="pricing-grid">
+    <!-- FREE -->
+    <div class="price-card">
+      <h3>Free</h3>
+      <div class="price-amount">0<span> &euro;/Monat</span></div>
+      <div class="price-period">Fur immer kostenlos</div>
+      <ul class="price-features">
+        <li><span class="check">&#10003;</span> 50 Belege / Monat</li>
+        <li><span class="check">&#10003;</span> OCR Texterkennung</li>
+        <li><span class="check">&#10003;</span> QR-Code Leser</li>
+        <li><span class="check">&#10003;</span> Kassenbuch</li>
+        <li><span class="check">&#10003;</span> CSV Export</li>
+        <li><span class="check">&#10003;</span> 2 Firmen</li>
+        <li><span class="cross">&#10007;</span> <span style="color:#475569">DATEV Export</span></li>
+        <li><span class="cross">&#10007;</span> <span style="color:#475569">Excel Export</span></li>
+        <li><span class="cross">&#10007;</span> <span style="color:#475569">KI-Analyse</span></li>
+      </ul>
+      <button class="price-btn price-btn-free" onclick="window.location.href='/app'">Kostenlos starten</button>
+    </div>
+
+    <!-- EARLY ADOPTER -->
+    <div class="price-card popular">
+      <div class="price-badge">Beliebteste</div>
+      <h3>Early Adopter</h3>
+      <div class="price-amount">10<span> &euro;/Monat</span></div>
+      <div class="price-period">Fruhbucher-Preis — fur immer</div>
+      <ul class="price-features">
+        <li><span class="check">&#10003;</span> 500 Belege / Monat</li>
+        <li><span class="check">&#10003;</span> Alles aus Free</li>
+        <li><span class="check">&#10003;</span> DATEV Export</li>
+        <li><span class="check">&#10003;</span> Excel Export</li>
+        <li><span class="check">&#10003;</span> 5 Firmen</li>
+        <li><span class="check">&#10003;</span> Handschrift OCR</li>
+        <li><span class="check">&#10003;</span> Tabelle Import</li>
+        <li><span class="check">&#10003;</span> Priority Support</li>
+        <li><span class="cross">&#10007;</span> <span style="color:#475569">KI-Analyse</span></li>
+      </ul>
+      <button class="price-btn price-btn-pop" onclick="window.location.href='/app'">Jetzt sichern</button>
+    </div>
+
+    <!-- PRO -->
+    <div class="price-card">
+      <h3>Pro</h3>
+      <div class="price-amount">20<span> &euro;/Monat</span></div>
+      <div class="price-period">Fur professionelle Nutzer</div>
+      <ul class="price-features">
+        <li><span class="check">&#10003;</span> Unbegrenzte Belege</li>
+        <li><span class="check">&#10003;</span> Alles aus Early</li>
+        <li><span class="check">&#10003;</span> KI-Analyse (Claude)</li>
+        <li><span class="check">&#10003;</span> Unbegrenzte Firmen</li>
+        <li><span class="check">&#10003;</span> API Zugang</li>
+        <li><span class="check">&#10003;</span> EUR Auto-Fill</li>
+        <li><span class="check">&#10003;</span> Beleg-Tresor</li>
+        <li><span class="check">&#10003;</span> Steuerberater-Zugang</li>
+        <li><span class="check">&#10003;</span> Premium Support</li>
+      </ul>
+      <button class="price-btn price-btn-pro" onclick="window.location.href='/app'">Pro wahlen</button>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section class="section">
+  <div class="trust">
+    <div class="trust-item"><span class="icon">&#128274;</span><div class="text"><strong>DSGVO</strong> konform</div></div>
+    <div class="trust-item"><span class="icon">&#127466;&#127482;</span><div class="text">Server in <strong>Deutschland</strong></div></div>
+    <div class="trust-item"><span class="icon">&#128737;</span><div class="text"><strong>SSL</strong> verschlusselt</div></div>
+    <div class="trust-item"><span class="icon">&#10003;</span><div class="text">Kein <strong>Tracking</strong></div></div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Bereit Ihre Buchhaltung zu<br>automatisieren?</h2>
+  <p>50 Belege kostenlos. Keine Kreditkarte erforderlich.</p>
+  <a href="/app" class="btn-primary">Jetzt kostenlos starten</a>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <p>&copy; 2026 AutoTax-HUB. Alle Rechte vorbehalten.</p>
+  <p style="margin-top:8px">
+    <a href="/agb">AGB</a>
+    <a href="/app">Login</a>
+    <a href="mailto:support@autotax-hub.de">Kontakt</a>
+  </p>
+  <p style="margin-top:12px;font-size:11px">AutoTax-HUB ist ein Software-Werkzeug und keine Steuerberatung.</p>
+</footer>
+
+</body>
+</html>
+<!-- --- ADDED END --- -->
