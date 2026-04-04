@@ -337,3 +337,62 @@ async def extract_table_text(content: bytes, filename: str) -> str:
         logger.warning("Table OCR failed: %s", e)
         return best_text
 # --- ADDED END ---
+
+
+# --- ADDED START: Auto-rotate table OCR (try 4 rotations) ---
+async def extract_table_text_autorotate(content: bytes, filename: str) -> str:
+    """Try 4 rotations (0, 90, 180, 270) and pick the one with most OCR text.
+    Wraps extract_table_text — does NOT replace it."""
+    if not OCR_API_KEY:
+        return ""
+    from PIL import Image, ImageOps
+
+    logger.info("Table OCR autorotate: processing %s (%d bytes)", filename, len(content))
+
+    img = Image.open(io.BytesIO(content))
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+
+    best_text = ""
+    best_rot = 0
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        for rot in [0, 90, 180, 270]:
+            # Rotate image
+            if rot == 0:
+                rotated = img
+            else:
+                rotated = img.rotate(-rot, expand=True, fillcolor=255)
+
+            # To bytes
+            buf = io.BytesIO()
+            rotated.save(buf, format="JPEG", quality=90)
+            rot_bytes = buf.getvalue()
+
+            # Preprocess + OCR
+            processed = preprocess_table_image(rot_bytes)
+            text = await _ocr_api_call(client, filename, processed, "2")
+            logger.info("Table autorotate %d°: %d chars", rot, len(text))
+
+            if len(text) > len(best_text):
+                best_text = text
+                best_rot = rot
+
+            # Good enough — stop
+            if len(best_text) >= 100:
+                break
+
+        logger.info("Table autorotate best: %d° with %d chars", best_rot, len(best_text))
+
+        # Fallback: standard preprocess if still bad
+        if len(best_text) < 40:
+            processed_std = preprocess_image(content)
+            text2 = await _ocr_api_call(client, filename, processed_std, "2")
+            if len(text2) > len(best_text):
+                best_text = text2
+                logger.info("Table autorotate fallback: standard %d chars", len(text2))
+
+    return best_text
+# --- ADDED END ---
