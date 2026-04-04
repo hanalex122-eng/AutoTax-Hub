@@ -1056,10 +1056,10 @@ function VaultView({onNav}){
           <span style={{fontSize:9,color:theme.textDim,background:theme.surfaceAlt,padding:"1px 6px",borderRadius:4}}>{(i.file_content_type||"").includes("pdf")?"PDF":(i.file_content_type||"").includes("png")?"PNG":(i.file_content_type||"").includes("xml")?"XML":"JPG"}</span>
         </div>}
         <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-          {i.has_original&&<button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>window.open("/editor?id="+i.id,"_blank")}>✏️ Original & Editor</button>}
-          {!i.has_original&&<button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px",opacity:0.6}} onClick={()=>window.open("/editor?id="+i.id,"_blank")}>✏️ Editor</button>}
-          <button style={{...css.btnOutline,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>⬇ Download</button>
-          <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️ PDF</button>
+          {i.has_original&&<button style={{...css.btn(),flex:1,fontSize:11,padding:"6px 8px"}} onClick={()=>openPreview(i)}>&#128065; Original anzeigen</button>}
+          <button style={{background:"transparent",border:"1px solid rgba(16,185,129,0.3)",color:theme.accent,padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:"inherit",transition:"all .2s"}} onClick={()=>window.open("/editor?id="+i.id,"_blank")}>✏️ Editor</button>
+          {i.has_original&&<button style={{...css.btnOutline,fontSize:11,padding:"6px 8px"}} onClick={()=>download(i.id,i.filename)}>⬇</button>}
+          <button style={{background:"transparent",border:"1px solid rgba(0,194,255,0.3)",color:"#00c2ff",padding:"4px 10px",borderRadius:6,cursor:"pointer",fontSize:11,fontFamily:"inherit"}} onClick={()=>downloadPDF(i.id)}>🖨️</button>
         </div>
       </div>)}
     </div>}
