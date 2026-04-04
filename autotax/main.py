@@ -1454,6 +1454,22 @@ def put_invoice(invoice_id: int, body: InvoiceUpdate, user: dict = Depends(get_c
     return _do_update_invoice(invoice_id, body, user)
 
 
+# --- ADDED START: Single invoice detail with full OCR text ---
+@app.get("/invoices/{invoice_id}/detail")
+def get_invoice_detail(invoice_id: int, user: dict = Depends(get_current_user)):
+    """Get full invoice detail including complete raw OCR text."""
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            err(404, "Invoice not found")
+        result = invoice_to_dict(inv)
+        result["raw_text"] = inv.raw_text or ""
+        return result
+    finally:
+        db.close()
+# --- ADDED END ---
+
 # ============================================================
 # INVOICES: DELETE
 # ============================================================

@@ -127,6 +127,7 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
         <button class="zoom-btn" onclick="zoom(0)" title="Zurücksetzen">&#8634;</button>
         <button class="zoom-btn" onclick="zoom(0.2)" title="Vergrößern">+</button>
         <button class="zoom-btn" onclick="rotate()" title="Drehen">&#8635;</button>
+        <button class="zoom-btn" onclick="popoutImage()" title="In neuem Fenster öffnen (2. Monitor)" style="font-size:14px">&#128470;</button>
       </div>
     </div>
     <div class="image-container" id="imageContainer">
@@ -184,8 +185,15 @@ body{font-family:'DM Sans',sans-serif;background:#050a12;color:#f1f5f9;height:10
         <select id="payment_method"><option value="">—</option><option value="cash">Bar</option><option value="card">Karte</option><option value="transfer">Überweisung</option><option value="paypal">PayPal</option><option value="apple_pay">Apple Pay</option></select>
       </div>
 
-      <div class="section-title">&#128221; OCR Text</div>
-      <div class="field"><label>Erkannter Text</label><textarea id="ocr_text" rows="4" style="font-family:monospace;font-size:11px;color:#64748b" readonly></textarea></div>
+      <div class="section-title">&#128221; OCR Text (Original)</div>
+      <div style="background:#0a0e17;border:1.5px solid #1e293b;border-radius:10px;padding:12px;max-height:300px;overflow-y:auto;margin-bottom:8px">
+        <div id="ocrLines" style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8;color:#94a3b8;white-space:pre-wrap;word-break:break-word"></div>
+        <div id="ocrLoading" style="color:#475569;font-size:12px;text-align:center;padding:16px">OCR Text wird geladen...</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button type="button" onclick="copyOcrText()" style="flex:1;padding:8px;border-radius:8px;border:1px solid #1e293b;background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s" onmouseenter="this.style.borderColor='#10b981';this.style.color='#10b981'" onmouseleave="this.style.borderColor='#1e293b';this.style.color='#94a3b8'">&#128203; Text kopieren</button>
+        <button type="button" onclick="toggleOcrHighlight()" style="flex:1;padding:8px;border-radius:8px;border:1px solid #1e293b;background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s" onmouseenter="this.style.borderColor='#f59e0b';this.style.color='#f59e0b'" onmouseleave="this.style.borderColor='#1e293b';this.style.color='#94a3b8'">&#128161; Beträge markieren</button>
+      </div>
 
       <!-- --- ADDED START: Ek Kalem (extra line items) --- -->
       <div class="section-title">&#128203; Positionen</div>
@@ -282,8 +290,9 @@ function loadInvoice(inv) {
   if (!inv.total_amount || inv.total_amount === 0) document.getElementById("f_amount").className = "field field-highlight";
   if (!inv.date) document.getElementById("f_date").className = "field field-highlight";
 
-  // Load image
+  // Load image + full OCR text
   loadImage(inv.id);
+  loadFullOcrText(inv.id);
   currentZoom = 1;
   currentRotation = 0;
 }
@@ -394,6 +403,86 @@ document.addEventListener("keydown", function(e) {
   });
   document.addEventListener("mouseup", function() { dragging = false; });
 })();
+
+// --- ADDED START: Full OCR text, popout, highlight ---
+let _fullOcrText = "";
+let _ocrHighlighted = false;
+let _popoutWindow = null;
+let _currentImageUrl = "";
+
+async function loadFullOcrText(id) {
+  const ocrLines = document.getElementById("ocrLines");
+  const ocrLoading = document.getElementById("ocrLoading");
+  if (ocrLines) ocrLines.innerHTML = "";
+  if (ocrLoading) ocrLoading.style.display = "block";
+  try {
+    const res = await fetch(API + "/invoices/" + id + "/detail", {headers: {Authorization: "Bearer " + token}});
+    if (res.ok) {
+      const data = await res.json();
+      _fullOcrText = data.raw_text || "";
+      if (ocrLines) {
+        ocrLines.textContent = _fullOcrText || "(Kein OCR Text vorhanden)";
+        _ocrHighlighted = false;
+      }
+    } else {
+      if (ocrLines) ocrLines.textContent = "(Fehler beim Laden)";
+    }
+  } catch(e) {
+    if (ocrLines) ocrLines.textContent = "(Fehler)";
+  }
+  if (ocrLoading) ocrLoading.style.display = "none";
+}
+
+function copyOcrText() {
+  if (_fullOcrText) {
+    navigator.clipboard.writeText(_fullOcrText);
+    showToast("OCR Text kopiert!");
+  }
+}
+
+function toggleOcrHighlight() {
+  const el = document.getElementById("ocrLines");
+  if (!el || !_fullOcrText) return;
+  if (_ocrHighlighted) {
+    el.textContent = _fullOcrText;
+    _ocrHighlighted = false;
+  } else {
+    // Highlight amounts and dates
+    var html = _fullOcrText
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/(\d{1,3}(?:\.\d{3})*,\d{2})/g, '<span style="background:rgba(16,185,129,0.2);color:#10b981;padding:1px 4px;border-radius:3px;font-weight:600">$1</span>')
+      .replace(/(\d{1,2}[./]\d{1,2}[./]\d{2,4})/g, '<span style="background:rgba(59,130,246,0.2);color:#3b82f6;padding:1px 4px;border-radius:3px;font-weight:600">$1</span>')
+      .replace(/((?:total|summe|gesamt|brutto|montant|toplam)\b)/gi, '<span style="background:rgba(245,158,11,0.2);color:#f59e0b;padding:1px 4px;border-radius:3px;font-weight:700">$1</span>');
+    el.innerHTML = html;
+    _ocrHighlighted = true;
+  }
+}
+
+function popoutImage() {
+  var inv = invoices[currentIdx];
+  if (!inv) return;
+  // Open image in new window — user can drag to 2nd monitor
+  var w = window.open("", "beleg_preview_" + inv.id, "width=800,height=1000,scrollbars=yes,resizable=yes");
+  if (!w) { alert("Popup blockiert — bitte Popup-Blocker deaktivieren"); return; }
+  _popoutWindow = w;
+  w.document.write('<!DOCTYPE html><html><head><title>Beleg #' + inv.id + '</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#050a12;display:flex;flex-direction:column;height:100vh;font-family:DM Sans,sans-serif}.toolbar{display:flex;gap:8px;padding:10px 16px;background:#111827;border-bottom:1px solid #1e293b;align-items:center;flex-shrink:0}.toolbar button{width:36px;height:36px;border-radius:8px;border:1px solid #2a3548;background:#1e293b;color:#f1f5f9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}.toolbar button:hover{border-color:#10b981;color:#10b981;transform:scale(1.1)}.toolbar span{color:#94a3b8;font-size:13px;flex:1;text-align:center}.viewer{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px}img{transition:transform .2s;transform-origin:top center;max-width:100%}</style></head><body>');
+  w.document.write('<div class="toolbar"><button onclick="z(-0.2)">−</button><button onclick="z(0)">↺</button><button onclick="z(0.2)">+</button><button onclick="r()">↻</button><span>Beleg #' + inv.id + ' — ' + (inv.vendor || '') + '</span></div>');
+  w.document.write('<div class="viewer"><img id="img" src=""></div>');
+  w.document.write('<script>var zm=1,rt=0;function u(){document.getElementById("img").style.transform="scale("+zm+") rotate("+rt+"deg)"}function z(d){if(d===0)zm=1;else zm=Math.max(0.2,Math.min(5,zm+d));u()}function r(){rt=(rt+90)%360;u()}<\/script>');
+  w.document.write('</body></html>');
+  w.document.close();
+  // Load image into popup
+  fetch(API + "/vault/" + inv.id + "/download?mode=inline", {headers: {Authorization: "Bearer " + token}})
+    .then(function(res) { return res.ok ? res.blob() : null; })
+    .then(function(blob) {
+      if (blob && w && !w.closed) {
+        var url = URL.createObjectURL(blob);
+        w.document.getElementById("img").src = url;
+      }
+    });
+}
+
+// --- ADDED END ---
 
 // --- ADDED START: Line items (Positionen) ---
 let lineItemCount = 0;
