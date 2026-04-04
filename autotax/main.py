@@ -1024,7 +1024,7 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
     await file.seek(0)
 
     # Privacy: do NOT persist original file data — only keep for OCR processing
-    _file_data = None
+    _file_data = content
     _file_ct = file.content_type or ""
 
     logger.info("Upload by user %s: type=%s, size=%d bytes", user["sub"], file.content_type, len(content))
