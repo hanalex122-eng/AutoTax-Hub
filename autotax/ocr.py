@@ -490,3 +490,36 @@ async def extract_with_fallback(content: bytes, filename: str = "upload.png", fo
     paid_text = await extract_image_text(content, filename)
     return paid_text
 # --- ADDED END ---
+
+
+# --- ADDED START: Tesseract DE-only wrapper + pipeline integration ---
+def local_ocr_tesseract(image):
+    """Run local Tesseract OCR with German language. Accepts PIL Image or bytes."""
+    try:
+        import pytesseract
+        from PIL import Image
+        if isinstance(image, bytes):
+            img = Image.open(io.BytesIO(image))
+        else:
+            img = image
+        text = pytesseract.image_to_string(img, lang="deu")
+        return text.strip()
+    except ImportError:
+        logger.warning("pytesseract not installed")
+        return ""
+    except Exception as e:
+        logger.warning("Tesseract OCR failed: %s", e)
+        return ""
+
+
+async def extract_image_text_with_tesseract(content: bytes, filename: str = "upload.png") -> str:
+    """Tesseract first, OCR.space fallback. Modular — wraps existing extract_image_text."""
+    # Try Tesseract
+    tess_text = local_ocr_tesseract(content)
+    if is_ocr_valid(tess_text):
+        logger.info("Tesseract used: %s (%d chars)", filename, len(tess_text))
+        return tess_text
+    # Fallback to OCR.space
+    logger.info("Fallback to OCR.space: %s", filename)
+    return await extract_image_text(content, filename)
+# --- ADDED END ---
