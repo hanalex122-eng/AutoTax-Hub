@@ -734,9 +734,9 @@ function UploadView({triggerRefresh,onNav,showToast}){
           // Refresh list so processed invoice replaces placeholder
           if(triggerRefresh)triggerRefresh();
         }else if(r.status==="timeout"){
-          allResults[idx]={filename:f.name,status:"warn",message:"⏱ Timeout — Hintergrund-Verarbeitung läuft"};
+          allResults[idx]={filename:f.name,status:"warn",message:"⏱ OCR dauert länger als erwartet",id:r.data?.id};
         }else{
-          allResults[idx]={filename:f.name,status:"error",message:r.data?.detail||r.data?.message||"Fehler"};
+          allResults[idx]={filename:f.name,status:"error",message:r.data?.detail||r.data?.message||"Fehler",id:r.data?.id};
         }
         setResults([...allResults]);
       }catch(ex){
@@ -830,12 +830,22 @@ function UploadView({triggerRefresh,onNav,showToast}){
         <button style={css.btnOutline} onClick={()=>setFiles([])}>Alle entfernen</button>
       </div>
     </div>}
-    {results.length>0&&<div style={css.card}><h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:"0 0 12px"}}>Ergebnis</h3>
-      {results.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<results.length-1?"1px solid "+theme.border:"none"}}>
-        <Icon d={r.status==="ok"?I.check:I.x} size={18} color={r.status==="ok"?theme.accent:theme.danger}/>
+    {results.length>0&&<div style={css.card}>
+      {/* --- ADDED START: progress counter --- */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <h3 style={{fontSize:15,fontWeight:600,color:theme.text,margin:0}}>Ergebnis</h3>
+        <span style={{fontSize:12,color:theme.textMuted,fontFamily:mono}}>{results.filter(r=>r.status==="ok"||r.status==="error"||r.status==="warn").length} / {results.length} verarbeitet</span>
+      </div>
+      {/* --- ADDED END --- */}
+      {results.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<results.length-1?"1px solid "+theme.border:"none",transition:"all 0.3s ease"}}>
+        {/* --- ADDED START: status badge icons --- */}
+        <span style={{fontSize:18,minWidth:24,textAlign:"center"}}>{r.status==="processing"?"⏳":r.status==="ok"?"✅":r.status==="warn"?"⚠️":"❌"}</span>
+        {/* --- ADDED END --- */}
         <span style={{color:theme.text,flex:1,fontSize:13}}>{r.filename}</span>
-        <span style={css.badge(r.status==="ok"?theme.accentSoft:theme.dangerSoft,r.status==="ok"?theme.accent:theme.danger)}>{r.status==="ok"?"OK":"Fehler"}</span>
-        {r.status==="ok"&&r.message&&r.message.includes("0.00")&&<span style={{color:"#f59e0b",fontSize:11,marginLeft:4}}>Bitte prüfen</span>}
+        <span style={{fontSize:11,color:r.status==="processing"?theme.blue:r.status==="ok"?theme.accent:r.status==="warn"?"#f59e0b":theme.danger,fontWeight:500}}>{r.message}</span>
+        {/* --- ADDED START: retry button for warn/error --- */}
+        {(r.status==="warn"||r.status==="error")&&r.id&&<button style={{background:"transparent",border:"1px solid "+theme.border,color:theme.textMuted,padding:"4px 10px",borderRadius:6,fontSize:11,cursor:"pointer",fontFamily:"inherit"}} onClick={async()=>{const tk=localStorage.getItem("atx_token");try{const s=await fetch(API+"/invoices/"+r.id+"/status",{headers:{Authorization:"Bearer "+tk}});if(s.ok){const d=await s.json();if(d.status==="done"){const nr=[...results];nr[i]={...r,status:"ok",message:"✅ OK — €"+(d.total_amount||0).toFixed(2)+(d.vendor?" ("+d.vendor+")":"")};setResults(nr);if(triggerRefresh)triggerRefresh();}}}catch(e){}}}>🔄 Prüfen</button>}
+        {/* --- ADDED END --- */}
       </div>))}
       <div style={{fontSize:11,color:theme.textDim,marginTop:8}}>Automatisch erkannt — Du kannst alles in Rechnungen bearbeiten</div>
       {results.some(r=>r.status==="ok")&&<div style={{marginTop:14,paddingTop:14,borderTop:"1px solid "+theme.border,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
