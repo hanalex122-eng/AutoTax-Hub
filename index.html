@@ -691,6 +691,59 @@ function UploadView({triggerRefresh,onNav,showToast}){
   const addFiles=(nf)=>{const fa=Array.from(nf);setFiles(p=>{const ex=new Set(p.map(f=>f.name+f.size));return[...p,...fa.filter(f=>!ex.has(f.name+f.size))].slice(0,20);});};
   const _refreshToken=async()=>{const refresh=localStorage.getItem("atx_refresh");if(!refresh)return null;try{const r=await fetch(API+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:refresh})});if(r.ok){const d=await r.json();localStorage.setItem("atx_token",d.token);if(d.refresh_token)localStorage.setItem("atx_refresh",d.refresh_token);return d.token;}}catch(e){}return null;};
   const _uploadOne=async(f,tk)=>{const fd=new FormData();fd.append("file",f);fd.append("invoice_type",invoiceType);let res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+tk},body:fd});if(res.status===401){const newTk=await _refreshToken();if(newTk){const fd2=new FormData();fd2.append("file",f);fd2.append("invoice_type",invoiceType);res=await fetch(API+"/invoices/upload",{method:"POST",headers:{Authorization:"Bearer "+newTk},body:fd2});}}return res;};
+  /* --- ADDED START: Async OCR upload with polling --- */
+  const _uploadAsync=async(f,tk)=>{
+    const fd=new FormData();fd.append("file",f);fd.append("invoice_type",invoiceType);
+    let res=await fetch(API+"/invoices/upload-async",{method:"POST",headers:{Authorization:"Bearer "+tk},body:fd});
+    if(res.status===401){const newTk=await _refreshToken();if(newTk){const fd2=new FormData();fd2.append("file",f);fd2.append("invoice_type",invoiceType);res=await fetch(API+"/invoices/upload-async",{method:"POST",headers:{Authorization:"Bearer "+newTk},body:fd2});tk=newTk;}}
+    const d=await res.json();
+    if(d.status==="done")return{status:"done",data:d};
+    if(d.status==="processing"&&d.id){
+      // Poll every 2s, max 30s
+      for(let i=0;i<15;i++){
+        await new Promise(r=>setTimeout(r,2000));
+        try{
+          const s=await fetch(API+"/invoices/"+d.id+"/status",{headers:{Authorization:"Bearer "+tk}});
+          if(s.ok){const sd=await s.json();if(sd.status==="done")return{status:"done",data:sd};}
+        }catch(e){}
+      }
+      return{status:"timeout",data:d};
+    }
+    return{status:"error",data:d};
+  };
+  /* --- ADDED END --- */
+  /* --- ADDED START: Async upload flow (uses upload-async + polling) --- */
+  const uploadAsync=async()=>{
+    if(!files.length)return;
+    setUploading(true);setResults([]);
+    let token=localStorage.getItem("atx_token");
+    let okCount=0;const allResults=[];
+    for(const f of files){
+      allResults.push({filename:f.name,status:"processing",message:"⏳ Verarbeitung läuft..."});
+      setResults([...allResults]);
+      try{
+        token=localStorage.getItem("atx_token");
+        const r=await _uploadAsync(f,token);
+        const idx=allResults.length-1;
+        if(r.status==="done"){
+          allResults[idx]={filename:f.name,status:"ok",message:"OK — €"+((r.data.total_amount||0).toFixed(2))+(r.data.vendor?" ("+r.data.vendor+")":"")};
+          okCount++;
+        }else if(r.status==="timeout"){
+          allResults[idx]={filename:f.name,status:"warn",message:"⏱ Timeout — wird im Hintergrund verarbeitet"};
+        }else{
+          allResults[idx]={filename:f.name,status:"error",message:r.data?.detail||r.data?.message||"Fehler"};
+        }
+        setResults([...allResults]);
+      }catch(ex){
+        allResults[allResults.length-1]={filename:f.name,status:"error",message:ex.message};
+        setResults([...allResults]);
+      }
+    }
+    setUploading(false);setFiles([]);
+    if(triggerRefresh)triggerRefresh();
+    if(okCount>0&&showToast)showToast(okCount+" Beleg(e) erfolgreich hochgeladen","success");
+  };
+  /* --- ADDED END --- */
   const upload=async()=>{if(!files.length)return;setUploading(true);setResults([]);let token=localStorage.getItem("atx_token");
     let okCount=0;
     try{if(files.length===1){const res=await _uploadOne(files[0],token);const d=await res.json();
@@ -766,8 +819,9 @@ function UploadView({triggerRefresh,onNav,showToast}){
         <span style={{color:theme.textDim,fontSize:11,fontFamily:mono}}>{(f.size/1024).toFixed(0)}KB</span>
         <div style={{cursor:"pointer"}} onClick={()=>setFiles(p=>p.filter((_,j)=>j!==i))}><Icon d={I.x} size={16} color={theme.danger}/></div>
       </div>))}
-      <div style={{display:"flex",gap:12,marginTop:16}}>
+      <div style={{display:"flex",gap:12,marginTop:16,flexWrap:"wrap"}}>
         <button style={{...css.btn(),opacity:uploading?0.7:1}} onClick={upload} disabled={uploading}>{uploading?"Hochladen...":files.length+" hochladen"}</button>
+        <button style={{...css.btn(),background:"linear-gradient(135deg,#3b82f6,#1e40af)",opacity:uploading?0.7:1}} onClick={uploadAsync} disabled={uploading}>{uploading?"...":"⚡ Async (schnell)"}</button>
         <button style={css.btnOutline} onClick={()=>setFiles([])}>Alle entfernen</button>
       </div>
     </div>}
