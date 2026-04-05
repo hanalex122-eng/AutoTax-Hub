@@ -432,3 +432,48 @@ async def extract_pdf_smart(content: bytes, filename: str = "doc.pdf") -> str:
         return await extract_image_text(img_bytes, filename)
     return ""
 # --- ADDED END ---
+
+
+# --- ADDED START: OCR fallback strategy — local first, paid as backup ---
+def is_ocr_valid(text: str) -> bool:
+    """Validate OCR result quality. Returns True if text passes all checks."""
+    if not text or len(text.strip()) <= 50:
+        return False
+    import re as _re_v
+    # Must contain at least one number
+    if not _re_v.search(r"\d", text):
+        return False
+    # Must contain at least one invoice-related keyword
+    keywords = ["EUR", "€", "Rechnung", "Betrag", "rechnung", "betrag", "total", "Total",
+                "summe", "Summe", "mwst", "MwSt", "gesamt", "Gesamt", "netto", "brutto"]
+    text_check = text
+    for kw in keywords:
+        if kw in text_check:
+            return True
+    return False
+
+
+async def extract_with_fallback(content: bytes, filename: str = "upload.png", force_paid_ocr: bool = False) -> str:
+    """Try local OCR first, fallback to paid OCR if result is invalid.
+    Wraps existing extract_image_text — does not modify it.
+
+    NOTE: Currently no local OCR engine is installed (Tesseract not available).
+    When local OCR is added, insert it here as the first attempt."""
+    if force_paid_ocr:
+        logger.info("Fallback OCR used (forced): %s", filename)
+        return await extract_image_text(content, filename)
+
+    # TODO: Try local OCR first when Tesseract is installed
+    # local_text = try_local_ocr(content)
+    # if is_ocr_valid(local_text):
+    #     logger.info("Local OCR used: %s (%d chars)", filename, len(local_text))
+    #     return local_text
+
+    # For now, use paid OCR directly
+    logger.info("Fallback OCR used: %s", filename)
+    paid_text = await extract_image_text(content, filename)
+    if is_ocr_valid(paid_text):
+        return paid_text
+    logger.warning("Paid OCR result failed validation (%d chars): %s", len(paid_text), filename)
+    return paid_text
+# --- ADDED END ---
