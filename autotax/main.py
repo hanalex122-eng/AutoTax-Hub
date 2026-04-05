@@ -1517,6 +1517,92 @@ def get_invoice_detail(invoice_id: int, user: dict = Depends(get_current_user)):
         db.close()
 # --- ADDED END ---
 
+# --- ADDED START: Async OCR upload + status endpoint ---
+@app.post("/invoices/upload-async")
+async def upload_invoice_async(request: Request, file: UploadFile = File(...), handwriting: bool = False, invoice_type: str = "expense", user: dict = Depends(get_current_user)):
+    """Async upload: Tesseract first, if fails creates placeholder invoice + runs OCR.space in background."""
+    import asyncio as _asyncio
+    if file.content_type not in ALLOWED_TYPES:
+        err(400, "Ungültige Datei")
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        err(400, "Datei zu groß")
+    if len(content) == 0:
+        err(400, "Leere Datei")
+
+    # Try Tesseract first (synchronous, fast)
+    if (file.content_type or "").lower().startswith("image/"):
+        try:
+            from autotax.ocr import local_ocr_tesseract, is_ocr_valid
+            _tess_text = local_ocr_tesseract(content)
+            if is_ocr_valid(_tess_text):
+                logger.info("Using local OCR (Tesseract) sync: %s (%d chars)", file.filename, len(_tess_text))
+                parsed = parse_invoice(_tess_text)
+                if invoice_type in ("income", "expense"):
+                    parsed["invoice_type"] = invoice_type
+                inv_id = save_invoice(parsed, user_id=user["sub"], filename=file.filename, file_data=content, file_content_type=file.content_type or "")
+                auto_create_cash_entry(inv_id, user["sub"], parsed)
+                return {"status": "done", "id": inv_id, "total_amount": safe_float(parsed.get("total_amount")), "vendor": parsed.get("vendor", "")}
+        except Exception as e:
+            logger.warning("Tesseract sync failed: %s", e)
+
+    # Tesseract failed → create placeholder invoice + run OCR.space async
+    placeholder = {"vendor": "Processing...", "total_amount": 0.0, "date": datetime.now().strftime("%Y-%m-%d"), "raw_text": "", "invoice_type": invoice_type, "vat_amount": 0.0, "vat_rate": "0%", "category": "other", "invoice_number": "", "payment_method": ""}
+    inv_id = save_invoice(placeholder, user_id=user["sub"], filename=file.filename, file_data=content, file_content_type=file.content_type or "")
+    logger.info("Async OCR started: invoice %d (%s)", inv_id, file.filename)
+
+    async def _bg_ocr(inv_id, content, filename, ct, handwriting, user_sub, invoice_type):
+        try:
+            from fastapi import UploadFile as _UF
+            import io as _io
+            fake = _UF(filename=filename, file=_io.BytesIO(content))
+            fake.content_type = ct
+            raw_text, qr_data = await _asyncio.wait_for(extract_text_and_qr(fake, handwriting=handwriting, file_bytes=content), timeout=60)
+            parsed = parse_invoice(raw_text)
+            if invoice_type in ("income", "expense"):
+                parsed["invoice_type"] = invoice_type
+            # Update the placeholder invoice
+            db_bg = SessionLocal()
+            try:
+                inv = db_bg.query(Invoice).filter(Invoice.id == inv_id, Invoice.user_id == user_sub).first()
+                if inv:
+                    inv.vendor = parsed.get("vendor") or "Unbekannt"
+                    inv.total_amount = safe_float(parsed.get("total_amount"))
+                    inv.vat_amount = safe_float(parsed.get("vat_amount"))
+                    inv.vat_rate = parsed.get("vat_rate") or "0%"
+                    inv.date = parsed.get("date") or ""
+                    inv.category = parsed.get("category") or "other"
+                    inv.invoice_number = parsed.get("invoice_number") or ""
+                    inv.payment_method = parsed.get("payment_method") or ""
+                    inv.raw_text = raw_text[:2000]
+                    inv.processed = True
+                    db_bg.commit()
+                    logger.info("Async OCR completed: invoice %d (%s, €%.2f)", inv_id, parsed.get("vendor"), safe_float(parsed.get("total_amount")))
+            finally:
+                db_bg.close()
+        except Exception as e:
+            logger.warning("Async OCR failed for invoice %d: %s", inv_id, e)
+
+    _asyncio.create_task(_bg_ocr(inv_id, content, file.filename, file.content_type or "", handwriting, user["sub"], invoice_type))
+    return {"status": "processing", "id": inv_id, "message": "OCR is being processed in background"}
+
+
+@app.get("/invoices/{invoice_id}/status")
+def invoice_status(invoice_id: int, user: dict = Depends(get_current_user)):
+    """Check processing status of an invoice (for async upload polling)."""
+    db = SessionLocal()
+    try:
+        inv = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.user_id == user["sub"]).first()
+        if not inv:
+            err(404, "Invoice not found")
+        if inv.vendor == "Processing..." or not inv.processed:
+            return {"status": "processing", "id": invoice_id}
+        return {"status": "done", "id": invoice_id, "vendor": inv.vendor, "total_amount": safe_float(inv.total_amount)}
+    finally:
+        db.close()
+# --- ADDED END ---
+
+
 # ============================================================
 # INVOICES: DELETE
 # ============================================================
