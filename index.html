@@ -721,15 +721,20 @@ function UploadView({triggerRefresh,onNav,showToast}){
     for(const f of files){
       allResults.push({filename:f.name,status:"processing",message:"⏳ Verarbeitung läuft..."});
       setResults([...allResults]);
+      // Refresh invoice list so placeholder appears
+      if(triggerRefresh)triggerRefresh();
       try{
         token=localStorage.getItem("atx_token");
         const r=await _uploadAsync(f,token);
         const idx=allResults.length-1;
         if(r.status==="done"){
-          allResults[idx]={filename:f.name,status:"ok",message:"OK — €"+((r.data.total_amount||0).toFixed(2))+(r.data.vendor?" ("+r.data.vendor+")":"")};
+          allResults[idx]={filename:f.name,status:"ok",message:"✅ OK — €"+((r.data.total_amount||0).toFixed(2))+(r.data.vendor?" ("+r.data.vendor+")":"")};
           okCount++;
+          if(showToast)showToast("Rechnung erfolgreich verarbeitet: "+(r.data.vendor||"OK"),"success");
+          // Refresh list so processed invoice replaces placeholder
+          if(triggerRefresh)triggerRefresh();
         }else if(r.status==="timeout"){
-          allResults[idx]={filename:f.name,status:"warn",message:"⏱ Timeout — wird im Hintergrund verarbeitet"};
+          allResults[idx]={filename:f.name,status:"warn",message:"⏱ Timeout — Hintergrund-Verarbeitung läuft"};
         }else{
           allResults[idx]={filename:f.name,status:"error",message:r.data?.detail||r.data?.message||"Fehler"};
         }
