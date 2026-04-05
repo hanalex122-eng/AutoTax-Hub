@@ -1041,8 +1041,32 @@ async def upload_invoice(request: Request, file: UploadFile = File(...), handwri
     import gc
     raw_text = ""
     qr_data = {}
+
+    # --- ADDED START: Try Tesseract first, skip paid OCR if valid ---
+    _tess_used = False
     try:
-        raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=45)
+        if (file.content_type or "").lower().startswith("image/"):
+            from autotax.ocr import local_ocr_tesseract, is_ocr_valid
+            _tess_text = local_ocr_tesseract(content)
+            if is_ocr_valid(_tess_text):
+                logger.info("Using local OCR (Tesseract): %s (%d chars)", file.filename, len(_tess_text))
+                raw_text = _tess_text
+                _tess_used = True
+                # Still get QR data
+                try:
+                    from autotax.qr_reader import extract_qr_data
+                    qr_data = extract_qr_data(content, file.content_type or "")
+                except Exception:
+                    pass
+            else:
+                logger.info("Tesseract invalid — Fallback to OCR.space: %s", file.filename)
+    except Exception as e:
+        logger.warning("Tesseract pre-check failed: %s", e)
+    # --- ADDED END ---
+
+    try:
+        if not _tess_used:
+            raw_text, qr_data = await asyncio.wait_for(extract_text_and_qr(file, handwriting=handwriting, file_bytes=content), timeout=45)
     except asyncio.TimeoutError:
         logger.warning("OCR timeout — saving with empty text")
     except Exception:
