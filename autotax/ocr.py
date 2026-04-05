@@ -396,3 +396,39 @@ async def extract_table_text_autorotate(content: bytes, filename: str) -> str:
 
     return best_text
 # --- ADDED END ---
+
+
+# --- ADDED START: PDF text extraction with OCR fallback (token-saving) ---
+def extract_pdf_text_smart(content: bytes) -> str | None:
+    """Try direct text extraction. Returns text if >50 chars, else None.
+    Saves OCR API tokens when PDF already has text layer."""
+    try:
+        import pdfplumber
+        text_parts = []
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text()
+                if t:
+                    text_parts.append(t)
+        result = "\n".join(text_parts).strip()
+        if len(result) > 50:
+            logger.info("PDF text used (%d chars) — OCR skipped, tokens saved", len(result))
+            return result
+        logger.info("PDF text too short (%d chars) — falling back to OCR", len(result))
+        return None
+    except Exception as e:
+        logger.warning("PDF text extraction failed: %s", e)
+        return None
+
+
+async def extract_pdf_smart(content: bytes, filename: str = "doc.pdf") -> str:
+    """Smart PDF handler: try text first (saves tokens), fallback to OCR (first page only)."""
+    text = extract_pdf_text_smart(content)
+    if text:
+        return text
+    logger.info("OCR used for PDF: %s", filename)
+    img_bytes = extract_pdf_page_as_image(content)
+    if img_bytes:
+        return await extract_image_text(img_bytes, filename)
+    return ""
+# --- ADDED END ---
