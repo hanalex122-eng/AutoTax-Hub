@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["libzbar0"]
+aptPkgs = ["libzbar0", "tesseract-ocr", "tesseract-ocr-deu", "tesseract-ocr-eng", "tesseract-ocr-fra", "tesseract-ocr-tur", "tesseract-ocr-spa"]

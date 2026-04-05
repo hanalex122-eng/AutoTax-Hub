@@ -453,6 +453,22 @@ def is_ocr_valid(text: str) -> bool:
     return False
 
 
+def try_local_ocr(content: bytes, lang: str = "deu+eng") -> str:
+    """Run local Tesseract OCR. Returns text or empty string if unavailable/failed."""
+    try:
+        import pytesseract
+        from PIL import Image
+        img = Image.open(io.BytesIO(content))
+        text = pytesseract.image_to_string(img, lang=lang)
+        return text.strip()
+    except ImportError:
+        logger.warning("pytesseract not installed — local OCR unavailable")
+        return ""
+    except Exception as e:
+        logger.warning("Local OCR failed: %s", e)
+        return ""
+
+
 async def extract_with_fallback(content: bytes, filename: str = "upload.png", force_paid_ocr: bool = False) -> str:
     """Try local OCR first, fallback to paid OCR if result is invalid.
     Wraps existing extract_image_text — does not modify it.
@@ -463,17 +479,14 @@ async def extract_with_fallback(content: bytes, filename: str = "upload.png", fo
         logger.info("Fallback OCR used (forced): %s", filename)
         return await extract_image_text(content, filename)
 
-    # TODO: Try local OCR first when Tesseract is installed
-    # local_text = try_local_ocr(content)
-    # if is_ocr_valid(local_text):
-    #     logger.info("Local OCR used: %s (%d chars)", filename, len(local_text))
-    #     return local_text
+    # Try local Tesseract first (free, offline)
+    local_text = try_local_ocr(content)
+    if is_ocr_valid(local_text):
+        logger.info("Local OCR used: %s (%d chars)", filename, len(local_text))
+        return local_text
 
-    # For now, use paid OCR directly
-    logger.info("Fallback OCR used: %s", filename)
+    # Fallback to paid OCR.space
+    logger.info("Fallback OCR used (paid): %s", filename)
     paid_text = await extract_image_text(content, filename)
-    if is_ocr_valid(paid_text):
-        return paid_text
-    logger.warning("Paid OCR result failed validation (%d chars): %s", len(paid_text), filename)
     return paid_text
 # --- ADDED END ---
