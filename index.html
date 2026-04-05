@@ -574,19 +574,81 @@ function InvoicesView({refreshKey,showToast}){
       {selected.size>0&&<button style={css.btn(theme.danger)} onClick={deleteSelected} disabled={deleting}><Icon d={I.trash} size={16} color="#fff"/>{deleting?"...":selected.size+" löschen"}</button>}
       {selected.size>0&&<button style={{...css.btnOutline,borderColor:"rgba(59,130,246,0.4)",color:theme.blue}} onClick={async()=>{if(!confirm(selected.size+" Rechnungen zum Kassenbuch kopieren?"))return;let ok=0;for(const id of selected){const inv=invoices.find(i=>i.id===id);if(!inv)continue;try{await api("/bookkeeping",{method:"POST",body:JSON.stringify({description:inv.vendor||"Rechnung",vendor:inv.vendor,gross_amount:inv.total_amount,vat_rate:inv.vat_rate||"19%",entry_type:inv.invoice_type||"expense",category:inv.category||"other",date:inv.date||"",notes:"Aus Rechnungen ID:"+inv.id})});ok++;}catch(ex){}}alert(ok+" → Kassenbuch kopiert");setSelected(new Set());doSearch();}}>→ Kassenbuch ({selected.size})</button>}
     </div>
-    {showCreateInv&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowCreateInv(false)}>
-      <div style={{background:theme.surface,borderRadius:16,padding:32,width:480,maxWidth:"90vw"}} onClick={e=>e.stopPropagation()}>
-        <h3 style={{color:theme.text,margin:"0 0 16px",fontSize:18}}>Rechnung erstellen (Einnahme)</h3>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <div style={{gridColumn:"1/-1"}}><label style={{fontSize:11,color:theme.textMuted}}>Kunde *</label><input style={{...css.input,width:"100%"}} value={newInv.kunde} onChange={e=>setNewInv({...newInv,kunde:e.target.value})} placeholder="Kundenname"/></div>
-          <div><label style={{fontSize:11,color:theme.textMuted}}>Betrag (brutto) *</label><input style={{...css.input,width:"100%"}} type="number" step="0.01" value={newInv.betrag} onChange={e=>setNewInv({...newInv,betrag:e.target.value})} placeholder="0.00"/></div>
-          <div><label style={{fontSize:11,color:theme.textMuted}}>MwSt-Satz</label><select style={{...css.input,width:"100%"}} value={newInv.mwst_satz} onChange={e=>setNewInv({...newInv,mwst_satz:e.target.value})}><option value="19%">19%</option><option value="7%">7%</option><option value="0%">0% (§19 KU)</option></select></div>
-          <div><label style={{fontSize:11,color:theme.textMuted}}>Datum</label><input style={{...css.input,width:"100%",cursor:"pointer"}} type="date" value={newInv.datum} onKeyDown={e=>e.preventDefault()} onChange={e=>setNewInv({...newInv,datum:e.target.value})}/></div>
-          <div><label style={{fontSize:11,color:theme.textMuted}}>Rechnungs-Nr.</label><input style={{...css.input,width:"100%"}} value={newInv.rechnung_nr} onChange={e=>setNewInv({...newInv,rechnung_nr:e.target.value})} placeholder="RE-2026-001"/></div>
+    {showCreateInv&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflow:"auto"}} onClick={()=>setShowCreateInv(false)}>
+      <div style={{background:theme.surface,borderRadius:16,padding:28,width:"100%",maxWidth:1100,maxHeight:"95vh",overflow:"auto"}} onClick={e=>e.stopPropagation()}>
+        <h3 style={{color:theme.text,margin:"0 0 20px",fontSize:20,fontWeight:700}}>🧾 Rechnung erstellen (Einnahme)</h3>
+        {/* --- ADDED START: 2-column layout --- */}
+        <div style={{display:"grid",gridTemplateColumns:"minmax(300px,1fr) minmax(300px,1fr)",gap:24}}>
+          {/* LEFT: Form */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:theme.accent,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>🏢 Absender (Firma)</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Firma Name</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.firma_name||""} onChange={e=>setNewInv({...newInv,firma_name:e.target.value})} placeholder="Meine Firma GmbH"/></div>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Adresse</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.firma_adresse||""} onChange={e=>setNewInv({...newInv,firma_adresse:e.target.value})} placeholder="Musterstr. 1, 60311 Frankfurt"/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>E-Mail</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.firma_email||""} onChange={e=>setNewInv({...newInv,firma_email:e.target.value})} placeholder="info@firma.de"/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Telefon</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.firma_phone||""} onChange={e=>setNewInv({...newInv,firma_phone:e.target.value})} placeholder="+49 ..."/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>IBAN</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px",fontFamily:mono,fontSize:12}} value={newInv.firma_iban||""} onChange={e=>setNewInv({...newInv,firma_iban:e.target.value})} placeholder="DE89 3704 0044..."/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Fax</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.firma_fax||""} onChange={e=>setNewInv({...newInv,firma_fax:e.target.value})} placeholder="+49 ..."/></div>
+            </div>
+
+            <div style={{fontSize:12,fontWeight:700,color:theme.blue,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>💼 Rechnungsdaten</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Kunde *</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.kunde} onChange={e=>setNewInv({...newInv,kunde:e.target.value})} placeholder="Kundenname"/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Betrag (brutto) *</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} type="number" step="0.01" value={newInv.betrag} onChange={e=>setNewInv({...newInv,betrag:e.target.value})} placeholder="0.00"/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>MwSt-Satz</label><select style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.mwst_satz} onChange={e=>setNewInv({...newInv,mwst_satz:e.target.value})}><option value="19%">19%</option><option value="7%">7%</option><option value="0%">0% (§19 KU)</option></select></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Datum</label><input style={{...css.input,width:"100%",cursor:"pointer",borderWidth:1.5,padding:"10px 12px"}} type="date" value={newInv.datum} onKeyDown={e=>e.preventDefault()} onChange={e=>setNewInv({...newInv,datum:e.target.value})}/></div>
+              <div><label style={{fontSize:11,color:theme.textMuted,fontWeight:600}}>Rechnungs-Nr.</label><input style={{...css.input,width:"100%",borderWidth:1.5,padding:"10px 12px"}} value={newInv.rechnung_nr} onChange={e=>setNewInv({...newInv,rechnung_nr:e.target.value})} placeholder="RE-2026-001"/></div>
+            </div>
+          </div>
+
+          {/* RIGHT: Live Preview */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:theme.accent,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>📄 Vorschau</div>
+            <div style={{background:"#fff",color:"#1a1a1a",borderRadius:12,padding:32,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",border:"1px solid #ddd",minHeight:500,fontFamily:"'DM Sans',sans-serif"}}>
+              {/* Header */}
+              <div style={{borderBottom:"2px solid #1a1a1a",paddingBottom:16,marginBottom:24}}>
+                <div style={{fontSize:22,fontWeight:800,color:"#1a1a1a",marginBottom:4}}>{newInv.firma_name||"Meine Firma GmbH"}</div>
+                {newInv.firma_adresse&&<div style={{fontSize:11,color:"#666"}}>{newInv.firma_adresse}</div>}
+                <div style={{fontSize:10,color:"#888",marginTop:6,display:"flex",gap:12,flexWrap:"wrap"}}>
+                  {newInv.firma_email&&<span>✉ {newInv.firma_email}</span>}
+                  {newInv.firma_phone&&<span>☎ {newInv.firma_phone}</span>}
+                  {newInv.firma_fax&&<span>Fax: {newInv.firma_fax}</span>}
+                </div>
+              </div>
+              {/* Kunde + Meta */}
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:24}}>
+                <div>
+                  <div style={{fontSize:10,color:"#999",textTransform:"uppercase",marginBottom:4}}>Rechnung an</div>
+                  <div style={{fontSize:14,fontWeight:600,color:"#1a1a1a"}}>{newInv.kunde||"Kundenname"}</div>
+                </div>
+                <div style={{textAlign:"right",fontSize:11,color:"#666"}}>
+                  <div><strong style={{color:"#1a1a1a"}}>Rechnungs-Nr:</strong> {newInv.rechnung_nr||"RE-2026-XXX"}</div>
+                  <div><strong style={{color:"#1a1a1a"}}>Datum:</strong> {newInv.datum||"—"}</div>
+                </div>
+              </div>
+              {/* Title */}
+              <div style={{fontSize:28,fontWeight:800,color:"#1a1a1a",marginBottom:20}}>Rechnung</div>
+              {/* Amounts table */}
+              {(()=>{const brutto=parseFloat(newInv.betrag)||0;const vr=parseFloat(newInv.mwst_satz)||0;const mwst=Math.round(brutto*vr/(100+vr)*100)/100;const netto=Math.round((brutto-mwst)*100)/100;return(
+              <div style={{background:"#f8f8f8",borderRadius:8,padding:16,marginBottom:20}}>
+                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:12,color:"#666"}}><span>Netto</span><span style={{fontFamily:mono}}>€ {netto.toFixed(2)}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:12,color:"#666",borderBottom:"1px solid #ddd"}}><span>MwSt ({newInv.mwst_satz||"19%"})</span><span style={{fontFamily:mono}}>€ {mwst.toFixed(2)}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0 0",fontSize:18,fontWeight:800,color:"#1a1a1a"}}><span>Gesamtbetrag</span><span style={{fontFamily:mono,color:"#10b981"}}>€ {brutto.toFixed(2)}</span></div>
+              </div>);})()}
+              {/* IBAN */}
+              {newInv.firma_iban&&<div style={{borderTop:"1px solid #ddd",paddingTop:16,marginTop:20}}>
+                <div style={{fontSize:10,color:"#999",textTransform:"uppercase",marginBottom:4}}>Zahlungsinformationen</div>
+                <div style={{fontSize:11,color:"#666"}}>IBAN: <span style={{fontFamily:mono,color:"#1a1a1a",fontWeight:600}}>{newInv.firma_iban}</span></div>
+              </div>}
+              <div style={{textAlign:"center",fontSize:10,color:"#999",marginTop:24,paddingTop:16,borderTop:"1px dashed #ddd"}}>Vielen Dank für Ihren Auftrag!</div>
+            </div>
+          </div>
         </div>
-        <div style={{display:"flex",gap:8,marginTop:16}}>
-          <button style={{...css.btn(),flex:1}} onClick={async()=>{if(!newInv.kunde||!newInv.betrag){alert("Kunde und Betrag erforderlich");return;}try{const r=await api("/invoices/create-rechnung",{method:"POST",body:JSON.stringify(newInv)});if(r.success){if(showToast)showToast("Rechnung erstellt","success");if(r.id&&confirm("Rechnung als PDF herunterladen?")){downloadPDF(r.id);}setShowCreateInv(false);setNewInv({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});doSearch();}}catch(e){alert(e.message);}}}>Speichern</button>
-          <button style={{...css.btnOutline,flex:1}} onClick={()=>setShowCreateInv(false)}>Abbrechen</button>
+        {/* --- ADDED END --- */}
+        <div style={{display:"flex",gap:8,marginTop:20,flexWrap:"wrap"}}>
+          <button style={{...css.btn(),flex:1,minWidth:140}} onClick={async()=>{if(!newInv.kunde||!newInv.betrag){alert("Kunde und Betrag erforderlich");return;}try{const r=await api("/invoices/create-rechnung",{method:"POST",body:JSON.stringify(newInv)});if(r.success){if(showToast)showToast("Rechnung erstellt","success");if(r.id&&confirm("Rechnung als PDF herunterladen?")){downloadPDF(r.id);}setShowCreateInv(false);setNewInv({kunde:"",betrag:"",mwst_satz:"19%",datum:new Date().toISOString().slice(0,10),rechnung_nr:"",zahlungsart:"",kategorie:"service"});doSearch();}}catch(e){alert(e.message);}}}>💾 Speichern</button>
+          <button style={{...css.btnOutline,flex:1,minWidth:140}} onClick={()=>window.print()}>🖨 Als PDF drucken</button>
+          <button style={{...css.btnOutline,flex:1,minWidth:120}} onClick={()=>setShowCreateInv(false)}>Abbrechen</button>
         </div>
         <div style={{fontSize:11,color:"#f59e0b",marginTop:8}}>Wird als Einnahme gespeichert. MwSt wird automatisch berechnet.</div>
       </div>
